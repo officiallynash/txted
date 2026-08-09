@@ -1,0 +1,29 @@
+#ifndef ROPE_H
+#define ROPE_H
+
+#include <stddef.h>
+#include <stdint.h>
+#define MAX_SIZE_LEAF 1024
+
+typedef struct String {
+    char *str;
+    size_t len;
+    size_t weight;
+    size_t ref_count;
+
+    struct String *left, *right;
+} String;
+
+typedef struct {
+    unsigned char *data;
+    size_t len;
+} Bytes;
+
+String* String_new();
+void String_insert(String **str, size_t index, const char *text, size_t len);
+void String_delete(String **str, size_t pos_idx, size_t len);
+void String_release(String *str);
+Bytes String_get(String *str, size_t index, size_t len);
+void Bytes_free(Bytes *bytes);
+
+#endif

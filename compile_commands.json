@@ -1,0 +1,370 @@
+[
+  {
+    "arguments": [
+      "/usr/bin/clang",
+      "-Wall",
+      "-Wextra",
+      "-Iinclude",
+      "-O2",
+      "-c",
+      "-o",
+      "build/buffer/buffer.o",
+      "src/buffer/buffer.c"
+    ],
+    "directory": "/home/nash/Project/txted",
+    "file": "/home/nash/Project/txted/src/buffer/buffer.c",
+    "output": "/home/nash/Project/txted/build/buffer/buffer.o"
+  },
+  {
+    "arguments": [
+      "/usr/bin/clang",
+      "-Wall",
+      "-Wextra",
+      "-Iinclude",
+      "-O2",
+      "-c",
+      "-o",
+      "build/buffer/buffer_manager.o",
+      "src/buffer/buffer_manager.c"
+    ],
+    "directory": "/home/nash/Project/txted",
+    "file": "/home/nash/Project/txted/src/buffer/buffer_manager.c",
+    "output": "/home/nash/Project/txted/build/buffer/buffer_manager.o"
+  },
+  {
+    "arguments": [
+      "/usr/bin/clang",
+      "-Wall",
+      "-Wextra",
+      "-Iinclude",
+      "-O2",
+      "-c",
+      "-o",
+      "build/buffer/rope.o",
+      "src/buffer/rope.c"
+    ],
+    "directory": "/home/nash/Project/txted",
+    "file": "/home/nash/Project/txted/src/buffer/rope.c",
+    "output": "/home/nash/Project/txted/build/buffer/rope.o"
+  },
+  {
+    "arguments": [
+      "/usr/bin/clang",
+      "-Wall",
+      "-Wextra",
+      "-Iinclude",
+      "-O2",
+      "-c",
+      "-o",
+      "build/buffer/clipboard.o",
+      "src/buffer/clipboard.c"
+    ],
+    "directory": "/home/nash/Project/txted",
+    "file": "/home/nash/Project/txted/src/buffer/clipboard.c",
+    "output": "/home/nash/Project/txted/build/buffer/clipboard.o"
+  },
+  {
+    "arguments": [
+      "/usr/bin/clang",
+      "-Wall",
+      "-Wextra",
+      "-Iinclude",
+      "-O2",
+      "-c",
+      "-o",
+      "build/buffer/undo.o",
+      "src/buffer/undo.c"
+    ],
+    "directory": "/home/nash/Project/txted",
+    "file": "/home/nash/Project/txted/src/buffer/undo.c",
+    "output": "/home/nash/Project/txted/build/buffer/undo.o"
+  },
+  {
+    "arguments": [
+      "/usr/bin/clang",
+      "-Wall",
+      "-Wextra",
+      "-Iinclude",
+      "-O2",
+      "-c",
+      "-o",
+      "build/fs/fs.o",
+      "src/fs/fs.c"
+    ],
+    "directory": "/home/nash/Project/txted",
+    "file": "/home/nash/Project/txted/src/fs/fs.c",
+    "output": "/home/nash/Project/txted/build/fs/fs.o"
+  },
+  {
+    "arguments": [
+      "/usr/bin/clang",
+      "-Wall",
+      "-Wextra",
+      "-Iinclude",
+      "-O2",
+      "-c",
+      "-o",
+      "build/render/tab.o",
+      "src/render/tab.c"
+    ],
+    "directory": "/home/nash/Project/txted",
+    "file": "/home/nash/Project/txted/src/render/tab.c",
+    "output": "/home/nash/Project/txted/build/render/tab.o"
+  },
+  {
+    "arguments": [
+      "/usr/bin/clang",
+      "-Wall",
+      "-Wextra",
+      "-Iinclude",
+      "-O2",
+      "-c",
+      "-o",
+      "build/render/status.o",
+      "src/render/status.c"
+    ],
+    "directory": "/home/nash/Project/txted",
+    "file": "/home/nash/Project/txted/src/render/status.c",
+    "output": "/home/nash/Project/txted/build/render/status.o"
+  },
+  {
+    "arguments": [
+      "/usr/bin/clang",
+      "-Wall",
+      "-Wextra",
+      "-Iinclude",
+      "-O2",
+      "-c",
+      "-o",
+      "build/render/render.o",
+      "src/render/render.c"
+    ],
+    "directory": "/home/nash/Project/txted",
+    "file": "/home/nash/Project/txted/src/render/render.c",
+    "output": "/home/nash/Project/txted/build/render/render.o"
+  },
+  {
+    "arguments": [
+      "/usr/bin/clang",
+      "-Wall",
+      "-Wextra",
+      "-Iinclude",
+      "-O2",
+      "-c",
+      "-o",
+      "build/render/navigation.o",
+      "src/render/navigation.c"
+    ],
+    "directory": "/home/nash/Project/txted",
+    "file": "/home/nash/Project/txted/src/render/navigation.c",
+    "output": "/home/nash/Project/txted/build/render/navigation.o"
+  },
+  {
+    "arguments": [
+      "/usr/bin/clang",
+      "-Wall",
+      "-Wextra",
+      "-Iinclude",
+      "-O2",
+      "-c",
+      "-o",
+      "build/render/notification.o",
+      "src/render/notification.c"
+    ],
+    "directory": "/home/nash/Project/txted",
+    "file": "/home/nash/Project/txted/src/render/notification.c",
+    "output": "/home/nash/Project/txted/build/render/notification.o"
+  },
+  {
+    "arguments": [
+      "/usr/bin/clang",
+      "-Wall",
+      "-Wextra",
+      "-Iinclude",
+      "-O2",
+      "-c",
+      "-o",
+      "build/render/popup.o",
+      "src/render/popup.c"
+    ],
+    "directory": "/home/nash/Project/txted",
+    "file": "/home/nash/Project/txted/src/render/popup.c",
+    "output": "/home/nash/Project/txted/build/render/popup.o"
+  },
+  {
+    "arguments": [
+      "/usr/bin/clang",
+      "-Wall",
+      "-Wextra",
+      "-Iinclude",
+      "-O2",
+      "-c",
+      "-o",
+      "build/render/theme.o",
+      "src/render/theme.c"
+    ],
+    "directory": "/home/nash/Project/txted",
+    "file": "/home/nash/Project/txted/src/render/theme.c",
+    "output": "/home/nash/Project/txted/build/render/theme.o"
+  },
+  {
+    "arguments": [
+      "/usr/bin/clang",
+      "-Wall",
+      "-Wextra",
+      "-Iinclude",
+      "-O2",
+      "-c",
+      "-o",
+      "build/render/diagnostic.o",
+      "src/render/diagnostic.c"
+    ],
+    "directory": "/home/nash/Project/txted",
+    "file": "/home/nash/Project/txted/src/render/diagnostic.c",
+    "output": "/home/nash/Project/txted/build/render/diagnostic.o"
+  },
+  {
+    "arguments": [
+      "/usr/bin/clang",
+      "-Wall",
+      "-Wextra",
+      "-Iinclude",
+      "-O2",
+      "-c",
+      "-o",
+      "build/lsp/lsp_completion.o",
+      "src/lsp/lsp_completion.c"
+    ],
+    "directory": "/home/nash/Project/txted",
+    "file": "/home/nash/Project/txted/src/lsp/lsp_completion.c",
+    "output": "/home/nash/Project/txted/build/lsp/lsp_completion.o"
+  },
+  {
+    "arguments": [
+      "/usr/bin/clang",
+      "-Wall",
+      "-Wextra",
+      "-Iinclude",
+      "-O2",
+      "-c",
+      "-o",
+      "build/lsp/lsp_ui.o",
+      "src/lsp/lsp_ui.c"
+    ],
+    "directory": "/home/nash/Project/txted",
+    "file": "/home/nash/Project/txted/src/lsp/lsp_ui.c",
+    "output": "/home/nash/Project/txted/build/lsp/lsp_ui.o"
+  },
+  {
+    "arguments": [
+      "/usr/bin/clang",
+      "-Wall",
+      "-Wextra",
+      "-Iinclude",
+      "-O2",
+      "-c",
+      "-o",
+      "build/lsp/syntax.o",
+      "src/lsp/syntax.c"
+    ],
+    "directory": "/home/nash/Project/txted",
+    "file": "/home/nash/Project/txted/src/lsp/syntax.c",
+    "output": "/home/nash/Project/txted/build/lsp/syntax.o"
+  },
+  {
+    "arguments": [
+      "/usr/bin/clang",
+      "-Wall",
+      "-Wextra",
+      "-Iinclude",
+      "-O2",
+      "-c",
+      "-o",
+      "build/lsp/lsp_helper.o",
+      "src/lsp/lsp_helper.c"
+    ],
+    "directory": "/home/nash/Project/txted",
+    "file": "/home/nash/Project/txted/src/lsp/lsp_helper.c",
+    "output": "/home/nash/Project/txted/build/lsp/lsp_helper.o"
+  },
+  {
+    "arguments": [
+      "/usr/bin/clang",
+      "-Wall",
+      "-Wextra",
+      "-Iinclude",
+      "-O2",
+      "-c",
+      "-o",
+      "build/main.o",
+      "src/main.c"
+    ],
+    "directory": "/home/nash/Project/txted",
+    "file": "/home/nash/Project/txted/src/main.c",
+    "output": "/home/nash/Project/txted/build/main.o"
+  },
+  {
+    "arguments": [
+      "/usr/bin/clang",
+      "-Wall",
+      "-Wextra",
+      "-Iinclude",
+      "-O2",
+      "-c",
+      "-o",
+      "build/helper/result.o",
+      "src/helper/result.c"
+    ],
+    "directory": "/home/nash/Project/txted",
+    "file": "/home/nash/Project/txted/src/helper/result.c",
+    "output": "/home/nash/Project/txted/build/helper/result.o"
+  },
+  {
+    "arguments": [
+      "/usr/bin/clang",
+      "-Wall",
+      "-Wextra",
+      "-Iinclude",
+      "-O2",
+      "-c",
+      "-o",
+      "build/helper/nav_utils.o",
+      "src/helper/nav_utils.c"
+    ],
+    "directory": "/home/nash/Project/txted",
+    "file": "/home/nash/Project/txted/src/helper/nav_utils.c",
+    "output": "/home/nash/Project/txted/build/helper/nav_utils.o"
+  },
+  {
+    "arguments": [
+      "/usr/bin/clang",
+      "-Wall",
+      "-Wextra",
+      "-Iinclude",
+      "-O2",
+      "-c",
+      "-o",
+      "build/helper/cJSON.o",
+      "src/helper/cJSON.c"
+    ],
+    "directory": "/home/nash/Project/txted",
+    "file": "/home/nash/Project/txted/src/helper/cJSON.c",
+    "output": "/home/nash/Project/txted/build/helper/cJSON.o"
+  },
+  {
+    "arguments": [
+      "/usr/bin/clang",
+      "-Wall",
+      "-Wextra",
+      "-Iinclude",
+      "-O2",
+      "-c",
+      "-o",
+      "build/helper/nav_helper.o",
+      "src/helper/nav_helper.c"
+    ],
+    "directory": "/home/nash/Project/txted",
+    "file": "/home/nash/Project/txted/src/helper/nav_helper.c",
+    "output": "/home/nash/Project/txted/build/helper/nav_helper.o"
+  }
+]

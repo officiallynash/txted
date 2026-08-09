@@ -1,0 +1,2 @@
+-Wall -Wextra -Iinclude -O2
+-lraylib -lGL -lm -lpthread -ldl -lrt -lX11 -ltree-sitter -ltree-sitter-c
