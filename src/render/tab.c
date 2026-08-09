@@ -364,6 +364,7 @@ void draw_dialog_modal(BufManager *bufmgr, Font font) {
                                    "Ctrl + S : Save File",
                                    "Ctrl + Shift + S : Save As",
                                    "Ctrl + P : Create Folder",
+                                   "Ctrl + F : File Manager",
                                    "",
                                    "--- Tab Management ---",
                                    "Ctrl + T : New Tab",
