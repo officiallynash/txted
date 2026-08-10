@@ -10,9 +10,13 @@
 #include "buffer.h"
 #include "buffer_manager.h"
 #include "fs.h"
+#include "git_client.h"
 #include "theme.h"
 #include "ui.h"
 
+/**
+ * Struct untuk menampung File List
+ */
 typedef struct FileNode {
     char name[256];
     char path[512];
@@ -24,6 +28,7 @@ typedef struct FileNode {
     int child_capacity;
 } FileNode;
 
+// Internal state
 static FileNode *g_fm_root = NULL;
 static float g_fm_scroll_y = 0.0f;
 static char g_active_file_path[512] = {0};
@@ -221,8 +226,28 @@ static void draw_file_node_recursive(FileNode *node, Font font, EditorLayout L, 
                                ? g_theme.keyword
                                : (is_selected ? g_theme.cursor : g_theme.text_normal);
 
+        const char *mark = "";
+        if (node->is_directory) {
+            mark = Git_folder_mark(node->path);
+        } else {
+            mark = Git_file_mark(node->path);
+        }
+
         char label[300];
-        snprintf(label, sizeof(label), "%s%s", prefix, node->name);
+        if (mark[0]) {
+            snprintf(label, sizeof(label), "%s%s [%s]", prefix, node->name, mark);
+        } else {
+            snprintf(label, sizeof(label), "%s%s", prefix, node->name);
+        }
+
+        if (mark[0] == '~')
+            text_color = g_theme.warning;
+        else if (mark[0] == '-')
+            text_color = g_theme.error;
+        else if (mark[0] == '+' || mark[0] == '?')
+            text_color = g_theme.cursor;
+        else if (mark[0] == 'x')
+            text_color = g_theme.text_muted;
 
         Vector2 text_pos = {(float)L.fm_x + indent, item_y + 2.0f};
         DrawTextEx(font, label, text_pos, FONT_SIZE, 1.0f, text_color);

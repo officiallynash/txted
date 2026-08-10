@@ -1,18 +1,25 @@
 #ifndef FS_H
 #define FS_H
 
-#include <stdint.h>
-#include <stddef.h>
 #include <stdbool.h>
+#include <stddef.h>
+#include <stdint.h>
+
 #include "result.h"
 #include "ui.h"
 
+/**
+ * Struct untuk File List (Fuzzi search)
+ */
 typedef struct {
     PromptItem *items;
     size_t item_count;
     size_t capacity;
 } FileList;
 
+/**
+ * Struct untuk membawa data ke Buffer
+ */
 typedef struct {
     char *full_path;
     uint8_t *data;
@@ -31,4 +38,4 @@ char *Fs_dirname(const char *path);
 FileList *FileList_init(size_t capacity);
 void FileList_free(FileList *list);
 void Scan_project_files(const char *path, FileList *list);
-#endif // !FS_H
+#endif  // !FS_H

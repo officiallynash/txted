@@ -1,6 +1,7 @@
 #include <raylib.h>
 #include <stdio.h>
 
+#include "git_client.h"
 #include "lsp_ui.h"
 #include "theme.h"
 #include "ui.h"
@@ -24,7 +25,20 @@ void draw_status(BufManager *bufmgr, Font font) {
     Color text_color = buf->is_dirty ? g_theme.cursor : g_theme.text_normal;
 
     char left[256];
-    snprintf(left, sizeof(left), "File: %s", buf->filename ? buf->filename : "Untitled");
+    const char *mark = Git_file_mark(buf->path);  // Git Mark
+    if (git.is_repo) {                            // Jika path adalah repo
+        if (mark[0]) {                            // Jika ada perubahan di File
+            snprintf(left, sizeof(left), "File: %s [%s] | Branch: %s%s",
+                     buf->filename ? buf->filename : "Untitled", mark, git.branch,
+                     git.has_changes ? "*" : "");
+        } else {
+            snprintf(left, sizeof(left), "File: %s | Branch: %s%s",
+                     buf->filename ? buf->filename : "Untitled", git.branch,
+                     git.has_changes ? "*" : "");
+        }
+    } else {  // Kalau bukan repo render biasa
+        snprintf(left, sizeof(left), "File: %s", buf->filename ? buf->filename : "Untitled");
+    }
 
     Vector2 left_pos = {(float)PAD_X, (float)(win_h - STATUS_H + 6)};
     DrawTextEx(font, left, left_pos, FONT_SIZE, 1.0f, text_color);

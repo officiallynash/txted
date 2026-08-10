@@ -21,15 +21,15 @@ typedef enum { WRITE, FILE_MANAGER } ViewFocus;
  * Struct pembungkus untuk Buffer, ini jantungnya Multi tab
  */
 typedef struct {
-    Buffer *buf[MAX_TABS];
+    Buffer *buf[MAX_TABS];  // Array buffer
     size_t num_tabs;
     size_t active_idx;
-    Clipboard *clp;
+    Clipboard *clp;  // Clipboard
 
-    bool show_help;
-    bool show_fm;
-    float fm_width_ratio;
-    ViewFocus focus_mode;
+    bool show_help;        // Menu help (agar ga bentrok dengan Main Ui)
+    bool show_fm;          // Flag penanda File Manager
+    float fm_width_ratio;  // Ratio untuk File Manager
+    ViewFocus focus_mode;  // Focus mode
 
     char *path_root;
 } BufManager;

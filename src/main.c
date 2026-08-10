@@ -2,8 +2,6 @@
 #include <stdio.h>
 #include <unistd.h>
 
-#include "theme.h"
-
 #define RAY_IMPLEMENTATION
 #define RAY_STATIC
 
@@ -11,6 +9,7 @@
 
 #include "buffer_manager.h"
 #include "fs.h"
+#include "git_client.h"
 #include "lsp_ui.h"
 #include "notification.h"
 #include "raylib.h"
@@ -85,6 +84,7 @@ int main(int argc, char *argv[]) {
     while (!ExitWindow && !WindowShouldClose()) {
         float dt = GetFrameTime();
         Notif_update(dt);
+        GitStatus_update(&bufmgr, dt);
 
         // Handle Input biasa hanya jika TIDAK sedang minta exit
         if (!ExitWindowRequested) {

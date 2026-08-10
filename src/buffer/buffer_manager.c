@@ -10,6 +10,7 @@
 #include "buffer.h"
 #include "clipboard.h"
 #include "fs.h"
+#include "git_client.h"
 #include "notification.h"
 
 /**
@@ -34,6 +35,7 @@ void BufManager_set_workspace(BufManager *bufmgr, const char *any_path) {
     // Ganti root
     free(bufmgr->path_root);
     bufmgr->path_root = root;
+    GitStatus_refresh(bufmgr->path_root, &git);  // Sync Git Repo
 
     // chdir HANYA di sini
     if (chdir(bufmgr->path_root) == 0) {

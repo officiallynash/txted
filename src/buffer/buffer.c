@@ -10,6 +10,7 @@
 #include <unistd.h>
 
 #include "fs.h"
+#include "git_client.h"
 #include "lsp_config.h"
 #include "lsp_server.h"
 #include "lsp_ui.h"
@@ -596,6 +597,7 @@ void Buffer_save(Buffer *buf, const char *filename) {
     } else {
         Notif_show(result.data, NOTIF_ERROR, 3.0f);
     }
+    GitStatus_force();  // Force update GitStatus
 
     Result_free(&result);
     Bytes_free(&data);

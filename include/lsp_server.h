@@ -21,6 +21,7 @@ typedef struct {
     char *documentation;
 } ParameterInfo;
 
+// Signature Help
 typedef struct {
     char *label;
     char *documentation;
