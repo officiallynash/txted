@@ -1,3 +1,4 @@
+#include <raylib.h>
 #ifndef GIT_CLIENT_H
 #define GIT_CLIENT_H
 
@@ -29,13 +30,31 @@ typedef struct {
     int file_count;
 } GitStatus;
 
+/**
+ * Struct untuk GitPopup
+ */
+typedef struct {
+    bool open;
+    char message[256];
+    bool edit_message;
+    int selected;
+    char last_error[256];
+    float list_scroll;
+} GitPopup;
+
+// Extern Git Status, GitPopup dan Timer
 extern GitStatus git;
 extern float GitStatus_timer;
+extern GitPopup git_popup;
 
 bool GitStatus_refresh(const char *repo, GitStatus *git);
 const char *Git_file_mark(const char *abs_path);
 const char *Git_folder_mark(const char *dir_path);
 void GitStatus_update(BufManager *bufmgr, float dt);
 void GitStatus_force(void);
+
+void GitPopup_open(void);
+void GitPopup_close(void);
+void GitPopup_render(BufManager *bufmgr, Font font);
 
 #endif

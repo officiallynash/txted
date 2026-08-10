@@ -47,6 +47,8 @@ void Notif_update(float delta_time) {
  * Render Notification
  */
 void Notif_draw(Font font) {
+    if (!notif.active) return;
+
     int win_w = GetRenderWidth();
     int win_h = GetRenderHeight();
 

@@ -4,6 +4,7 @@
 #include <stdlib.h>
 
 #include "buffer_manager.h"
+#include "git_client.h"
 #include "raygui.h"
 #include "theme.h"
 #include "ui.h"
@@ -72,6 +73,14 @@ void Nav_show_about(BufManager *bufmgr, Font font) {
 }
 
 /**
+ * Git Panel
+ */
+void Nav_open_git(BufManager *bufmgr, Font font) {
+    (void)bufmgr;
+    (void)font;
+    GitPopup_open();
+}
+/**
  * Fungsi untuk membuka FM UI
  */
 void Nav_show_fm(BufManager *bufmgr, Font font) {
@@ -87,8 +96,9 @@ static MenuItem file_items[] = {
     {"Open File", "Ctrl+O", Nav_open_file},
     {"Save File", "Ctrl+S", Nav_save},
     {"Save As", "Ctrl+Shift+S", Nav_save_as},
-    {"File Manager", "Ctrl + F", Nav_show_fm},
     {"Create Folder", "Ctrl+P", Nav_create_folder},
+    {"File Manager", "Ctrl + F", Nav_show_fm},
+    {"Git Panel", "Ctrl + G", Nav_open_git},
     {"Exit", "Ctrl+Q", Nav_exit},
 };
 
@@ -121,7 +131,7 @@ static void draw_dropdown_items(int menu_idx, float x, float y, BufManager *bufm
     if (!items || count == 0) return;
 
     float item_h = 26.0f;
-    float dropdown_w = 230.0f;
+    float dropdown_w = 250.0f;
     float dropdown_h = count * item_h + 8.0f;
 
     Rectangle dropdown_rect = {x, y, dropdown_w, dropdown_h};
@@ -365,6 +375,7 @@ void draw_dialog_modal(BufManager *bufmgr, Font font) {
                                    "Ctrl + Shift + S : Save As",
                                    "Ctrl + P : Create Folder",
                                    "Ctrl + F : File Manager",
+                                   "CTRL + G : Git Panel",
                                    "",
                                    "--- Tab Management ---",
                                    "Ctrl + T : New Tab",

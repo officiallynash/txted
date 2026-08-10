@@ -29,13 +29,15 @@ void render_all_ui(BufManager *bufmgr, Font font) {
     draw_tabs(bufmgr, font);
     draw_diagnostic_bar(bufmgr, font);
     draw_status(bufmgr, font);
-    Notif_draw(font);
     draw_dialog_modal(bufmgr, font);
+    GitPopup_render(bufmgr, font);
+
     if (g_lsp_ui.enabled) {
         render_lsp_completion_ui(bufmgr, font);
         render_signature_help(bufmgr, font);
         render_hover_ui(bufmgr, font);
     }
+    Notif_draw(font);
 }
 
 int main(int argc, char *argv[]) {
@@ -93,7 +95,9 @@ int main(int argc, char *argv[]) {
             if (IsKeyPressed(KEY_SPACE) && IsKeyDown(KEY_LEFT_CONTROL)) {
                 lsp_ui_toggle();
             }
-            handle_input(&bufmgr, font);
+            if (!git_popup.open) {
+                handle_input(&bufmgr, font);
+            }
         } else {
             lsp_ui_hide();
             // Hotkey shortcut keyboard saat modal exit aktif

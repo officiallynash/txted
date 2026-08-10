@@ -12,7 +12,7 @@ extern void expand_tabs(const char *src, char *dst, size_t dst_size,
                         int tab_size);  // expand_tabs (render.c)
 
 /**
- * Mengatur kursor berdasarkan posisi mouse (Fixed Tab & Layout)
+ * Mengatur kursor berdasarkan posisi mouse
  */
 void set_cursor_from_mouse(BufManager *bufmgr, Vector2 mouse, int scroll_y, Font font) {
     Buffer *buf = BufManager_getactive(bufmgr);
