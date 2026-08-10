@@ -348,7 +348,7 @@ void draw_file_manager(BufManager *bufmgr, Font font) {
 
     // Clipping teks workspace jika terlalu panjang
     BeginScissorMode(L.fm_x + 4, (int)ws_y, L.fm_w - 8, DIAG_PANEL_H);
-    DrawTextEx(font, ws_label, (Vector2){(float)(L.fm_x + 8), ws_y + 4.0f}, FONT_SIZE * 0.85f, 1.0f,
+    DrawTextEx(font, ws_label, (Vector2){(float)(L.fm_x + 8), ws_y + 2.0f}, FONT_SIZE, 1.0f,
                g_theme.text_normal);
     EndScissorMode();
 }

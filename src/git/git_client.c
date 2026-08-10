@@ -15,6 +15,7 @@ float GitStatus_timer = 0.0f;
 static bool g_push_in_progress = false;
 static bool g_push_success = false;
 static bool prev_push_state = false;
+
 /**
  * Fungsi untuk menjalankan git CMD khusus info [PRIVATE API]
  */
@@ -122,6 +123,7 @@ bool GitPopup_push(const char *repo) {
     git_popup.last_error[0] = '\0';
     return true;
 }
+
 /**
  * Fungsi worker untuk Git Push (Multi Thread) [PRIVATE API]
  */
@@ -162,27 +164,31 @@ bool GitPopup_is_pushing(void) { return g_push_in_progress; }
 static bool path_under_dir(const char *file_path, const char *dir_path) {
     if (!file_path || !dir_path) return false;
 
-    // Jika dir_path persis prefix dari file_path (Absolut vs Absolut)
     size_t dlen = strlen(dir_path);
+    size_t flen = strlen(file_path);
+
+    if (dlen > 0 && dir_path[dlen - 1] == '/') dlen--;
+
+    // Jika dir_path relatif (misal dir_path = "src", file_path = "src/main.c")
     if (strncmp(file_path, dir_path, dlen) == 0) {
         if (file_path[dlen] == '/' || file_path[dlen] == '\0') return true;
     }
 
-    // Jika file_path relatif (misal "src/main.c") dan dir_path absolut (misal
-    // "/home/user/project/src")
-    const char *folder_name = strrchr(dir_path, '/');
-    folder_name = folder_name ? folder_name + 1 : dir_path;
-
-    size_t fn_len = strlen(folder_name);
-    if (strncmp(file_path, folder_name, fn_len) == 0 && file_path[fn_len] == '/') {
+    // Jika file_path persis sama dengan akhiran dir_path (misal file_path = "include")
+    if (dlen > flen && dir_path[dlen - flen - 1] == '/' &&
+        strcmp(dir_path + (dlen - flen), file_path) == 0) {
         return true;
     }
 
-    // Cek apakah folder_name ada di dalam baris path relatif git (misal "sub/src/main.c")
-    char needle[300];
-    snprintf(needle, sizeof(needle), "/%s/", folder_name);
-    if (strstr(file_path, needle) != NULL) {
-        return true;
+    // Cocokkan prefix hirarki folder relatif file_path dengan akhiran dir_path absolut
+    for (size_t i = 0; i < flen; i++) {
+        if (file_path[i] == '/') {
+            if (dlen > i && dir_path[dlen - i - 1] == '/') {
+                if (strncmp(dir_path + (dlen - i), file_path, i) == 0) {
+                    return true;
+                }
+            }
+        }
     }
 
     return false;
@@ -300,7 +306,7 @@ const char *Git_file_mark(const char *abs_path) {
 const char *Git_folder_mark(const char *dir_path) {
     if (!dir_path || !git.is_repo) return "";
 
-    bool has_mod = false, has_new = false, has_untracked = false;
+    bool has_mod = false, has_new = false, has_untracked = false, has_ignore = false;
 
     for (int i = 0; i < git.file_count; i++) {
         const char *fp = git.files[i].path;
@@ -317,12 +323,15 @@ const char *Git_folder_mark(const char *dir_path) {
                 has_new = true;
             else if (m == '?')
                 has_untracked = true;
+            else if (m == 'x')
+                has_ignore = true;
         }
     }
 
     if (has_mod) return "~";
     if (has_new) return "+";
     if (has_untracked) return "?";
+    if (has_ignore) return "x";
     return "";
 }
 

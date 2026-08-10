@@ -12,7 +12,7 @@
 extern bool GitPopup_stage(const char *repo);
 extern bool GitPopup_commit(const char *repo, const char *message);
 extern bool GitPopup_push_async(const char *repo);
-bool GitPopup_is_pushing(void);
+extern bool GitPopup_is_pushing(void);
 
 /**
  * Fungsi untuk membuka GitPopup [PUBLIC API]
@@ -114,17 +114,29 @@ void GitPopup_render(BufManager *bufmgr, Font font) {
     // message input
     float msg_y = box.y + 240;
     DrawTextEx(font, "Message:", (Vector2){box.x + 16, msg_y}, FONT_SIZE, 1.0f, g_theme.comment);
+
     Rectangle input = {box.x + 16, msg_y + 22, box_w - 32, 32};
     DrawRectangleRounded(input, 0.1f, 4, g_theme.bg_editor);
     DrawRectangleRoundedLines(input, 0.1f, 4, g_theme.border);
-    DrawTextEx(font, git_popup.message, (Vector2){input.x + 8, input.y + 6}, FONT_SIZE, 1.0f,
-               g_theme.text_normal);
 
-    // caret
+    // Hitung offset geser otomatis saat teks melebihi lebar input
+    float text_w = MeasureTextEx(font, git_popup.message, FONT_SIZE, 1.0f).x;
+    float max_w = input.width - 16.0f;  // Padding 8px kiri & kanan
+    float offset_x = (text_w > max_w) ? (text_w - max_w) : 0.0f;
+
+    // Scissor mode khusus area dalam input box
+    BeginScissorMode((int)input.x + 4, (int)input.y, (int)input.width - 8, (int)input.height);
+
+    Vector2 text_pos = {input.x + 8.0f - offset_x, input.y + 6.0f};
+    DrawTextEx(font, git_popup.message, text_pos, FONT_SIZE, 1.0f, g_theme.text_normal);
+
+    // Caret
     if (git_popup.edit_message && ((int)(GetTime() * 2) % 2) == 0) {
-        float cx = input.x + 8 + MeasureTextEx(font, git_popup.message, FONT_SIZE, 1.0f).x;
+        float cx = text_pos.x + text_w;
         DrawRectangle((int)cx, (int)input.y + 6, 2, FONT_SIZE, g_theme.cursor);
     }
+
+    EndScissorMode();
 
     // buttons
     float by = box.y + box_h - 48;
@@ -196,12 +208,20 @@ void GitPopup_render(BufManager *bufmgr, Font font) {
     Vector2 m = GetMousePosition();
     if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
         if (CheckCollisionPointRec(m, b_stage)) {
-            GitPopup_stage(repo);
+            if (GitPopup_stage(repo)) {
+                Notif_show("Berhasil stage semua file!", NOTIF_SUCCESS, 2.0f);
+            } else {
+                Notif_show(git_popup.last_error, NOTIF_ERROR, 3.0f);
+            }
         } else if (CheckCollisionPointRec(m, b_commit)) {
-            GitPopup_commit(repo, git_popup.message);
+            if (GitPopup_commit(repo, git_popup.message)) {
+                Notif_show("Commit berhasil disimpan!", NOTIF_SUCCESS, 2.0f);
+            } else {
+                Notif_show(git_popup.last_error, NOTIF_ERROR, 3.0f);
+            }
         } else if (CheckCollisionPointRec(m, b_push)) {
             if (!GitPopup_is_pushing()) {
-                Notif_show("Push sedang di proses!", NOTIF_INFO, 3.0f);
+                Notif_show("Push sedang diproses di background...", NOTIF_INFO, 3.0f);
                 GitPopup_push_async(repo);
             }
         } else if (CheckCollisionPointRec(m, b_close) || !CheckCollisionPointRec(m, box)) {
