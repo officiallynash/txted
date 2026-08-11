@@ -1,3 +1,4 @@
+#include <stddef.h>
 #ifndef BUFFER_H
 #define BUFFER_H
 
@@ -8,6 +9,25 @@
 #include "rope.h"
 #include "syntax.h"
 #include "undo.h"
+
+/**
+ * Enum untuk Gutter Git
+ */
+typedef enum {
+    GUTTER_NONE = 0,
+    GUTTER_ADDED,     // Hijau (+)
+    GUTTER_MODIFIED,  // Kuning (~)
+    GUTTER_DELETED    // Merah (-)
+} GutterStatus;
+
+/**
+ * Struct untuk menyimpan Line
+ */
+typedef struct {
+    GutterStatus status;    // GUTTER_ADDED, GUTTER_MODIFIED
+    double last_edited_at;  // Timestamp dari GetTime() Raylib saat baris di-edit
+    char author[64];
+} LineGitMeta;
 
 /**
  * Struct untuk membungkus Position
@@ -57,6 +77,10 @@ typedef struct {
     bool is_dirty;
     char *path;
     char *filename;
+
+    // Git
+    LineGitMeta *line_git;
+    size_t meta_capacity;
 } Buffer;
 
 Buffer *Buffer_new();

@@ -6,6 +6,7 @@
 
 #include "buffer.h"
 #include "buffer_manager.h"
+#include "git_client.h"
 #include "lsp_ui.h"
 #include "raylib.h"
 #include "syntax.h"
@@ -311,6 +312,23 @@ void draw_editor(BufManager *bufmgr, Font font) {
                           g_theme.active_line);
         }
 
+        /* ------------------------------------------------------------- *
+         * RENDER GIT GUTTER INDICATOR BAR & GHOST TEXT
+         * ------------------------------------------------------------- */
+        if (buf->line_git && y < buf->meta_capacity) {
+            LineGitMeta meta = buf->line_git[y];
+
+            // 1. Render Strip Warna di Samping Kiri Line Number
+            if (meta.status != GUTTER_NONE) {
+                float gutter_bar_x = (float)(Layout.editor_x + 4);
+                Rectangle gutter_rect = {gutter_bar_x, (float)py - 2, 3.0f, (float)LINE_H - 2.0f};
+
+                Color bar_color =
+                    (meta.status == GUTTER_ADDED) ? g_theme.function : g_theme.warning;
+                DrawRectangleRounded(gutter_rect, 0.5f, 2, bar_color);
+            }
+        }
+
         /* Line Number */
         char num_str[16];
         snprintf(num_str, sizeof(num_str), "%4zu", y + 1);
@@ -323,6 +341,7 @@ void draw_editor(BufManager *bufmgr, Font font) {
         if (text) {
             size_t len = strlen(text);
             if (len > 0 && text[len - 1] == '\n') text[len - 1] = '\0';
+            if (len > 0 && text[len - 1] == '\r') text[len - 1] = '\0';
 
             char expanded_text[2048];
             expand_tabs(text, expanded_text, sizeof(expanded_text), 4);
@@ -398,6 +417,27 @@ void draw_editor(BufManager *bufmgr, Font font) {
 
             // Render teks dengan highlight [RENDER UTAMA]
             Draw_line_highlighted(font, text, pos, tokens, token_count, buf->lines.offset[y]);
+
+            /* ------------------------------------------------------------- *
+             * RENDER INLINE GHOST TEXT
+             * ------------------------------------------------------------- */
+            if (y == buf->cursor.y && buf->line_git && y < buf->meta_capacity) {
+                LineGitMeta meta = buf->line_git[y];
+
+                // tampil kalau ada waktu (blame ATAU edit lokal)
+                if (meta.last_edited_at > 0) {
+                    char ghost_str[64];
+                    const char *who =
+                        meta.author[0] ? meta.author : (git.author[0] ? git.author : "You");
+
+                    format_time_ago(who, meta.last_edited_at, ghost_str, sizeof(ghost_str));
+
+                    float line_w = get_text_column_x(font, expanded_text, strlen(expanded_text),
+                                                     (float)text_x);
+                    DrawTextEx(font, ghost_str, (Vector2){line_w + 32.0f, (float)py}, FONT_SIZE,
+                               1.0f, g_theme.text_muted);
+                }
+            }
 
             /* ------------------------------------------------------------- *
              * Render Squiggly / Underline Diagnostics

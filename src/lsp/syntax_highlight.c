@@ -46,7 +46,7 @@ SyntaxState *Syntax_init(LangConfig *lang) {
         if (!state->query) {
             char msg[254];
             snprintf(msg, sizeof(msg),
-                     "[TREE-SITTER ERROR] Failed at character index: %u, Error code: %d\n",
+                     "[TREE-SITTER ERROR] Failed at character index: %u, Error code: %d",
                      error_offset, error_type);
 
             Notif_show(msg, NOTIF_ERROR, 3.0f);
@@ -59,7 +59,7 @@ SyntaxState *Syntax_init(LangConfig *lang) {
         if (!state->indents_query) {
             char msg[254];
             snprintf(msg, sizeof(msg),
-                     "[TREE-SITTER ERROR] Failed at character index: %u, Error code: %d\n",
+                     "[TREE-SITTER ERROR] Failed at character index: %u, Error code: %d",
                      error_offset, error_type);
 
             Notif_show(msg, NOTIF_ERROR, 3.0f);

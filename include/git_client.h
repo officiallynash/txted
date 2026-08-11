@@ -7,6 +7,7 @@
 #include "buffer_manager.h"
 
 #define MAX_FILE_GIT 256
+
 /**
  * Struct untuk menampung Status dari File
  */
@@ -28,6 +29,7 @@ typedef struct {
     // File status
     GitFileStatus files[MAX_FILE_GIT];
     int file_count;
+    char author[64];
 } GitStatus;
 
 /**
@@ -52,6 +54,9 @@ const char *Git_file_mark(const char *abs_path);
 const char *Git_folder_mark(const char *dir_path);
 void GitStatus_update(BufManager *bufmgr, float dt);
 void GitStatus_force(void);
+void format_time_ago(const char *author, double last_edited, char *out_str, size_t max_len);
+void Git_fetch_file_diff(const char *repo_path, const char *file_path, Buffer *buf);
+void Git_fetch_file_blame(const char *repo_path, const char *file_path, Buffer *buf);
 
 void GitPopup_open(void);
 void GitPopup_close(void);

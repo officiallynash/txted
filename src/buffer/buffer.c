@@ -7,6 +7,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
 #include <unistd.h>
 
 #include "fs.h"
@@ -21,7 +22,7 @@
 #include "undo.h"
 
 extern void sync_cursor_line_from_pos(Buffer *buf);  // didefinisikan di navigation.c
-extern void lsp_clear_all_diagnostics(void);         // Clear Diagnostic
+extern void lsp_clear_all_diagnostics(void);         // Clear Diagnostic [lsp_client.c]
 
 /* =============================
  * PRIVATE API
@@ -221,6 +222,27 @@ bool lsp_apply_text_edits(Buffer *buf, TextEditList *edits) {
     return true;
 }
 
+/**
+ * Fungsi untuk memastikan meta_capacity [PRIVATE API]
+ */
+static void Buffer_ensure_git_meta_capacity(Buffer *buf, size_t needed_cap) {
+    if (!buf || needed_cap <= buf->meta_capacity) return;
+
+    size_t new_cap = needed_cap * 2;
+    LineGitMeta *new_git = realloc(buf->line_git, new_cap * sizeof(LineGitMeta));
+    if (!new_git) return;
+
+    // Clean up alokasi baru
+    for (size_t i = buf->meta_capacity; i < new_cap; i++) {
+        new_git[i].status = GUTTER_NONE;
+        new_git[i].last_edited_at = 0;
+        new_git[i].author[0] = '\0';
+    }
+
+    buf->line_git = new_git;
+    buf->meta_capacity = new_cap;
+}
+
 /* =============================
  * PUBLIC API
  * ============================= */
@@ -291,6 +313,10 @@ Buffer *Buffer_new() {
     new_buffer->language_id = NULL;
     new_buffer->scroll_y = 0;  // UI State
 
+    // Metadata Git
+    new_buffer->meta_capacity = new_buffer->lines.line_count ? new_buffer->lines.line_count : 64;
+    new_buffer->line_git = calloc(new_buffer->meta_capacity, sizeof(LineGitMeta));
+
     Undo_init(&new_buffer->undo);  // Undo init
 
     return new_buffer;
@@ -336,6 +362,10 @@ Buffer *Buffer_open(const char *filename) {
     // Setting default untuk new selection (Default is false)
     new->selection.is_selected = false;
     new->scroll_y = 0;  // UI State
+
+    // Git
+    new->meta_capacity = (lines.line_count > 64) ? lines.line_count : 64;
+    new->line_git = calloc(new->meta_capacity, sizeof(LineGitMeta));
 
     // Undo init
     Undo_init(&new->undo);
@@ -392,6 +422,10 @@ void Buffer_insert(Buffer *buf, size_t pos_idx, const char *ch) {
     size_t text_len = strlen(ch);
     if (text_len == 0) return;
 
+    // Save Line Count dan Original Y
+    size_t old_line_count = buf->lines.line_count;
+    size_t orig_y = buf->cursor.y;
+
     Undo_push(&buf->undo, UNDO_INSERT, pos_idx, ch, text_len);  // UndoStack
     // Jika ada seleksi, hapus dulu baru nulis
     if (buf->selection.is_selected) {
@@ -411,7 +445,7 @@ void Buffer_insert(Buffer *buf, size_t pos_idx, const char *ch) {
         }
     }
 
-    /* Jika TIDAK ADA newline (ngetik huruf biasa) -> Update offset biasa (Cepat) */
+    // Jika TIDAK ADA newline (ngetik huruf biasa) -> Update offset biasa (Cepat)
     if (!contains_newline) {
         for (size_t i = buf->cursor.y + 1; i < buf->lines.line_count; i++) {
             buf->lines.offset[i] += text_len;
@@ -419,7 +453,7 @@ void Buffer_insert(Buffer *buf, size_t pos_idx, const char *ch) {
         buf->cursor.x += text_len;
         buf->cursor.cursor_pos += text_len;
     }
-    /* Jika ADA newline (pencet Enter / Paste multi-line) -> Rebuild LineIndex biar sinkron */
+    // Jika ADA newline (pencet Enter / Paste multi-line) -> Rebuild LineIndex biar sinkron
     else {
         buf->cursor.cursor_pos += text_len;
 
@@ -442,6 +476,35 @@ void Buffer_insert(Buffer *buf, size_t pos_idx, const char *ch) {
         }
         buf->cursor.y = y;
         buf->cursor.x = buf->cursor.cursor_pos - buf->lines.offset[y];
+    }
+
+    // Sinkronisasi Metadata Git
+    Buffer_ensure_git_meta_capacity(buf, buf->lines.line_count);
+
+    if (contains_newline && buf->line_git) {
+        size_t added_lines = buf->lines.line_count - old_line_count;
+
+        // Geser metadata di bawah baris yang terbelah ke arah bawah
+        if (orig_y + 1 < old_line_count) {
+            size_t lines_to_move = old_line_count - (orig_y + 1);
+            memmove(&buf->line_git[orig_y + 1 + added_lines], &buf->line_git[orig_y + 1],
+                    lines_to_move * sizeof(LineGitMeta));
+        }
+
+        // Tandai baris-baris baru hasil pecahan/insert sebagai MODIFIED/ADDED
+        for (size_t i = orig_y; i <= orig_y + added_lines; i++) {
+            buf->line_git[i].status = GUTTER_MODIFIED;
+            buf->line_git[i].last_edited_at = (double)time(NULL);
+            strncpy(buf->line_git[i].author, git.author[0] ? git.author : "You",
+                    sizeof(buf->line_git[i].author) - 1);
+        }
+    } else if (buf->line_git) {
+        // Edit biasa (1 baris)
+        size_t y = buf->cursor.y;
+        buf->line_git[y].status = GUTTER_MODIFIED;
+        buf->line_git[y].last_edited_at = (double)time(NULL);
+        strncpy(buf->line_git[y].author, git.author[0] ? git.author : "You",
+                sizeof(buf->line_git[y].author) - 1);
     }
 
     sync_syntax_tree(buf);  // Update syntax tree
@@ -479,6 +542,9 @@ void Buffer_delete(Buffer *buf, size_t pos_idx) {
         start_del = pos_idx - 1;
     }
 
+    // Simpan old Line Count
+    size_t old_line_count = buf->lines.line_count;
+
     if (len == 0) return;
     if (start_del + len > buf->str->len) len = buf->str->len - start_del;
 
@@ -492,11 +558,11 @@ void Buffer_delete(Buffer *buf, size_t pos_idx) {
                 break;
             }
         }
-        Undo_push(&buf->undo, UNDO_DELETE, start_del, (const char *)del_bytes.data,
-                  len);  // UndoStack
+        Undo_push(&buf->undo, UNDO_DELETE, start_del, (const char *)del_bytes.data, len);
         Bytes_free(&del_bytes);
     }
-    /* Hapus dari rope */
+
+    // Hapus dari rope
     String_delete(&buf->str, start_del, len);
     buf->cursor.cursor_pos = start_del;
 
@@ -505,12 +571,11 @@ void Buffer_delete(Buffer *buf, size_t pos_idx) {
         for (size_t i = buf->cursor.y + 1; i < buf->lines.line_count; i++) {
             buf->lines.offset[i] -= len;
         }
-        // Update x cursor
         buf->cursor.x = buf->cursor.cursor_pos - buf->lines.offset[buf->cursor.y];
     }
-    /* Jika ADA newline yang terhapus, barulah Rebuild LineIndex */
+    // Jika ADA newline yang terhapus, Rebuild LineIndex
     else {
-        free(buf->lines.offset);  // Hapus dulu offset biar ga kemasukan data garbage
+        free(buf->lines.offset);
         buf->lines = LineIndex_init();
 
         if (buf->str->len > 0) {
@@ -535,17 +600,59 @@ void Buffer_delete(Buffer *buf, size_t pos_idx) {
         buf->cursor.x = buf->cursor.cursor_pos - buf->lines.offset[y];
     }
 
+    // Sinkronisasi Metadata Git
+    Buffer_ensure_git_meta_capacity(
+        buf, old_line_count > buf->lines.line_count ? old_line_count : buf->lines.line_count);
+
+    // Git Metadata
+    if (contains_newline && buf->line_git) {
+        size_t deleted_lines = old_line_count - buf->lines.line_count;
+        size_t cur_y = buf->cursor.y;
+
+        // Geser metadata di bawah baris terhapus ke ATAS
+        if (cur_y + 1 + deleted_lines < old_line_count) {
+            size_t lines_to_move = old_line_count - (cur_y + 1 + deleted_lines);
+            memmove(&buf->line_git[cur_y + 1], &buf->line_git[cur_y + 1 + deleted_lines],
+                    lines_to_move * sizeof(LineGitMeta));
+        }
+
+        // Bersihkan slot tersisa di ekor array
+        for (size_t i = buf->lines.line_count; i < old_line_count; i++) {
+            buf->line_git[i].status = GUTTER_NONE;
+            buf->line_git[i].last_edited_at = 0;
+            buf->line_git[i].author[0] = '\0';
+        }
+
+        // Update status baris penggabungan saat ini
+        if (cur_y < buf->meta_capacity) {
+            buf->line_git[cur_y].status = GUTTER_MODIFIED;
+            buf->line_git[cur_y].last_edited_at = (double)time(NULL);
+            strncpy(buf->line_git[cur_y].author, git.author[0] ? git.author : "You",
+                    sizeof(buf->line_git[cur_y].author) - 1);
+        }
+    } else if (buf->line_git) {
+        // Delete biasa 1 baris
+        size_t y = buf->cursor.y;
+        if (y < buf->meta_capacity) {
+            buf->line_git[y].status = GUTTER_MODIFIED;
+            buf->line_git[y].last_edited_at = (double)time(NULL);
+            strncpy(buf->line_git[y].author, git.author[0] ? git.author : "You",
+                    sizeof(buf->line_git[y].author) - 1);
+        }
+    }
+
     // Sync Syntax Tree & LSP
     sync_syntax_tree(buf);
 
-    if (buf->language_id) {
+    if (buf->language_id && buf->path) {
         Bytes full_text = String_get(buf->str, 0, buf->str->len);
         char *uri = Path_to_uri(buf->path);
-        lsp_did_change(uri, (const char *)full_text.data, buf->lsp_version);
-
-        buf->lsp_version++;  // Update LSP Version
+        if (uri) {
+            lsp_did_change(uri, (const char *)full_text.data, buf->lsp_version);
+            buf->lsp_version++;
+            free(uri);
+        }
         Bytes_free(&full_text);
-        free(uri);
     }
 }
 
@@ -597,6 +704,7 @@ void Buffer_save(Buffer *buf, const char *filename) {
     } else {
         Notif_show(result.data, NOTIF_ERROR, 3.0f);
     }
+
     GitStatus_force();  // Force update GitStatus
 
     Result_free(&result);
@@ -754,6 +862,10 @@ void Buffer_free(Buffer *buf) {
         free(buf->lines.offset);
         buf->lines.offset = NULL;
     }
+    if (buf->line_git != NULL) {
+        free(buf->line_git);
+        buf->line_git = NULL;
+    }
 
     Undo_free(&buf->undo);
 
@@ -851,4 +963,30 @@ void lsp_apply_completion(Buffer *buf, const CompletionItem *item) {
 
     // Insert teks fungsi/variabel utama di posisi kursor sekarang
     Buffer_insert(buf, buf->cursor.cursor_pos, text_to_insert);
+}
+
+/**
+ * Fungsi untuk Mark Line edited Git
+ */
+void Buffer_mark_line_edited(Buffer *buf, size_t line_idx) {
+    if (!buf) return;
+
+    if (line_idx >= buf->meta_capacity) {
+        size_t new_cap = (line_idx + 1) * 2;
+        LineGitMeta *new_git = realloc(buf->line_git, new_cap * sizeof(LineGitMeta));
+        if (!new_git) return;
+
+        buf->line_git = new_git;
+        for (size_t i = buf->meta_capacity; i < new_cap; i++) {
+            buf->line_git[i].status = GUTTER_NONE;
+            buf->line_git[i].last_edited_at = 0;
+            buf->line_git[i].author[0] = '\0';
+        }
+        buf->meta_capacity = new_cap;
+    }
+
+    buf->line_git[line_idx].status = GUTTER_MODIFIED;
+    buf->line_git[line_idx].last_edited_at = (double)time(NULL);  // Gunakan time(NULL)
+    strncpy(buf->line_git[line_idx].author, git.author[0] ? git.author : "You",
+            sizeof(buf->line_git[line_idx].author) - 1);
 }

@@ -6,6 +6,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
 
 #include "notification.h"
 
@@ -221,6 +222,13 @@ bool GitStatus_refresh(const char *repo, GitStatus *git) {
     }
     if (git->branch[0] == '\0') snprintf(git->branch, sizeof(git->branch), "HEAD");
 
+    // Author
+    if (run_git(repo, "config user.name", buf, sizeof(buf))) {
+        char *nl = strchr(buf, '\n');
+        if (nl) *nl = '\0';
+        strncpy(git->author, buf, sizeof(git->author) - 1);
+    }
+
     // Porcelain
     if (run_git(repo, "status --porcelain --ignored", buf, sizeof(buf))) {
         char *line = buf;
@@ -358,6 +366,167 @@ void GitStatus_update(BufManager *bufmgr, float dt) {
 }
 
 /**
+ * Helper untuk format waktu (Yang lalu)
+ */
+void format_time_ago(const char *author, double last_edited, char *out_str, size_t max_len) {
+    double diff = difftime(time(NULL), (time_t)last_edited);
+    if (diff < 0) diff = 0;
+
+    // Hirarki nama: Param -> Environment OS -> "You"
+    const char *name = author;
+    if (!name || name[0] == '\0') name = getenv("USER");      // Linux / macOS
+    if (!name || name[0] == '\0') name = getenv("USERNAME");  // Windows
+    if (!name || name[0] == '\0') name = "You";
+
+    if (diff < 60) {
+        snprintf(out_str, max_len, "edited by %s • just now", name);
+    } else if (diff < 3600) {
+        snprintf(out_str, max_len, "edited by %s • %dm ago", name, (int)(diff / 60));
+    } else {
+        snprintf(out_str, max_len, "edited by %s • %dh ago", name, (int)(diff / 3600));
+    }
+}
+
+/**
  * Fungsi untuk force Update
  */
 void GitStatus_force(void) { GitStatus_timer = 0.0f; }
+
+/**
+ * Mengambil status diff per baris dari Git (-U0) dan memperbarui line metadata buffer
+ */
+void Git_fetch_file_diff(const char *repo_path, const char *file_path, Buffer *buf) {
+    if (!repo_path || !file_path || !buf || !buf->line_git) return;
+
+    // Command diff tanpa context line (-U0)
+    char args[512];
+    snprintf(args, sizeof(args), "diff -U0 -- \"%s\"", file_path);
+
+    char output[16384] = {0};
+    if (!run_git(repo_path, args, output, sizeof(output))) return;
+
+    // Reset status gutter lama di buffer
+    for (size_t i = 0; i < buf->meta_capacity; i++) {
+        buf->line_git[i].status = GUTTER_NONE;
+    }
+
+    char *line = output;
+    while (*line) {
+        char *next = strchr(line, '\n');
+        if (next) *next = '\0';
+
+        // Cari header diff, contoh: @@ -10,3 +12,5 @@ atau @@ -5 +4,0 @@
+        if (strncmp(line, "@@ ", 3) == 0) {
+            int old_start = 0, old_count = 1;
+            int new_start = 0, new_count = 1;
+
+            char *minus = strchr(line, '-');
+            char *plus = strchr(line, '+');
+
+            if (minus) {
+                if (sscanf(minus, "-%d,%d", &old_start, &old_count) < 2) {
+                    sscanf(minus, "-%d", &old_start);
+                }
+            }
+
+            if (plus) {
+                if (sscanf(plus, "+%d,%d", &new_start, &new_count) < 2) {
+                    sscanf(plus, "+%d", &new_start);
+                }
+
+                // CASE A: Penambahan (ADDED) atau Perubahan (MODIFIED)
+                if (new_count > 0 && new_start > 0) {
+                    size_t start_idx = (size_t)new_start - 1;  // Convert ke 0-based index
+                    GutterStatus status = (old_count == 0) ? GUTTER_ADDED : GUTTER_MODIFIED;
+
+                    for (int i = 0; i < new_count; i++) {
+                        size_t target_line = start_idx + i;
+
+                        if (target_line < buf->lines.line_count &&
+                            target_line < buf->meta_capacity) {
+                            buf->line_git[target_line].status = status;
+
+                            if (buf->line_git[target_line].last_edited_at == 0) {
+                                buf->line_git[target_line].last_edited_at = (double)time(NULL);
+                            }
+                        }
+                    }
+                }
+                // CASE B: Penghapusan Murni (DELETED) - new_count == 0
+                else if (new_count == 0 && old_count > 0) {
+                    size_t target_line = (new_start > 0) ? (size_t)(new_start - 1) : 0;
+
+                    if (target_line < buf->lines.line_count && target_line < buf->meta_capacity) {
+                        // Hanya tandai GUTTER_DELETED jika belum ada status ADDED/MODIFIED
+                        if (buf->line_git[target_line].status == GUTTER_NONE) {
+                            buf->line_git[target_line].status = GUTTER_DELETED;
+                        }
+
+                        if (buf->line_git[target_line].last_edited_at == 0) {
+                            buf->line_git[target_line].last_edited_at = (double)time(NULL);
+                        }
+                    }
+                }
+            }
+        }
+
+        if (!next) break;
+        line = next + 1;
+    }
+}
+
+/**
+ * Mengambil metadata Author & Timestamp commit terakhir per baris via Git Blame
+ */
+void Git_fetch_file_blame(const char *repo_path, const char *file_path, Buffer *buf) {
+    if (!repo_path || !file_path || !buf) return;
+
+    // Command git blame dengan format porcelain (machine-readable)
+    char args[512];
+    snprintf(args, sizeof(args), "blame --porcelain -- \"%s\"", file_path);
+
+    char output[65536] = {0};  // Penampung output blame
+    if (!run_git(repo_path, args, output, sizeof(output))) return;
+
+    char current_author[64] = {0};
+    double current_time = 0;
+    size_t current_line = 0;
+
+    char *line = output;
+    while (*line) {
+        char *next = strchr(line, '\n');
+        if (next) *next = '\0';
+
+        // Baca baris headercommit: <hash> <orig_line> <final_line>
+        if (strlen(line) >= 40 && line[40] == ' ') {
+            int orig_l, final_l;
+            if (sscanf(line + 41, "%d %d", &orig_l, &final_l) >= 2) {
+                current_line = (size_t)final_l - 1;  // Convert ke 0-based index
+            }
+        }
+        // Extract nama author
+        else if (strncmp(line, "author ", 7) == 0) {
+            strncpy(current_author, line + 7, sizeof(current_author) - 1);
+        }
+        // Extract waktu commit
+        else if (strncmp(line, "author-time ", 12) == 0) {
+            current_time = (double)atof(line + 12);
+        }
+        // Baris teks asli diawali karakter TAB -> Tanda akhir blok metadata baris ini
+        else if (line[0] == '\t') {
+            if (current_line < buf->lines.line_count && current_line < buf->meta_capacity) {
+                // Simpan metadata ke line_git/line_meta
+                strncpy(buf->line_git[current_line].author, current_author,
+                        sizeof(buf->line_git[current_line].author) - 1);
+
+                // Cuma update timestamp jika baris belum diubah lokal di editor
+                if (buf->line_git[current_line].last_edited_at == 0) {
+                    buf->line_git[current_line].last_edited_at = current_time;
+                }
+            }
+        }
+
+        if (!next) break;
+        line = next + 1;
+    }
+}

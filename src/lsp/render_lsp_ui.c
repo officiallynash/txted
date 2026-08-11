@@ -270,20 +270,20 @@ void render_signature_help(BufManager *bufmgr, Font font) {
 
     float box_y;
 
-    // Kalau completion sedang tampil → taruh di sisi lawan
+    // Kalau completion sedang tampil, siganture taruh di sisi lawan
     if (g_lsp_ui.visible && g_lsp_ui.has_completion) {
         if (g_lsp_ui.completion_side == POPUP_BELOW) {
-            // Completion di bawah → signature di atas
+            // Completion di bawah berarti signature di atas
             box_y = cursor_y - box_h - 4.0f;
             g_lsp_ui.signature_side = POPUP_ABOVE;
 
-            // Kalau tidak muat di atas, terpaksa ikut di bawah (jarang)
+            // Kalau tidak muat di atas, Ya ikut di bawah HAHAHAHA
             if (box_y < TAB_H + 4.0f) {
                 box_y = cursor_y + LINE_H + 4.0f;
                 g_lsp_ui.signature_side = POPUP_BELOW;
             }
         } else {
-            // Completion di atas → signature di bawah
+            // Completion di atas berarti signature di bawah
             box_y = cursor_y + LINE_H + 4.0f;
             g_lsp_ui.signature_side = POPUP_BELOW;
 
@@ -293,7 +293,7 @@ void render_signature_help(BufManager *bufmgr, Font font) {
             }
         }
     } else {
-        // Tidak ada completion → prefer atas (seperti VS Code)
+        // Tidak ada completion, signature prefer atas (seperti VS Code)
         box_y = cursor_y - box_h - 4.0f;
         g_lsp_ui.signature_side = POPUP_ABOVE;
 

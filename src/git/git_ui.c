@@ -1,4 +1,5 @@
 #include <raylib.h>
+#include <stdbool.h>
 #include <stdio.h>
 #include <string.h>
 
@@ -14,6 +15,9 @@ extern bool GitPopup_commit(const char *repo, const char *message);
 extern bool GitPopup_push_async(const char *repo);
 extern bool GitPopup_is_pushing(void);
 
+// Flag
+static bool git_popup_just_opened = false;
+
 /**
  * Fungsi untuk membuka GitPopup [PUBLIC API]
  */
@@ -23,6 +27,7 @@ void GitPopup_open(void) {
     git_popup.selected = 0;
     git_popup.list_scroll = 0.0f;
     git_popup.last_error[0] = '\0';
+    git_popup_just_opened = true;
     GitStatus_force();
 }
 
@@ -159,7 +164,7 @@ void GitPopup_render(BufManager *bufmgr, Font font) {
         Notif_show(git_popup.last_error, NOTIF_ERROR, 3.0f);
     }
 
-    // --- input ---
+    // Input
     if (IsKeyPressed(KEY_ESCAPE)) {
         GitPopup_close();
         return;
@@ -207,27 +212,32 @@ void GitPopup_render(BufManager *bufmgr, Font font) {
     // Handling Mouse
     Vector2 m = GetMousePosition();
     if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
-        if (CheckCollisionPointRec(m, b_stage)) {
-            if (GitPopup_stage(repo)) {
-                Notif_show("Berhasil stage semua file!", NOTIF_SUCCESS, 2.0f);
-            } else {
-                Notif_show(git_popup.last_error, NOTIF_ERROR, 3.0f);
+        // Jika baru saja dibuka dari menu tab, abaikan klik di frame pertama ini!
+        if (git_popup_just_opened) {
+            git_popup_just_opened = false;
+        } else {
+            if (CheckCollisionPointRec(m, b_stage)) {
+                if (GitPopup_stage(repo)) {
+                    Notif_show("Berhasil stage semua file!", NOTIF_SUCCESS, 2.0f);
+                } else {
+                    Notif_show(git_popup.last_error, NOTIF_ERROR, 3.0f);
+                }
+            } else if (CheckCollisionPointRec(m, b_commit)) {
+                if (GitPopup_commit(repo, git_popup.message)) {
+                    Notif_show("Commit berhasil disimpan!", NOTIF_SUCCESS, 2.0f);
+                } else {
+                    Notif_show(git_popup.last_error, NOTIF_ERROR, 3.0f);
+                }
+            } else if (CheckCollisionPointRec(m, b_push)) {
+                if (!GitPopup_is_pushing()) {
+                    Notif_show("Push sedang diproses di background...", NOTIF_INFO, 3.0f);
+                    GitPopup_push_async(repo);
+                }
+            } else if (CheckCollisionPointRec(m, b_close) || !CheckCollisionPointRec(m, box)) {
+                GitPopup_close();
+            } else if (CheckCollisionPointRec(m, input)) {
+                git_popup.edit_message = true;
             }
-        } else if (CheckCollisionPointRec(m, b_commit)) {
-            if (GitPopup_commit(repo, git_popup.message)) {
-                Notif_show("Commit berhasil disimpan!", NOTIF_SUCCESS, 2.0f);
-            } else {
-                Notif_show(git_popup.last_error, NOTIF_ERROR, 3.0f);
-            }
-        } else if (CheckCollisionPointRec(m, b_push)) {
-            if (!GitPopup_is_pushing()) {
-                Notif_show("Push sedang diproses di background...", NOTIF_INFO, 3.0f);
-                GitPopup_push_async(repo);
-            }
-        } else if (CheckCollisionPointRec(m, b_close) || !CheckCollisionPointRec(m, box)) {
-            GitPopup_close();
-        } else if (CheckCollisionPointRec(m, input)) {
-            git_popup.edit_message = true;
         }
     }
 

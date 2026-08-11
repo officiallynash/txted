@@ -23,25 +23,27 @@ void BufManager_set_workspace(BufManager *bufmgr, const char *any_path) {
     if (!root) {
         root = Fs_dirname(any_path);
     }
-
     if (!root) return;
 
-    // Sudah sama → tidak perlu apa-apa
     if (bufmgr->path_root && strcmp(bufmgr->path_root, root) == 0) {
         free(root);
         return;
     }
 
-    // Ganti root
     free(bufmgr->path_root);
     bufmgr->path_root = root;
-    GitStatus_refresh(bufmgr->path_root, &git);  // Sync Git Repo
 
-    // chdir HANYA di sini
-    if (chdir(bufmgr->path_root) == 0) {
-        printf("[WORKSPACE] cwd → %s\n", bufmgr->path_root);
-    } else {
-        perror("[WORKSPACE] chdir gagal");
+    if (chdir(bufmgr->path_root) != 0) {
+        Notif_show("Tidak bisa ke Workspace", NOTIF_WARNING, 3.0f);
+    }
+
+    GitStatus_refresh(bufmgr->path_root, &git);
+
+    // Ambil active buffer & validasi path sebelum memanggil git fetch
+    Buffer *active = BufManager_getactive(bufmgr);
+    if (active && active->path) {
+        Git_fetch_file_blame(bufmgr->path_root, active->path, active);
+        Git_fetch_file_diff(bufmgr->path_root, active->path, active);
     }
 }
 
@@ -96,6 +98,12 @@ void BufManager_newtab(BufManager *bufmgr, const char *filename) {
     if (!bufmgr->path_root && filename) {
         BufManager_set_workspace(bufmgr, filename);
     }
+
+    // Sinkronasi dengan Git Blame dan Diff
+    if (buf && buf->path) {
+        Git_fetch_file_blame(bufmgr->path_root, buf->path, buf);
+        Git_fetch_file_diff(bufmgr->path_root, buf->path, buf);
+    }
 }
 
 /**
@@ -120,6 +128,12 @@ void BufManager_open(BufManager *bufmgr, const char *filename) {
     bufmgr->buf[idx] = Buffer_open(filename);
     if (!bufmgr->path_root && filename) {
         BufManager_set_workspace(bufmgr, filename);
+    }
+
+    Buffer *active = BufManager_getactive(bufmgr);
+    if (active && active->path) {
+        Git_fetch_file_blame(bufmgr->path_root, active->path, active);
+        Git_fetch_file_diff(bufmgr->path_root, active->path, active);
     }
 }
 

@@ -368,7 +368,7 @@ void draw_file_manager(BufManager *bufmgr, Font font) {
         DrawRectangleRounded(scrollbar_rect, 0.5f, 4, g_theme.border);
     }
 
-    // --- PANEL WORKSPACE INFO (Bagian Bawah File Manager) ---
+    // Panel Workspace
     float ws_y = L.fm_y + L.fm_h - DIAG_PANEL_H;
     DrawLine(L.fm_x, (int)ws_y, L.fm_x + L.fm_w - 1, (int)ws_y, g_theme.border);
 
