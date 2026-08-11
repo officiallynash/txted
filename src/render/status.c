@@ -45,7 +45,6 @@ void draw_status(BufManager *bufmgr, Font font) {
 
     char right[128];
 
-    // --- FIX LOGIKA STATUS LSP ---
     const char *lsp_status = "Inactive";
     if (buf->language_id != NULL) {
         // Jika UI popup lagi aktif -> "Active", kalau standby -> "Ready" / "Idle"

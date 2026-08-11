@@ -2,8 +2,9 @@
 #define SYNTAX_H
 
 #include <stdbool.h>
-#include <tree_sitter/tree-sitter-c.h>
 #include <tree_sitter/api.h>
+#include <tree_sitter/tree-sitter-c.h>
+
 #include "lsp_config.h"
 
 typedef struct {
@@ -11,6 +12,7 @@ typedef struct {
     TSTree *tree;
     bool is_enabled;
     TSQuery *query;
+    TSQuery *indents_query;
 } SyntaxState;
 
 typedef struct {

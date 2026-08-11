@@ -42,10 +42,10 @@ void render_all_ui(BufManager *bufmgr, Font font) {
 
 int main(int argc, char *argv[]) {
     // State agar auto keluar
-#if defined(__linux__)
-    if (fork() > 0) exit(0);
-    setsid();
-#endif
+    // #if defined(__linux__)
+    //     if (fork() > 0) exit(0);
+    //     setsid();
+    // #endif
 
     // Inisasi Buffer Manager
     BufManager bufmgr = {0};
@@ -75,7 +75,8 @@ int main(int argc, char *argv[]) {
     SetExitKey(KEY_NULL);
 
     char font_path[512];
-    snprintf(font_path, sizeof(font_path), "%sSFMono-Regular.otf", GetApplicationDirectory());
+    snprintf(font_path, sizeof(font_path), "%sJetBrainsMono-Regular.ttf",
+             GetApplicationDirectory());
     Font font = LoadFontEx(font_path, FONT_SIZE, NULL, 0);
 
     Theme_init(TOKYO_NIGHT);  // Init Theme

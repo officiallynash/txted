@@ -1,4 +1,4 @@
 txted
 build/
-.cache
-queries/
+.cache/
+test.c

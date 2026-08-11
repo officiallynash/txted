@@ -75,6 +75,30 @@ static int file_node_cmp(const void *a, const void *b) {
 }
 
 /**
+ * Fungsi untuk Menghapus File List
+ */
+void FileNode_free(FileNode *node) {
+    if (!node) return;
+    for (int i = 0; i < node->child_count; i++) {
+        FileNode_free(node->children[i]);
+    }
+    free(node->children);
+    free(node);
+}
+
+/**
+ * Panggil fungsi ini untuk memaksa File Manager me-load ulang struktur folder dari disk
+ */
+void file_manager_refresh(void) {
+    if (g_fm_root) {
+        FileNode_free(g_fm_root);
+        g_fm_root = NULL;
+    }
+    // Reset path terload agar draw_file_manager otomatis re-build root node
+    g_loaded_root_path[0] = '\0';
+}
+
+/**
  * Fungsi internal untuk mengecek Is_Dir
  */
 static bool is_directory_native(const char *path) {
@@ -163,18 +187,6 @@ FileNode *FileNode_build(const char *rootpath, const char *name) {
     }
 
     return node;
-}
-
-/**
- * Fungsi untuk Menghapus File List
- */
-void FileNode_free(FileNode *node) {
-    if (!node) return;
-    for (int i = 0; i < node->child_count; i++) {
-        FileNode_free(node->children[i]);
-    }
-    free(node->children);
-    free(node);
 }
 
 /**
@@ -318,11 +330,11 @@ void draw_file_manager(BufManager *bufmgr, Font font) {
         }
     }
 
+    // Batasi ScissorMode agar tree view tidak menimpa panel workspace info di bawah
     float content_start_y = L.fm_y + 32.0f;
     float current_y = content_start_y;
-
-    // Batasi ScissorMode agar tree view tidak menimpa panel workspace info di bawah
     int scissor_h = L.fm_h - 32 - DIAG_PANEL_H;
+
     if (scissor_h > 0) {
         BeginScissorMode(L.fm_x, (int)content_start_y, L.fm_w - 1, scissor_h);
 
@@ -334,6 +346,26 @@ void draw_file_manager(BufManager *bufmgr, Font font) {
         }
 
         EndScissorMode();
+    }
+
+    // Hitung total tinggi konten & batas max scroll
+    float total_content_h = current_y - content_start_y;
+    float view_h = (float)scissor_h;
+    float max_scroll = (total_content_h > view_h) ? (total_content_h - view_h) : 0.0f;
+
+    // Clamp scroll offset agar tidak tembus atas/bawah
+    if (g_fm_scroll_y < 0.0f) g_fm_scroll_y = 0.0f;
+    if (g_fm_scroll_y > max_scroll) g_fm_scroll_y = max_scroll;
+
+    // Render Custom Scrollbar Indicator (Visual Bar Samping Kanan Sidebar)
+    if (max_scroll > 0) {
+        float thumb_h = (view_h / total_content_h) * view_h;
+        if (thumb_h < 14.0f) thumb_h = 14.0f;  // Batas tinggi minimum scrollbar
+
+        float thumb_y = content_start_y + (g_fm_scroll_y / max_scroll) * (view_h - thumb_h);
+        Rectangle scrollbar_rect = {(float)(L.fm_x + L.fm_w - 6), thumb_y, 4.0f, thumb_h};
+
+        DrawRectangleRounded(scrollbar_rect, 0.5f, 4, g_theme.border);
     }
 
     // --- PANEL WORKSPACE INFO (Bagian Bawah File Manager) ---

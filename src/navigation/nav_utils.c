@@ -195,7 +195,7 @@ void Nav_create_folder(BufManager *bufmgr, Font font) {
                 Notif_show("Gagal membuat folder!", NOTIF_ERROR, 3.0f);
             }
         }
-
+        file_manager_refresh();
         // Safety free
         free(cwd);
         free(folder_name);

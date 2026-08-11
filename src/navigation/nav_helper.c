@@ -104,66 +104,110 @@ void sync_cursor_line_from_pos(Buffer *buf) {
 }
 
 /**
- * Fungsi untuk Smart Auto Indent (Fixed Fallback Enter)
+ * Fungsi helper untuk menghitung indentasi eksis di baris saat ini
+ */
+static int get_current_line_indent(Buffer *buf) {
+    if (!buf || buf->cursor.y >= buf->lines.line_count) return 0;
+
+    size_t line_start = buf->lines.offset[buf->cursor.y];
+    size_t pos = buf->cursor.cursor_pos;
+    int visual_indent = 0;
+    size_t byte_offset = 0;
+
+    while (line_start + byte_offset < pos) {
+        Bytes b = String_get(buf->str, line_start + byte_offset, 1);
+        if (b.data && (b.data[0] == ' ' || b.data[0] == '\t')) {
+            visual_indent += (b.data[0] == '\t') ? 4 : 1;
+            byte_offset++;  // Byte offset selalu jalan 1 byte per karakter ASCII
+            Bytes_free(&b);
+        } else {
+            Bytes_free(&b);
+            break;
+        }
+    }
+
+    return visual_indent;
+}
+
+/**
+ * Fungsi internal untuk indent
+ */
+int Syntax_get_line_indent_delta(SyntaxState *state, uint32_t byte_pos) {
+    if (!state || !state->tree || !state->indents_query) return 0;
+
+    TSQueryCursor *cursor = ts_query_cursor_new();
+    ts_query_cursor_set_byte_range(cursor, byte_pos, byte_pos);
+    ts_query_cursor_exec(cursor, state->indents_query, ts_tree_root_node(state->tree));
+
+    TSQueryMatch match;
+    bool should_indent = false;
+    bool should_outdent = false;
+
+    // Cukup cek apakah ada match, jangan di-loop tambahkan berkali-kali!
+    while (ts_query_cursor_next_match(cursor, &match)) {
+        for (int i = 0; i < match.capture_count; i++) {
+            TSQueryCapture capture = match.captures[i];
+            uint32_t c_len;
+            const char *cap_name =
+                ts_query_capture_name_for_id(state->indents_query, capture.index, &c_len);
+
+            if (strcmp(cap_name, "indent") == 0) {
+                should_indent = true;
+            } else if (strcmp(cap_name, "outdent") == 0) {
+                should_outdent = true;
+            }
+        }
+    }
+
+    ts_query_cursor_delete(cursor);
+
+    if (should_indent) return 4;    // Cuma tambah 4 spasi
+    if (should_outdent) return -4;  // Cuma kurangi 4 spasi
+    return 0;
+}
+
+/**
+ * Fungsi untuk Smart Auto Indent dengan Integrasi Tree-sitter indents.scm
  */
 void Syntax_auto_indent(Buffer *active_buf) {
     if (!active_buf || !active_buf->str) return;
 
     size_t pos = active_buf->cursor.cursor_pos;
     size_t len = active_buf->str->len;
-
     if (pos > len) pos = len;
 
-    // Hitung depth dari Tree-Sitter jika ada
-    int indent_depth = 0;
-    if (active_buf->state && active_buf->state->tree) {
-        TSTree *tree = active_buf->state->tree;
-        TSNode root = ts_tree_root_node(tree);
+    // Ambil Indentasi Eksis Baris Sekarang
+    int base_indent = get_current_line_indent(active_buf);
 
-        if (!ts_node_is_null(root)) {
-            TSNode current = ts_node_descendant_for_byte_range(root, pos, pos);
-            TSNode parent = current;
-            while (!ts_node_is_null(parent)) {
-                if (strcmp(ts_node_type(parent), "compound_statement") == 0) {
-                    indent_depth++;
-                }
-                parent = ts_node_parent(parent);
-            }
-        }
-    }
-    // Jika Tree-Sitter NULL, indent_depth tetap 0 (Enter biasa tetep jalan!)
-
+    // Hitung Delta Indent (Tree-sitter ATAU Manual Fallback, JANGAN DUA-DUANYA)
+    int ts_delta = 0;
     Bytes prev_char = (pos > 0) ? String_get(active_buf->str, pos - 1, 1) : (Bytes){0};
     Bytes next_char = (pos < len) ? String_get(active_buf->str, pos, 1) : (Bytes){0};
 
+    if (active_buf->state && active_buf->state->indents_query) {
+        // Murni percayakan delta ke Tree-sitter
+        ts_delta = Syntax_get_line_indent_delta(active_buf->state, (uint32_t)pos);
+    } else {
+        // Fallback manual HANYA jika Tree-sitter/Query TIDAK ADA
+        if (prev_char.data && prev_char.data[0] == '{') {
+            ts_delta = 4;
+        }
+    }
+
     // Kasus Smart Enter pas di antara { dan }
     if (prev_char.data && next_char.data && prev_char.data[0] == '{' && next_char.data[0] == '}') {
-        int current_line_indent = 0;
-        size_t line_start = active_buf->lines.offset[active_buf->cursor.y];
+        int base_spaces = base_indent;
+        int inner_spaces = base_indent + 4;  // Cukup +4 spasi standar buat isi tengahnya
 
-        while (line_start + current_line_indent < pos) {
-            Bytes b = String_get(active_buf->str, line_start + current_line_indent, 1);
-            if (b.data && b.data[0] == ' ') {
-                current_line_indent++;
-                Bytes_free(&b);
-            } else {
-                Bytes_free(&b);
-                break;
-            }
-        }
-
-        int base_spaces = current_line_indent;
-        int inner_spaces = current_line_indent + 4;
-
+        if (base_spaces < 0) base_spaces = 0;
+        if (inner_spaces < 0) inner_spaces = 0;
         if (base_spaces > 200) base_spaces = 200;
         if (inner_spaces > 200) inner_spaces = 200;
 
-        char str1[256];
+        char str1[256], str2[256];
         str1[0] = '\n';
         memset(str1 + 1, ' ', inner_spaces);
         str1[inner_spaces + 1] = '\0';
-
-        char str2[256];
         str2[0] = '\n';
         memset(str2 + 1, ' ', base_spaces);
         str2[base_spaces + 1] = '\0';
@@ -178,8 +222,32 @@ void Syntax_auto_indent(Buffer *active_buf) {
         return;
     }
 
-    // Kasus Enter Biasa
-    int space_to_add = indent_depth * 4;
+    // Kasus Enter Biasa (Base Indent + Single Delta)
+    // int space_to_add = base_indent + ts_delta;
+    int space_to_add = base_indent;
+
+    // Ambil delta dari Tree-sitter
+    if (active_buf->state && active_buf->state->indents_query) {
+        int delta = Syntax_get_line_indent_delta(active_buf->state, (uint32_t)pos);
+
+        // HANYA tambah indent kalau delta-nya > 0 DAN karakter sebelum enter adalah '{'
+        // Kalau karakter sebelumnya ';' atau huruf biasa, ikuti base_indent aja!
+        if (delta > 0) {
+            if (prev_char.data && (prev_char.data[0] == '{' || prev_char.data[0] == ':')) {
+                space_to_add += delta;
+            }
+        } else if (delta < 0) {
+            // Kalau outdent (misal ketik '}')
+            space_to_add += delta;
+        }
+    } else {
+        // Fallback manual jika Tree-sitter tidak ada
+        if (prev_char.data && (prev_char.data[0] == '{' || prev_char.data[0] == ':')) {
+            space_to_add += 4;
+        }
+    }
+
+    if (space_to_add < 0) space_to_add = 0;
     if (space_to_add > 200) space_to_add = 200;
 
     char insert_str[256];

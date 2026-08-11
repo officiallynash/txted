@@ -9,7 +9,8 @@ typedef enum { GO, C, GENERAL } LangType;
  */
 typedef struct {
     LangType lang;
-    const char *query_source;
+    char *query_source;
+    char *indent_source;
     const char *language_id;
     char **lsp_args;
     char *path_lsp;

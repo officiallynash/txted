@@ -1,5 +1,7 @@
 #include "lsp_config.h"
 
+#include <raylib.h>
+#include <stddef.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -38,102 +40,34 @@ char *find_executable_in_path(const char *exec_name) {
     return NULL;
 }
 
+static char *Syntax_query(const char *lang_id, const char *scm_filename) {
+    char path[256];
+    snprintf(path, sizeof(path), "%squeries/%s/%s", GetApplicationDirectory(), lang_id,
+             scm_filename);
+    FILE *fp = fopen(path, "r");
+    if (!fp) return NULL;
+
+    fseek(fp, 0, SEEK_END);
+    long size = ftell(fp);
+    fseek(fp, 0, SEEK_SET);
+
+    if (size <= 0) {
+        fclose(fp);
+        return NULL;
+    }
+
+    char *buf = malloc(size + 1);
+    fread(buf, 1, size, fp);
+    fclose(fp);
+    buf[size] = '\0';
+
+    return buf;
+}
 /**
  * Fungsi detail LSP config [PUBLIC API]
  */
 LangConfig *LspConfig_detail(const char *filepath) {
     if (!filepath) return NULL;
-
-    const char *go_highlights_query =
-        ";; Keywords\n"
-        "[\n"
-        "  \"break\" \"case\" \"chan\" \"const\" \"continue\"\n"
-        "  \"default\" \"defer\" \"else\" \"fallthrough\" \"for\"\n"
-        "  \"func\" \"go\" \"goto\" \"if\" \"import\"\n"
-        "  \"interface\" \"map\" \"package\" \"range\" \"return\"\n"
-        "  \"select\" \"struct\" \"switch\" \"type\" \"var\"\n"
-        "] @keyword\n\n"
-
-        ";; Builtin Constants (Named Nodes)\n"
-        "(nil) @keyword\n"
-        "(true) @keyword\n"
-        "(false) @keyword\n\n"
-
-        ";; Types & Modules\n"
-        "(type_identifier) @type\n"
-        "(package_identifier) @type\n\n"
-
-        ";; Strings & Literals\n"
-        "(interpreted_string_literal) @string\n"
-        "(raw_string_literal) @string\n"
-        "(rune_literal) @string\n"
-        "(int_literal) @number\n"
-        "(float_literal) @number\n"
-        "(comment) @comment\n\n"
-
-        ";; Functions & Calls\n"
-        "(function_declaration name: (identifier) @function)\n"
-        "(method_declaration name: (field_identifier) @function)\n"
-        "(call_expression function: (identifier) @function)\n"
-        "(call_expression function: (selector_expression field: (field_identifier) @function))\n\n"
-
-        ";; Operators\n"
-        "[\n"
-        "  \"+\" \"-\" \"*\" \"/\" \"%\" \"&\" \"|\" \"^\" \"<<\" \">>\" \"&^\"\n"
-        "  \"+=\" \"-=\" \"*=\" \"/=\" \"%=\" \"&=\" \"|=\" \"^=\" \"<<=\" \">>=\" \"&^=\"\n"
-        "  \"&&\" \"||\" \"<-\" \"++\" \"--\" \"==\" \"<\" \">\" \"=\" \"!\"\n"
-        "  \"!=\" \"<=\" \">=\" \":=\" \"...\"\n"
-        "] @operator\n\n"
-
-        ";; Delimiters & Brackets\n"
-        "[\n"
-        "  \"(\" \")\" \"[\" \"]\" \"{\" \"}\"\n"
-        "] @punctuation.bracket\n\n"
-
-        "[\n"
-        "  \".\" \",\" \";\" \":\"\n"
-        "] @punctuation.delimiter\n\n"
-
-        ";; Variables & Fields\n"
-        "(field_identifier) @variable\n"
-        "(identifier) @variable\n";
-
-    const char *c_query_source =
-        // 1. Types
-        "(primitive_type) @type\n"
-        "(type_identifier) @type\n"
-        "[\"struct\" \"union\" \"enum\" \"typedef\" \"sizeof\" \"static\" \"const\" "
-        "\"volatile\" \"extern\" \"inline\" \"register\" \"auto\" \"signed\" \"unsigned\" "
-        "\"short\" \"long\"] @type\n"
-
-        // 2. Keywords
-        "[\"return\" \"if\" \"else\" \"while\" \"for\" \"do\" \"switch\" \"case\" \"default\" "
-        "\"break\" \"continue\"] @keyword\n"
-        "[\"struct\" \"union\" \"enum\" \"typedef\" \"sizeof\" \"static\" \"const\" \"volatile\" "
-        "\"extern\" ] @keyword\n"
-
-        // 3. Literals
-        "(number_literal) @number\n"
-        "(string_literal) @string\n"
-        "(char_literal) @string\n"
-        "(system_lib_string) @string\n"
-
-        // 4. Functions
-        "(call_expression function: (identifier) @function)\n"
-        "(function_declarator declarator: (identifier) @function)\n"
-        "(field_identifier) @type\n"
-        "(call_expression function: (field_expression field: (field_identifier) @function))\n"
-
-        // 5. Comments
-        "(comment) @comment\n"
-
-        // 6. Preprocessor (FIXED)
-        "\"#include\" @keyword\n"
-        "\"#define\" @keyword\n"
-        "\"#ifdef\" @keyword\n"
-        "\"#ifndef\" @keyword\n"
-        "\"#endif\" @keyword\n"
-        "(preproc_directive) @keyword\n";
 
     static char *clangd_args[] = {
         "clangd",       "--background-index",          "--header-insertion=iwyu",
@@ -149,15 +83,17 @@ LangConfig *LspConfig_detail(const char *filepath) {
     if (strcmp(dot + 1, "c") == 0 || strcmp(dot + 1, "h") == 0) {
         config->lang = C;
         config->language_id = "c";
-        config->query_source = c_query_source;
         config->path_lsp = find_executable_in_path("clangd");
         config->lsp_args = clangd_args;
+        config->query_source = Syntax_query(config->language_id, "highlights.scm");
+        config->indent_source = Syntax_query(config->language_id, "indents.scm");
     } else if (strcmp(dot + 1, "go") == 0) {
         config->lang = GO;
         config->language_id = "go";
-        config->query_source = go_highlights_query;
         config->path_lsp = find_executable_in_path("gopls");
         config->lsp_args = go_ls;
+        config->query_source = Syntax_query(config->language_id, "highlights.scm");
+        config->indent_source = Syntax_query(config->language_id, "indents.scm");
     } else {
         free(config);
         return NULL;  // Kalau ga ada return NULL aja HHAHAHA
@@ -174,6 +110,9 @@ void LangConfig_free(LangConfig *config) {
     if (config->path_lsp) {
         free(config->path_lsp);
     }
+
+    if (config->indent_source) free(config->indent_source);
+    if (config->query_source) free(config->query_source);
 
     free(config);
 }

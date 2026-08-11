@@ -221,6 +221,7 @@ Result Fs_create(const char *filename) {
     fclose(f);
 
     char *full_path = Get_full_path(filename);
+    file_manager_refresh();
     return Ok(full_path);
 }
 

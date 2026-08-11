@@ -341,7 +341,7 @@ const char *Git_folder_mark(const char *dir_path) {
 void GitStatus_update(BufManager *bufmgr, float dt) {
     if (prev_push_state && !g_push_in_progress) {
         if (g_push_success) {
-            Notif_show("Push ke remote berhasil! 🚀", NOTIF_SUCCESS, 3.0f);
+            Notif_show("Push ke remote berhasil!", NOTIF_SUCCESS, 3.0f);
         } else {
             const char *err = git_popup.last_error[0] ? git_popup.last_error : "Push gagal!";
             Notif_show(err, NOTIF_ERROR, 4.0f);

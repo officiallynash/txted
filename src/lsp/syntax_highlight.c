@@ -6,6 +6,7 @@
 #include <tree_sitter/tree-sitter-go.h>
 
 #include "lsp_config.h"
+#include "notification.h"
 #include "syntax.h"
 
 /**
@@ -43,8 +44,25 @@ SyntaxState *Syntax_init(LangConfig *lang) {
         state->query = ts_query_new(ts_lang, lang->query_source, strlen(lang->query_source),
                                     &error_offset, &error_type);
         if (!state->query) {
-            printf("[TREE-SITTER ERROR] Failed at character index: %u, Error code: %d\n",
-                   error_offset, error_type);
+            char msg[254];
+            snprintf(msg, sizeof(msg),
+                     "[TREE-SITTER ERROR] Failed at character index: %u, Error code: %d\n",
+                     error_offset, error_type);
+
+            Notif_show(msg, NOTIF_ERROR, 3.0f);
+        }
+    }
+    if (lang->indent_source) {
+        state->indents_query = ts_query_new(
+            ts_lang, lang->indent_source, strlen(lang->indent_source), &error_offset, &error_type);
+
+        if (!state->indents_query) {
+            char msg[254];
+            snprintf(msg, sizeof(msg),
+                     "[TREE-SITTER ERROR] Failed at character index: %u, Error code: %d\n",
+                     error_offset, error_type);
+
+            Notif_show(msg, NOTIF_ERROR, 3.0f);
         }
     }
 
@@ -75,6 +93,7 @@ void Syntax_free(SyntaxState *state) {
     if (state->tree) ts_tree_delete(state->tree);
     if (state->parser) ts_parser_delete(state->parser);
     if (state->query) ts_query_delete(state->query);
+    if (state->indents_query) ts_query_delete(state->indents_query);
     free(state);
 }
 

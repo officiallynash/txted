@@ -34,6 +34,8 @@ void Fs_metadata_free(FileData *fm);
 char *Fs_find_project_root(const char *filepath);
 void draw_file_manager(BufManager *bufmgr, Font font);
 char *Fs_dirname(const char *path);
+void file_manager_refresh(void);
+
 // Initialize a FileList
 FileList *FileList_init(size_t capacity);
 void FileList_free(FileList *list);
