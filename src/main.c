@@ -13,6 +13,7 @@
 #include "lsp_ui.h"
 #include "notification.h"
 #include "raylib.h"
+#include "settings_txted.h"
 #include "theme.h"
 #include "ui.h"
 
@@ -48,6 +49,7 @@ int main(int argc, char *argv[]) {
     // #endif
 
     // Inisasi Buffer Manager
+    Settings_load();
     BufManager bufmgr = {0};
     BufManager_init(&bufmgr);
 
@@ -62,8 +64,7 @@ int main(int argc, char *argv[]) {
         // Argumen sebagai Filename
         BufManager_newtab(&bufmgr, argv[1]);
     } else {
-        BufManager_newtab(&bufmgr, NULL);                           /* tab awal */
-        Notif_show("Buka File untuk fitur LSP", NOTIF_INFO, 3.0f);  // Kasih notif LSP
+        BufManager_newtab(&bufmgr, NULL); /* tab awal */
     }
 
     // Inisiasi Window
@@ -75,11 +76,11 @@ int main(int argc, char *argv[]) {
     SetExitKey(KEY_NULL);
 
     char font_path[512];
-    snprintf(font_path, sizeof(font_path), "%sJetBrainsMono-Regular.ttf",
-             GetApplicationDirectory());
+    snprintf(font_path, sizeof(font_path), "%s/settings/fonts/%s", GetApplicationDirectory(),
+             default_settings.font);
     Font font = LoadFontEx(font_path, FONT_SIZE, NULL, 0);
 
-    Theme_init(TOKYO_NIGHT);  // Init Theme
+    Theme_init(default_settings.theme);  // Init Theme
     SetTextureFilter(font.texture, TEXTURE_FILTER_POINT);
     GuiSetFont(font);
     GuiSetStyle(DEFAULT, TEXT_SIZE, FONT_SIZE);

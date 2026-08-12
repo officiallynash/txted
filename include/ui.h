@@ -5,13 +5,14 @@
 #include <stdbool.h>
 
 #include "buffer_manager.h"
+#include "settings_txted.h"
 
 #define TAB_H 36
 #define STATUS_H 26
 #define DIAG_PANEL_H 26
 #define PAD_X 16
 #define PAD_Y 10
-#define FONT_SIZE 18
+#define FONT_SIZE (float)default_settings.font_size
 #define LINE_H 24
 #define GUTTER_W 50
 
