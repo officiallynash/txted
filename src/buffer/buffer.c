@@ -481,7 +481,8 @@ void Buffer_insert(Buffer *buf, size_t pos_idx, const char *ch) {
     // Sinkronisasi Metadata Git
     Buffer_ensure_git_meta_capacity(buf, buf->lines.line_count);
 
-    if (contains_newline && buf->line_git) {
+    // Sinkronisasi dengan Git jika Path adalah Repo
+    if (git.is_repo && contains_newline && buf->line_git) {
         size_t added_lines = buf->lines.line_count - old_line_count;
 
         // Geser metadata di bawah baris yang terbelah ke arah bawah
@@ -498,7 +499,7 @@ void Buffer_insert(Buffer *buf, size_t pos_idx, const char *ch) {
             strncpy(buf->line_git[i].author, git.author[0] ? git.author : "You",
                     sizeof(buf->line_git[i].author) - 1);
         }
-    } else if (buf->line_git) {
+    } else if (git.is_repo && buf->line_git) {  // Sinkronisasi jika Path adalah Repo
         // Edit biasa (1 baris)
         size_t y = buf->cursor.y;
         buf->line_git[y].status = GUTTER_MODIFIED;
@@ -605,7 +606,7 @@ void Buffer_delete(Buffer *buf, size_t pos_idx) {
         buf, old_line_count > buf->lines.line_count ? old_line_count : buf->lines.line_count);
 
     // Git Metadata
-    if (contains_newline && buf->line_git) {
+    if (git.is_repo && contains_newline && buf->line_git) {  // Jika Path adalah Repo
         size_t deleted_lines = old_line_count - buf->lines.line_count;
         size_t cur_y = buf->cursor.y;
 
@@ -630,7 +631,7 @@ void Buffer_delete(Buffer *buf, size_t pos_idx) {
             strncpy(buf->line_git[cur_y].author, git.author[0] ? git.author : "You",
                     sizeof(buf->line_git[cur_y].author) - 1);
         }
-    } else if (buf->line_git) {
+    } else if (git.is_repo && buf->line_git) {  // Jika Path adalah Repo
         // Delete biasa 1 baris
         size_t y = buf->cursor.y;
         if (y < buf->meta_capacity) {

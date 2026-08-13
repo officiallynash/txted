@@ -1,11 +1,9 @@
 #ifndef SETTINGS_H
 #define SETTINGS_H
 
-#include "theme.h"
-
 typedef struct {
     int font_size;
-    ThemePreset theme;
+    char theme[64];
     char font[128];
 } Settings;
 

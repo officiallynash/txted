@@ -4,19 +4,16 @@
 #include <string.h>
 
 #include "settings_txted.h"
-#include "theme.h"
 
+/**
+ * Init default Values
+ */
 Settings default_settings = {
-    .font_size = 18, .theme = DEFAULT_THEME, .font = "JetBrainsMono-Regular.ttf"};
+    .font_size = 18, .theme = "default", .font = "JetBrainsMono-Regular.ttf"};
 
-static ThemePreset Load_theme(const char *theme_name) {
-    if (strcmp(theme_name, "tokyonight") == 0) {
-        return TOKYO_NIGHT;
-    } else {
-        return DEFAULT_THEME;
-    }
-}
-
+/**
+ * Fungsi untuk Load Settings
+ */
 void Settings_load(void) {
     char setting_path[128];
     snprintf(setting_path, sizeof(setting_path), "%s/settings/settings.ini",
@@ -38,14 +35,13 @@ void Settings_load(void) {
             }
             // Theme
             else if (strcmp(key, "theme") == 0) {
-                default_settings.theme = Load_theme(val);
+                strncpy(default_settings.theme, val, sizeof(default_settings.theme));
             }
             // Font
             else if (strcmp(key, "font") == 0) {
                 strncpy(default_settings.font, val, sizeof(default_settings.font));
             }
         }
-        printf("%s %s", key, val);
     }
     fclose(fp);
 }

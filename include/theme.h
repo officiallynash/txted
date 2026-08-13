@@ -55,7 +55,7 @@ typedef struct {
 extern UITheme g_theme;
 
 // Directives API
-void Theme_init(ThemePreset preset);  // Set tema bawaan (Misal: Dark Modern)
+void Theme_init(const char *filename);  // Set tema bawaan (Misal: Dark Modern)
 void Theme_apply_raygui(void);        // Biar RayGUI otomatis ikut tema!
 
 #endif  // THEME_H

@@ -40,8 +40,9 @@ void BufManager_set_workspace(BufManager *bufmgr, const char *any_path) {
     GitStatus_refresh(bufmgr->path_root, &git);
 
     // Ambil active buffer & validasi path sebelum memanggil git fetch
+    // Jika Path adalah Repo
     Buffer *active = BufManager_getactive(bufmgr);
-    if (active && active->path) {
+    if (git.is_repo && active && active->path) {
         Git_fetch_file_blame(bufmgr->path_root, active->path, active);
         Git_fetch_file_diff(bufmgr->path_root, active->path, active);
     }
@@ -99,8 +100,8 @@ void BufManager_newtab(BufManager *bufmgr, const char *filename) {
         BufManager_set_workspace(bufmgr, filename);
     }
 
-    // Sinkronasi dengan Git Blame dan Diff
-    if (buf && buf->path) {
+    // Sinkronasi dengan Git Blame dan Diff, jika Path itu Repo
+    if (git.is_repo && buf && buf->path) {
         Git_fetch_file_blame(bufmgr->path_root, buf->path, buf);
         Git_fetch_file_diff(bufmgr->path_root, buf->path, buf);
     }
@@ -131,7 +132,8 @@ void BufManager_open(BufManager *bufmgr, const char *filename) {
     }
 
     Buffer *active = BufManager_getactive(bufmgr);
-    if (active && active->path) {
+    // Hanya ambil Blame dan Diff bila Path adalah Repo
+    if (git.is_repo && active && active->path) {
         Git_fetch_file_blame(bufmgr->path_root, active->path, active);
         Git_fetch_file_diff(bufmgr->path_root, active->path, active);
     }
