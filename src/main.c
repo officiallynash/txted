@@ -1,3 +1,8 @@
+/*
+ * TxtEd - Simple Text Editor
+ * Copyright (c) 2026 Nash
+ * SPDX-License-Identifier: MIT
+ */
 #include <stdbool.h>
 #include <stdio.h>
 #include <unistd.h>
@@ -71,12 +76,16 @@ int main(int argc, char *argv[]) {
     int win_h = GetRenderHeight();
     int win_w = GetRenderWidth();
     SetConfigFlags(FLAG_WINDOW_RESIZABLE);
+
+    // Init window dan dynamic title
     InitWindow(win_w, win_h, "TxtEd - Simple Text Editor");
     SetTargetFPS(60);
     SetExitKey(KEY_NULL);
 
+    // Load font
     char font_path[512];
-    snprintf(font_path, sizeof(font_path), "%s/settings/fonts/%s", GetApplicationDirectory(),
+    char *home = getenv("HOME");
+    snprintf(font_path, sizeof(font_path), "%s/.config/txted/settings/fonts/%s", home,
              default_settings.font);
     Font font = LoadFontEx(font_path, FONT_SIZE, NULL, 0);
 
@@ -85,6 +94,7 @@ int main(int argc, char *argv[]) {
     GuiSetFont(font);
     GuiSetStyle(DEFAULT, TEXT_SIZE, FONT_SIZE);
 
+    // Loop utama Aplikasi
     while (!ExitWindow && !WindowShouldClose()) {
         float dt = GetFrameTime();
         Notif_update(dt);

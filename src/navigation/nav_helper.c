@@ -1,3 +1,8 @@
+/*
+ * TxtEd - Simple Text Editor
+ * Copyright (c) 2026 Nash
+ * SPDX-License-Identifier: MIT
+ */
 #include <raylib.h>
 #include <string.h>
 
@@ -260,6 +265,7 @@ void Syntax_auto_indent(Buffer *active_buf) {
     active_buf->cursor.cursor_pos = pos + strlen(insert_str);
     sync_cursor_line_from_pos(active_buf);
 
+    (void)ts_delta;
     Bytes_free(&prev_char);
     Bytes_free(&next_char);
 }

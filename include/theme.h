@@ -1,3 +1,8 @@
+/*
+ * TxtEd - Simple Text Editor
+ * Copyright (c) 2026 Nash
+ * SPDX-License-Identifier: MIT
+ */
 #ifndef THEME_H
 #define THEME_H
 
@@ -56,6 +61,6 @@ extern UITheme g_theme;
 
 // Directives API
 void Theme_init(const char *filename);  // Set tema bawaan (Misal: Dark Modern)
-void Theme_apply_raygui(void);        // Biar RayGUI otomatis ikut tema!
+void Theme_apply_raygui(void);          // Biar RayGUI otomatis ikut tema!
 
 #endif  // THEME_H

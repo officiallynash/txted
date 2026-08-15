@@ -1,3 +1,8 @@
+/*
+ * TxtEd - Simple Text Editor
+ * Copyright (c) 2026 Nash
+ * SPDX-License-Identifier: MIT
+ */
 #include <raylib.h>
 #include <stdbool.h>
 #include <stdio.h>
@@ -265,7 +270,7 @@ void draw_tabs(BufManager *bufmgr, Font font) {
         Vector2 nsize = MeasureTextEx(font, name, FONT_SIZE, 1.0f);
         int tab_w = (int)nsize.x + 48;
 
-        Color bg = (i == bufmgr->active_idx) ? g_theme.active_tab : g_theme.bg_sidebar;
+        Color bg = (i == (size_t)bufmgr->active_idx) ? g_theme.active_tab : g_theme.bg_sidebar;
         DrawRectangle(x, 4, tab_w, TAB_H - 8, bg);
 
         // Render Teks Nama File

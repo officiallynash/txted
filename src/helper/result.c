@@ -1,3 +1,8 @@
+/*
+ * TxtEd - Simple Text Editor
+ * Copyright (c) 2026 Nash
+ * SPDX-License-Identifier: MIT
+ */
 #include "result.h"
 
 #include <unistd.h>

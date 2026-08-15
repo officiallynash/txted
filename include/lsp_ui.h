@@ -1,3 +1,9 @@
+/*
+ * TxtEd - Simple Text Editor
+ * Copyright (c) 2026 Nash
+ * SPDX-License-Identifier: MIT
+ */
+#include <stddef.h>
 #ifndef TXTED_LSP_UI_H
 #define TXTED_LSP_UI_H
 
@@ -29,6 +35,7 @@ typedef struct {
     SignatureHelp signature_help;
     bool has_signature;
     bool signature_pending;
+    size_t sig_y;
 
     // Hover
     HoverInfo hover;

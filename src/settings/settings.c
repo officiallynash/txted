@@ -1,3 +1,8 @@
+/*
+ * TxtEd - Simple Text Editor
+ * Copyright (c) 2026 Nash
+ * SPDX-License-Identifier: MIT
+ */
 #include <raylib.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -16,8 +21,8 @@ Settings default_settings = {
  */
 void Settings_load(void) {
     char setting_path[128];
-    snprintf(setting_path, sizeof(setting_path), "%s/settings/settings.ini",
-             GetApplicationDirectory());
+    char *home = getenv("HOME");
+    snprintf(setting_path, sizeof(setting_path), "%s/.config/txted/settings/settings.ini", home);
 
     FILE *fp = fopen(setting_path, "r");
     if (!fp) return;

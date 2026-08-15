@@ -1,3 +1,8 @@
+/*
+ * TxtEd - Simple Text Editor
+ * Copyright (c) 2026 Nash
+ * SPDX-License-Identifier: MIT
+ */
 #ifndef ROPE_H
 #define ROPE_H
 
@@ -19,7 +24,7 @@ typedef struct {
     size_t len;
 } Bytes;
 
-String* String_new();
+String *String_new();
 void String_insert(String **str, size_t index, const char *text, size_t len);
 void String_delete(String **str, size_t pos_idx, size_t len);
 void String_release(String *str);

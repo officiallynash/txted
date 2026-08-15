@@ -1,8 +1,14 @@
+/*
+ * TxtEd - Simple Text Editor
+ * Copyright (c) 2026 Nash
+ * SPDX-License-Identifier: MIT
+ */
 #include "theme.h"
 
 #include <raylib.h>
 #include <stddef.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 
 #include "raygui.h"
@@ -19,7 +25,8 @@ typedef struct {
  */
 static void Theme_loader(const char *filename) {
     char theme_path[128];
-    snprintf(theme_path, sizeof(theme_path), "%s/settings/theme/%s.ini", GetApplicationDirectory(),
+    char *home = getenv("HOME");
+    snprintf(theme_path, sizeof(theme_path), "%s/.config/txted/settings/theme/%s.ini", home,
              filename);
 
     FILE *fp = fopen(theme_path, "r");

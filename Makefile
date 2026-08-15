@@ -1,5 +1,5 @@
 CC = clang
-CFLAGS = -Wall -Wextra -Iinclude -O2
+CFLAGS = -Wall -Wextra -Iinclude -O2 -fsanitize=leak
 LDFLAGS = -lraylib -lGL -lm -lpthread -ldl -lrt -lX11 -ltree-sitter -ltree-sitter-c -ltree-sitter-go
 
 SRC_DIR = src

@@ -1,3 +1,8 @@
+/*
+ * TxtEd - Simple Text Editor
+ * Copyright (c) 2026 Nash
+ * SPDX-License-Identifier: MIT
+ */
 #include <complex.h>
 #include <ctype.h>
 #include <raylib.h>
@@ -46,6 +51,13 @@ extern void Nav_cut(BufManager *bufmgr, Font font);        // Nav_cut (nav_utils
 extern void Nav_paste(BufManager *bufmgr, Font font);      // Nav_paste (nav_utils.c)
 extern void Nav_redo(BufManager *bufmgr, Font font);       // Nav_redo (nav_utils.c)
 extern void Nav_undo(BufManager *bufmgr, Font font);       // Nav_undo (nav_utils.c)
+
+#define SIGNATURE_HIDE()                                   \
+    if (g_lsp_ui.sig_y != buf->cursor.y) {                 \
+        g_lsp_ui.has_signature = false;                    \
+        g_lsp_ui.sig_y = 0;                                \
+        lsp_free_signature_help(&g_lsp_ui.signature_help); \
+    }
 
 /**
  * Fungsi untuk Navigation mouse berbasis Focus mode
@@ -122,6 +134,7 @@ void handle_input(BufManager *bufmgr, Font font) {
             }
         } else if (is_mouse_in_editor) {
             is_mouse_scroll = true;
+            SIGNATURE_HIDE();  // Biar auto hide si Signature Help
             Nav_mouse_scroll(buf, wheel);
         }
     }
@@ -129,14 +142,12 @@ void handle_input(BufManager *bufmgr, Font font) {
     /* ---------------------------------------------------------------- *
      * Handling Mouse Selection (Click & Drag)
      * ---------------------------------------------------------------- */
-    bool is_mouse_in_canvas = (mouse.x >= Layout.editor_x) && (mouse.y > TAB_H) &&
-                              !Is_active_menu();  // Cek apakah mouse berada di area canvas
-
-    if (is_mouse_in_canvas) {
+    if (is_mouse_in_editor) {
         // PERTAMA KALI KLIK KIRI (Awal Selection)
         if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
             // Pindahkan kursor ke posisi klik
             set_cursor_from_mouse(bufmgr, mouse, buf->scroll_y, font);
+            SIGNATURE_HIDE();  // Auto hide Signature Help
 
             // Kunci titik anchor awal seleksi
             buf->selection.start = buf->cursor.cursor_pos;
@@ -148,7 +159,8 @@ void handle_input(BufManager *bufmgr, Font font) {
             set_cursor_from_mouse(bufmgr, mouse, buf->scroll_y, font);
 
             // Jika posisi kursor bergeser dari titik awal -> NYALAKAN SELECTION!
-            if (buf->cursor.cursor_pos != buf->selection.start) {
+            // Tambahan jika sedang Drag scroll bar, maka Selection tidak aktif
+            if (!buf->is_dragging && buf->cursor.cursor_pos != buf->selection.start) {
                 buf->selection.is_selected = true;
             } else {
                 buf->selection.is_selected = false;
@@ -218,9 +230,11 @@ void handle_input(BufManager *bufmgr, Font font) {
             // Signature Help
             else if (key == '(' || key == ',') {
                 g_lsp_ui.signature_pending = true;
+                g_lsp_ui.sig_y = buf->cursor.y;  // Simpan Y untuk auto close
             } else if (key == ')' || key == ';') {
                 g_lsp_ui.signature_pending = false;
                 g_lsp_ui.has_signature = false;
+                g_lsp_ui.sig_y = 0;
                 lsp_free_signature_help(&g_lsp_ui.signature_help);
             }
         }
@@ -282,11 +296,15 @@ void handle_input(BufManager *bufmgr, Font font) {
 
     // Matiin signature help dan Hover
     if (IsKeyPressed(KEY_ESCAPE)) {
+        // Escape untuk menutup Hover
         if (g_lsp_ui.hover_pending || g_lsp_ui.has_hover) {
             g_lsp_ui.has_hover = false;
             g_lsp_ui.hover_pending = false;
             lsp_free_hover(&g_lsp_ui.hover);
         }
+        // Escape untuk batalkan Selection
+        if (buf->selection.is_selected) buf->selection.is_selected = false;
+        // Escape untuk menutup Signature
         if (g_lsp_ui.has_signature || g_lsp_ui.signature_pending) {
             g_lsp_ui.has_signature = false;
             g_lsp_ui.signature_pending = false;
@@ -340,6 +358,7 @@ void handle_input(BufManager *bufmgr, Font font) {
     if (IsKeyPressed(KEY_UP)) {
         CHECK_SELECTION();
         Nav_move_up(buf);
+        SIGNATURE_HIDE();  // Auto hide
     }
 
     /* -------------------- *
@@ -348,6 +367,7 @@ void handle_input(BufManager *bufmgr, Font font) {
     if (IsKeyPressed(KEY_DOWN)) {
         CHECK_SELECTION();
         Nav_move_down(buf);
+        SIGNATURE_HIDE();  // Auto hide
     }
 
     /* -------------------- *

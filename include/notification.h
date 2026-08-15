@@ -1,25 +1,26 @@
+/*
+ * TxtEd - Simple Text Editor
+ * Copyright (c) 2026 Nash
+ * SPDX-License-Identifier: MIT
+ */
 #ifndef NOTIFICATION_H
 #define NOTIFICATION_H
 
-#include "raylib.h"
 #include <stdbool.h>
 
-typedef enum {
-    NOTIF_INFO,
-    NOTIF_SUCCESS,
-    NOTIF_WARNING,
-    NOTIF_ERROR
-} NotifType;
+#include "raylib.h"
+
+typedef enum { NOTIF_INFO, NOTIF_SUCCESS, NOTIF_WARNING, NOTIF_ERROR } NotifType;
 
 typedef struct {
     char message[256];
     NotifType type;
-    float timer;       // Durasi tersisa dalam detik
-    float max_duration;// Total durasi awal (buat animasi fade out)
+    float timer;         // Durasi tersisa dalam detik
+    float max_duration;  // Total durasi awal (buat animasi fade out)
     bool active;
 } NotificationManager;
 
-extern NotificationManager notif; // Global instance
+extern NotificationManager notif;  // Global instance
 
 // Global instance atau helper functions
 void Notif_init(void);

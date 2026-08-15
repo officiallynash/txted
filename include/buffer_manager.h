@@ -1,3 +1,8 @@
+/*
+ * TxtEd - Simple Text Editor
+ * Copyright (c) 2026 Nash
+ * SPDX-License-Identifier: MIT
+ */
 #ifndef BUFFER_MANAGER_H
 #define BUFFER_MANAGER_H
 #define MAX_TABS 7
@@ -5,17 +10,16 @@
 #include <stddef.h>
 
 #include "buffer.h"
-#include "clipboard.h"
 
 /**
  * Enum untuk Switch Tab
  */
-typedef enum { PREV, NEXT } SwitchTab;
+typedef enum SwitchTab { PREV, NEXT } SwitchTab;
 
 /**
  * Enum untuk Focus Mode
  */
-typedef enum { WRITE, FILE_MANAGER } ViewFocus;
+typedef enum ViewFocus { WRITE, FILE_MANAGER } ViewFocus;
 
 /**
  * Struct pembungkus untuk Buffer, ini jantungnya Multi tab
@@ -23,7 +27,7 @@ typedef enum { WRITE, FILE_MANAGER } ViewFocus;
 typedef struct {
     Buffer *buf[MAX_TABS];  // Array buffer
     size_t num_tabs;
-    size_t active_idx;
+    int active_idx;
     Clipboard *clp;  // Clipboard
 
     bool show_help;        // Menu help (agar ga bentrok dengan Main Ui)

@@ -1,3 +1,8 @@
+/*
+ * TxtEd - Simple Text Editor
+ * Copyright (c) 2026 Nash
+ * SPDX-License-Identifier: MIT
+ */
 #include <stddef.h>
 #ifndef BUFFER_H
 #define BUFFER_H
@@ -77,6 +82,7 @@ typedef struct {
     bool is_dirty;
     char *path;
     char *filename;
+    bool is_dragging;
 
     // Git
     LineGitMeta *line_git;

@@ -1,3 +1,8 @@
+/*
+ * TxtEd - Simple Text Editor
+ * Copyright (c) 2026 Nash
+ * SPDX-License-Identifier: MIT
+ */
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -563,11 +568,13 @@ void draw_editor(BufManager *bufmgr, Font font) {
         // Dragging & Interaction
         if (is_hovered && IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
             is_dragging_scroll = true;
+            buf->is_dragging = true;
             drag_click_y = mouse_pos.y - thumb_y;
         }
 
         if (IsMouseButtonReleased(MOUSE_BUTTON_LEFT)) {
             is_dragging_scroll = false;
+            buf->is_dragging = false;
         }
 
         if (is_dragging_scroll) {

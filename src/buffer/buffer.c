@@ -1,3 +1,8 @@
+/*
+ * TxtEd - Simple Text Editor
+ * Copyright (c) 2026 Nash
+ * SPDX-License-Identifier: MIT
+ */
 #include "buffer.h"
 
 #include <ctype.h>
@@ -312,6 +317,7 @@ Buffer *Buffer_new() {
     new_buffer->state = NULL;
     new_buffer->language_id = NULL;
     new_buffer->scroll_y = 0;  // UI State
+    new_buffer->is_dragging = false;
 
     // Metadata Git
     new_buffer->meta_capacity = new_buffer->lines.line_count ? new_buffer->lines.line_count : 64;
@@ -362,6 +368,7 @@ Buffer *Buffer_open(const char *filename) {
     // Setting default untuk new selection (Default is false)
     new->selection.is_selected = false;
     new->scroll_y = 0;  // UI State
+    new->is_dragging = false;
 
     // Git
     new->meta_capacity = (lines.line_count > 64) ? lines.line_count : 64;

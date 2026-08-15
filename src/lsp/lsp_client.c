@@ -1,3 +1,8 @@
+/*
+ * TxtEd - Simple Text Editor
+ * Copyright (c) 2026 Nash
+ * SPDX-License-Identifier: MIT
+ */
 #include <cJSON.h>
 #include <ctype.h>
 #include <limits.h>
@@ -116,6 +121,7 @@ Result lsp_ui_init(const char *lsp_path, char **argv) {
     g_lsp_ui.visible = false;
     g_lsp_ui.signature_pending = false;
     g_lsp_ui.has_signature = false;
+    g_lsp_ui.sig_y = 0;
 
     // Inisiasi LSP dengan Result ala Rust
     if (!lsp_start(lsp_path, argv, g_lsp_ui.root_uri)) {

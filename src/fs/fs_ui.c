@@ -1,3 +1,8 @@
+/*
+ * TxtEd - Simple Text Editor
+ * Copyright (c) 2026 Nash
+ * SPDX-License-Identifier: MIT
+ */
 #include <dirent.h>
 #include <raylib.h>
 #include <stdbool.h>
@@ -13,6 +18,8 @@
 #include "git_client.h"
 #include "theme.h"
 #include "ui.h"
+
+extern bool Is_active_menu(void);  // Cek apakah active menu aktif. (tab.c)
 
 /**
  * Struct untuk menampung File List
@@ -206,8 +213,10 @@ static void draw_file_node_recursive(FileNode *node, Font font, EditorLayout L, 
     float visible_bottom = L.fm_y + L.fm_h;
 
     if (item_y + item_h > visible_top && item_y < visible_bottom) {
-        bool is_hovered = CheckCollisionPointRec(mouse_pos, item_bounds);
-        bool is_selected = (!node->is_directory && strcmp(g_active_file_path, node->path) == 0);
+        // Tambahan cek apakah Active menu sedang aktif
+        bool is_hovered = CheckCollisionPointRec(mouse_pos, item_bounds) && !Is_active_menu();
+        bool is_selected = (!node->is_directory && strcmp(g_active_file_path, node->path) == 0 &&
+                            !Is_active_menu());
 
         if (is_selected) {
             DrawRectangleRounded(item_bounds, 0.15f, 4, g_theme.active_line);
@@ -238,6 +247,7 @@ static void draw_file_node_recursive(FileNode *node, Font font, EditorLayout L, 
                                ? g_theme.keyword
                                : (is_selected ? g_theme.cursor : g_theme.text_normal);
 
+        // Git Mark (Untuk tracking Changes dan lain2)
         const char *mark = "";
         if (node->is_directory) {
             mark = Git_folder_mark(node->path);
@@ -316,19 +326,11 @@ void draw_file_manager(BufManager *bufmgr, Font font) {
     DrawRectangle(L.fm_x, L.fm_y, L.fm_w, L.fm_h, g_theme.bg_sidebar);
     DrawLine(L.fm_x + L.fm_w - 1, L.fm_y, L.fm_x + L.fm_w - 1, L.fm_y + L.fm_h, g_theme.border);
 
-    DrawTextEx(font, "EXPLORER", (Vector2){(float)(L.fm_x + 12), (float)(L.fm_y + 8)}, FONT_SIZE,
-               1.0f, g_theme.cursor);
+    DrawTextEx(font, "FILE EXPLORER", (Vector2){(float)(L.fm_x + 12), (float)(L.fm_y + 8)},
+               FONT_SIZE, 1.0f, g_theme.cursor);
 
     Rectangle fm_rect = {(float)L.fm_x, (float)L.fm_y, (float)L.fm_w,
                          (float)(L.fm_h - DIAG_PANEL_H)};
-
-    if (CheckCollisionPointRec(mouse_pos, fm_rect)) {
-        float wheel = GetMouseWheelMove();
-        if (wheel != 0) {
-            g_fm_scroll_y -= wheel * 22.0f;
-            if (g_fm_scroll_y < 0.0f) g_fm_scroll_y = 0.0f;
-        }
-    }
 
     // Batasi ScissorMode agar tree view tidak menimpa panel workspace info di bawah
     float content_start_y = L.fm_y + 32.0f;
@@ -357,6 +359,14 @@ void draw_file_manager(BufManager *bufmgr, Font font) {
     if (g_fm_scroll_y < 0.0f) g_fm_scroll_y = 0.0f;
     if (g_fm_scroll_y > max_scroll) g_fm_scroll_y = max_scroll;
 
+    if (CheckCollisionPointRec(mouse_pos, fm_rect) && !Is_active_menu()) {
+        float wheel = GetMouseWheelMove();
+        if (wheel != 0) {
+            g_fm_scroll_y -= wheel * 22.0f;
+            if (g_fm_scroll_y < 0.0f) g_fm_scroll_y = 0.0f;
+        }
+    }
+
     // Render Custom Scrollbar Indicator (Visual Bar Samping Kanan Sidebar)
     if (max_scroll > 0) {
         float thumb_h = (view_h / total_content_h) * view_h;
@@ -368,19 +378,7 @@ void draw_file_manager(BufManager *bufmgr, Font font) {
         DrawRectangleRounded(scrollbar_rect, 0.5f, 4, g_theme.border);
     }
 
-    // Panel Workspace
+    // Line separator
     float ws_y = L.fm_y + L.fm_h - DIAG_PANEL_H;
     DrawLine(L.fm_x, (int)ws_y, L.fm_x + L.fm_w - 1, (int)ws_y, g_theme.border);
-
-    const char *ws_path =
-        bufmgr->path_root ? format_pretty_path(bufmgr->path_root) : g_loaded_root_path;
-
-    char ws_label[256];
-    snprintf(ws_label, sizeof(ws_label), "ROOT: %s", ws_path[0] ? ws_path : "No Workspace");
-
-    // Clipping teks workspace jika terlalu panjang
-    BeginScissorMode(L.fm_x + 4, (int)ws_y, L.fm_w - 8, DIAG_PANEL_H);
-    DrawTextEx(font, ws_label, (Vector2){(float)(L.fm_x + 8), ws_y + 2.0f}, FONT_SIZE, 1.0f,
-               g_theme.text_normal);
-    EndScissorMode();
 }

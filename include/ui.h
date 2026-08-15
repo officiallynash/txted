@@ -1,3 +1,8 @@
+/*
+ * TxtEd - Simple Text Editor
+ * Copyright (c) 2026 Nash
+ * SPDX-License-Identifier: MIT
+ */
 #ifndef UI_H
 #define UI_H
 
@@ -5,7 +10,6 @@
 #include <stdbool.h>
 
 #include "buffer_manager.h"
-#include "settings_txted.h"
 
 #define TAB_H 36
 #define STATUS_H 26
@@ -18,11 +22,11 @@
 
 typedef struct {
     int win_h, win_w;
-    int fm_x, fm_y, fm_w, fm_h;       // area file manager
-    int editor_x, editor_y;           // origin editor
-    int editor_w, editor_h;           // ukuran editor
-    int gutter_screen_x;              // X gutter di layar
-    int text_screen_x;                // X awal teks di layar
+    int fm_x, fm_y, fm_w, fm_h;  // area file manager
+    int editor_x, editor_y;      // origin editor
+    int editor_w, editor_h;      // ukuran editor
+    int gutter_screen_x;         // X gutter di layar
+    int text_screen_x;           // X awal teks di layar
 } EditorLayout;
 
 typedef struct {

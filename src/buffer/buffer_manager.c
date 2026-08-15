@@ -1,3 +1,8 @@
+/*
+ * TxtEd - Simple Text Editor
+ * Copyright (c) 2026 Nash
+ * SPDX-License-Identifier: MIT
+ */
 #include "buffer_manager.h"
 
 #include <stdbool.h>
@@ -194,8 +199,8 @@ void BufManager_closetab(BufManager *bufmgr) {
     bufmgr->num_tabs--;
 
     // Update active_idx secara pasti dan aman
-    if (bufmgr->active_idx >= bufmgr->num_tabs) {
-        bufmgr->active_idx = bufmgr->num_tabs - 1;
+    if (bufmgr->active_idx >= (int)bufmgr->num_tabs) {
+        bufmgr->active_idx = (int)bufmgr->num_tabs - 1;
     }
 }
 

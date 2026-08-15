@@ -1,3 +1,8 @@
+/*
+ * TxtEd - Simple Text Editor
+ * Copyright (c) 2026 Nash
+ * SPDX-License-Identifier: MIT
+ */
 #include <asm-generic/errno.h>
 #include <stdbool.h>
 #define _POSIX_C_SOURCE 200809L

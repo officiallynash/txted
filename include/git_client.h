@@ -1,3 +1,8 @@
+/*
+ * TxtEd - Simple Text Editor
+ * Copyright (c) 2026 Nash
+ * SPDX-License-Identifier: MIT
+ */
 #include <raylib.h>
 #ifndef GIT_CLIENT_H
 #define GIT_CLIENT_H

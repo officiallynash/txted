@@ -1,3 +1,8 @@
+/*
+ * TxtEd - Simple Text Editor
+ * Copyright (c) 2026 Nash
+ * SPDX-License-Identifier: MIT
+ */
 #include "git_client.h"
 
 #include <pthread.h>
@@ -379,11 +384,13 @@ void format_time_ago(const char *author, double last_edited, char *out_str, size
     if (!name || name[0] == '\0') name = "You";
 
     if (diff < 60) {
-        snprintf(out_str, max_len, "edited by %s • just now", name);
+        snprintf(out_str, max_len, "@%s, just now", name);
     } else if (diff < 3600) {
-        snprintf(out_str, max_len, "edited by %s • %dm ago", name, (int)(diff / 60));
+        snprintf(out_str, max_len, "@%s, %dm ago", name, (int)(diff / 60));
+    } else if (diff < 86400) {
+        snprintf(out_str, max_len, "@%s, %dh ago", name, (int)(diff / 3600));
     } else {
-        snprintf(out_str, max_len, "edited by %s • %dh ago", name, (int)(diff / 3600));
+        snprintf(out_str, max_len, "@%s, %dd ago", name, (int)(diff / 86400));
     }
 }
 
