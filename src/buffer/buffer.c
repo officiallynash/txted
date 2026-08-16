@@ -127,13 +127,15 @@ void Get_selected_position(Buffer *buf, size_t *start, size_t *len) {
 void sync_syntax_tree(Buffer *buf) {
     if (!buf || !buf->state) return;
 
-    Bytes full_text = String_get(buf->str, 0, buf->str->len);
+    size_t rope_len = String_len(buf->str);
+    Bytes full_text = String_get(buf->str, 0, rope_len);
     if (full_text.data) {
         if (buf->state->tree) {
             ts_tree_delete(buf->state->tree);
         }
-        buf->state->tree = ts_parser_parse_string(
-            buf->state->parser, NULL, (const char *)full_text.data, (uint32_t)buf->str->len);
+
+        buf->state->tree = ts_parser_parse_string(buf->state->parser, NULL,
+                                                  (const char *)full_text.data, (uint32_t)rope_len);
         Bytes_free(&full_text);
     }
 }
@@ -157,15 +159,16 @@ char *get_display_name(const char *filepath) {
  */
 static size_t position_to_offset(Buffer *buf, int line, int character) {
     if (!buf || line < 0) return 0;
-    if ((size_t)line >= buf->lines.line_count) return buf->str->len;
+    size_t rope_len = String_len(buf->str);
+    if ((size_t)line >= buf->lines.line_count) return rope_len;
 
     size_t line_start = buf->lines.offset[line];
     size_t line_end =
-        (line + 1 < (int)buf->lines.line_count) ? buf->lines.offset[line + 1] : buf->str->len;
+        (line + 1 < (int)buf->lines.line_count) ? buf->lines.offset[line + 1] : rope_len;
 
     size_t offset = line_start + (size_t)character;
     if (offset > line_end) offset = line_end;
-    if (offset > buf->str->len) offset = buf->str->len;
+    if (offset > rope_len) offset = rope_len;
     return offset;
 }
 
@@ -205,8 +208,10 @@ bool lsp_apply_text_edits(Buffer *buf, TextEditList *edits) {
         // Rebuild line index (karena bisa banyak newline berubah)
         free(buf->lines.offset);
         buf->lines = LineIndex_init();
-        if (buf->str->len > 0) {
-            Bytes all = String_get(buf->str, 0, buf->str->len);
+        size_t rope_len = String_len(buf->str);
+
+        if (rope_len > 0) {
+            Bytes all = String_get(buf->str, 0, rope_len);
             if (all.data) {
                 LineIndex_insert(&buf->lines, (const char *)all.data, all.len);
                 Bytes_free(&all);
@@ -214,7 +219,7 @@ bool lsp_apply_text_edits(Buffer *buf, TextEditList *edits) {
         }
 
         // Update cursor ke posisi aman
-        if (buf->cursor.cursor_pos > buf->str->len) buf->cursor.cursor_pos = buf->str->len;
+        if (buf->cursor.cursor_pos > rope_len) buf->cursor.cursor_pos = rope_len;
 
         // Sync syntax + dirty
         buf->is_dirty = true;
@@ -281,9 +286,9 @@ char *Path_to_uri(const char *path) {
 char Buffer_get_char_at(Buffer *buf, size_t line, size_t col) {
     if (!buf || line >= buf->lines.line_count) return '\0';
 
+    size_t rope_len = String_len(buf->str);
     size_t line_start = buf->lines.offset[line];
-    size_t line_end =
-        (line + 1 < buf->lines.line_count) ? buf->lines.offset[line + 1] : buf->str->len;
+    size_t line_end = (line + 1 < buf->lines.line_count) ? buf->lines.offset[line + 1] : rope_len;
 
     // Pastikan col tidak melebihi panjang baris
     if (line_start + col >= line_end) return '\0';
@@ -392,7 +397,9 @@ Buffer *Buffer_open(const char *filename) {
         // Set document
         if (new->path) {
             char *uri = Path_to_uri(new->path);
-            Bytes full_text = String_get(new->str, 0, new->str->len);
+
+            size_t rope_len = String_len(new->str);
+            Bytes full_text = String_get(new->str, 0, rope_len);
             if (full_text.data) {
                 lsp_ui_set_document(uri, lang->language_id, (const char *)full_text.data);
 
@@ -432,6 +439,7 @@ void Buffer_insert(Buffer *buf, size_t pos_idx, const char *ch) {
     // Save Line Count dan Original Y
     size_t old_line_count = buf->lines.line_count;
     size_t orig_y = buf->cursor.y;
+    size_t rope_len = String_len(buf->str);
 
     Undo_push(&buf->undo, UNDO_INSERT, pos_idx, ch, text_len);  // UndoStack
     // Jika ada seleksi, hapus dulu baru nulis
@@ -467,8 +475,8 @@ void Buffer_insert(Buffer *buf, size_t pos_idx, const char *ch) {
         free(buf->lines.offset);
         buf->lines = LineIndex_init();
 
-        if (buf->str->len > 0) {
-            Bytes all = String_get(buf->str, 0, buf->str->len);
+        if (rope_len > 0) {
+            Bytes all = String_get(buf->str, 0, rope_len);
             if (all.data) {
                 LineIndex_insert(&buf->lines, (const char *)all.data, all.len);
                 Bytes_free(&all);
@@ -519,7 +527,7 @@ void Buffer_insert(Buffer *buf, size_t pos_idx, const char *ch) {
 
     // Update LSP
     if (buf->language_id) {
-        Bytes all_text = String_get(buf->str, 0, buf->str->len);
+        Bytes all_text = String_get(buf->str, 0, rope_len);
         if (all_text.data) {
             char *uri = Path_to_uri(buf->path);
             lsp_did_change(uri, (const char *)all_text.data, buf->lsp_version);
@@ -535,7 +543,9 @@ void Buffer_insert(Buffer *buf, size_t pos_idx, const char *ch) {
  * Fungsi untuk menghapus teks dari Buffer [PUBLIC API]
  */
 void Buffer_delete(Buffer *buf, size_t pos_idx) {
-    if (!buf || !buf->str || buf->str->len == 0) return;
+    if (!buf || !buf->str) return;
+    size_t rope_len = String_len(buf->str);
+    if (rope_len == 0) return;
 
     size_t len = 0;
     size_t start_del = 0;
@@ -554,7 +564,7 @@ void Buffer_delete(Buffer *buf, size_t pos_idx) {
     size_t old_line_count = buf->lines.line_count;
 
     if (len == 0) return;
-    if (start_del + len > buf->str->len) len = buf->str->len - start_del;
+    if (start_del + len > rope_len) len = rope_len - start_del;
 
     // Cek apakah ada karakter '\n' di area yang mau dihapus
     bool contains_newline = false;
@@ -586,8 +596,8 @@ void Buffer_delete(Buffer *buf, size_t pos_idx) {
         free(buf->lines.offset);
         buf->lines = LineIndex_init();
 
-        if (buf->str->len > 0) {
-            Bytes all = String_get(buf->str, 0, buf->str->len);
+        if (rope_len > 0) {
+            Bytes all = String_get(buf->str, 0, rope_len);
             if (all.data) {
                 LineIndex_insert(&buf->lines, (const char *)all.data, all.len);
                 Bytes_free(&all);
@@ -653,7 +663,7 @@ void Buffer_delete(Buffer *buf, size_t pos_idx) {
     sync_syntax_tree(buf);
 
     if (buf->language_id && buf->path) {
-        Bytes full_text = String_get(buf->str, 0, buf->str->len);
+        Bytes full_text = String_get(buf->str, 0, rope_len);
         char *uri = Path_to_uri(buf->path);
         if (uri) {
             lsp_did_change(uri, (const char *)full_text.data, buf->lsp_version);
@@ -684,6 +694,7 @@ void Buffer_save(Buffer *buf, const char *filename) {
         }
     }
 
+    size_t rope_len = String_len(buf->str);
     // Proses Auto format jika hanya punya language id
     if (buf->language_id != NULL) {
         char *uri = Path_to_uri(buf->path);
@@ -691,7 +702,7 @@ void Buffer_save(Buffer *buf, const char *filename) {
             TextEditList edits = lsp_format(uri, 4, true);
             if (edits.count > 0) {
                 lsp_apply_text_edits(buf, &edits);
-                Bytes data = String_get(buf->str, 0, buf->str->len);
+                Bytes data = String_get(buf->str, 0, rope_len);
                 if (data.data) {
                     lsp_did_change(uri, (const char *)data.data, buf->lsp_version);
                     buf->lsp_version++;
@@ -703,7 +714,7 @@ void Buffer_save(Buffer *buf, const char *filename) {
         }
     }
 
-    Bytes data = String_get(buf->str, 0, buf->str->len);
+    Bytes data = String_get(buf->str, 0, rope_len);
 
     Result result = Fs_savefile(buf->path, (const char *)data.data, data.len);
     if (result.type == RESULT_OK) {
@@ -814,10 +825,11 @@ char *Buffer_get_line_text(Buffer *buf, size_t y) {
     size_t start = buf->lines.offset[y];
     size_t end;
 
+    size_t rope_len = String_len(buf->str);
     if (y + 1 < buf->lines.line_count) {
         end = buf->lines.offset[y + 1];
     } else {
-        end = buf->str->len;
+        end = rope_len;
     }
 
     size_t length = end - start;  // Panjang teks

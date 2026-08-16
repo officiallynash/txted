@@ -10,6 +10,7 @@
 #include <stdbool.h>
 
 #include "buffer_manager.h"
+#include "settings_txted.h"
 
 #define TAB_H 36
 #define STATUS_H 26

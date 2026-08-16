@@ -10,6 +10,17 @@
 #include "theme.h"
 #include "ui.h"
 
+/**
+ * Struct untuk menampung informasi untuk Notifikasi
+ */
+struct NotificationManager {
+    char message[256];
+    NotifType type;
+    float timer;         // Durasi tersisa dalam detik
+    float max_duration;  // Total durasi awal (buat animasi fade out)
+    bool active;
+};
+
 NotificationManager notif = {0};  // Global instance
 
 /**

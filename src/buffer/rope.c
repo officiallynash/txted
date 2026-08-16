@@ -10,40 +10,28 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#define MAX_SIZE_LEAF 1024
 
-String *String_new();  // Register awal
+String *String_new();            // Register awal
+size_t String_len(String *str);  // Register Awal
 
 /* ================================
  * PRIVATE API
  * ================================ */
 
-/**
- * Fungsi untuk reference counting [PRIVATE API]
- */
-void String_release(String *str) {
-    if (!str) return;
-    str->ref_count--;
+struct String {
+    char *str;
+    size_t len;
+    size_t weight;
+    size_t ref_count;
 
-    if (str->ref_count > 0) return;
-
-    String_release(str->left);
-    String_release(str->right);
-
-    if (str->str != NULL) {
-        free(str->str);
-    }
-    free(str);
-}
-
-/**
- * Fungsi untuk mengetahui panjang String [PRIVATE API]
- */
-size_t String_len(String *str) { return str ? str->len : 0; }
+    struct String *left, *right;
+};
 
 /**
  * Fungsi untuk menambahkan ref_count [PRIVATE API]
  */
-void String_retain(String *str) {
+static void String_retain(String *str) {
     if (!str) return;
     str->ref_count++;
 }
@@ -110,7 +98,7 @@ static String *String_concat(String *left, String *right) {
 /**
  * Fungsi untuk String Split [PRIVATE API]
  */
-void String_split(String *root, size_t index, String **left, String **right) {
+static void String_split(String *root, size_t index, String **left, String **right) {
     // Guard clause kalau Root itu Kosong
     if (!root) {
         *left = *right = NULL;
@@ -199,6 +187,11 @@ static void String_collect(String *str, size_t start, size_t len, unsigned char 
  * ========================== */
 
 /**
+ * Fungsi untuk mengetahui panjang String [PUBLIC API]
+ */
+size_t String_len(String *str) { return str ? str->len : 0; }
+
+/**
  * Fungsi untuk deklarasi String [PUBLIC API]
  */
 String *String_new() {
@@ -210,6 +203,24 @@ String *String_new() {
     new->ref_count = 1;
     new->left = new->right = NULL;
     return new;
+}
+
+/**
+ * Fungsi untuk reference counting [PRIVATE API]
+ */
+void String_release(String *str) {
+    if (!str) return;
+    str->ref_count--;
+
+    if (str->ref_count > 0) return;
+
+    String_release(str->left);
+    String_release(str->right);
+
+    if (str->str != NULL) {
+        free(str->str);
+    }
+    free(str);
 }
 
 /**

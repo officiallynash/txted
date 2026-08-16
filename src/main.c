@@ -55,8 +55,7 @@ int main(int argc, char *argv[]) {
 
     // Inisasi Buffer Manager
     Settings_load();
-    BufManager bufmgr = {0};
-    BufManager_init(&bufmgr);
+    BufManager *bufmgr = BufManager_init();
 
     // Inisiasi Notify
     Notif_init();
@@ -67,9 +66,9 @@ int main(int argc, char *argv[]) {
     // Jika dibuka dengan txted filename
     if (argc == 2) {
         // Argumen sebagai Filename
-        BufManager_newtab(&bufmgr, argv[1]);
+        BufManager_newtab(bufmgr, argv[1]);
     } else {
-        BufManager_newtab(&bufmgr, NULL); /* tab awal */
+        BufManager_newtab(bufmgr, NULL); /* tab awal */
     }
 
     // Inisiasi Window
@@ -98,17 +97,17 @@ int main(int argc, char *argv[]) {
     while (!ExitWindow && !WindowShouldClose()) {
         float dt = GetFrameTime();
         Notif_update(dt);
-        GitStatus_update(&bufmgr, dt);
+        GitStatus_update(bufmgr, dt);
 
         // Handle Input biasa hanya jika TIDAK sedang minta exit
         if (!ExitWindowRequested) {
-            lsp_ui_update(&bufmgr, dt);
+            lsp_ui_update(bufmgr, dt);
 
             if (IsKeyPressed(KEY_SPACE) && IsKeyDown(KEY_LEFT_CONTROL)) {
                 lsp_ui_toggle();
             }
             if (!git_popup.open) {
-                handle_input(&bufmgr, font);
+                handle_input(bufmgr, font);
             }
         } else {
             lsp_ui_hide();
@@ -121,7 +120,7 @@ int main(int argc, char *argv[]) {
         ClearBackground(g_theme.bg_main);
 
         // Render Editor UI dulu di layer paling bawah!
-        render_all_ui(&bufmgr, font);
+        render_all_ui(bufmgr, font);
 
         // Render Modal Confirm Exit di LAYER PALING ATAS
         if (ExitWindowRequested) {
@@ -173,7 +172,7 @@ int main(int argc, char *argv[]) {
         UnloadFont(font);  // Safe free font
     }
 
-    BufManager_destroy(&bufmgr);  // Free semua buffer
-    CloseWindow();                // Close window dan Context openGl
+    BufManager_destroy(bufmgr);  // Free semua buffer
+    CloseWindow();               // Close window dan Context openGl
     return 0;
 }

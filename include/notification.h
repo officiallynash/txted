@@ -11,14 +11,7 @@
 #include "raylib.h"
 
 typedef enum { NOTIF_INFO, NOTIF_SUCCESS, NOTIF_WARNING, NOTIF_ERROR } NotifType;
-
-typedef struct {
-    char message[256];
-    NotifType type;
-    float timer;         // Durasi tersisa dalam detik
-    float max_duration;  // Total durasi awal (buat animasi fade out)
-    bool active;
-} NotificationManager;
+typedef struct NotificationManager NotificationManager;
 
 extern NotificationManager notif;  // Global instance
 

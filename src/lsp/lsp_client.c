@@ -7,6 +7,7 @@
 #include <ctype.h>
 #include <limits.h>
 #include <stdbool.h>
+#include <stddef.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -21,6 +22,7 @@
 #include "notification.h"
 #include "raylib.h"
 #include "result.h"
+#include "rope.h"
 
 float lsp_debounce_timer = 0.0f;  // Debounce
 LspUiState g_lsp_ui = {0};
@@ -263,6 +265,7 @@ void lsp_ui_update(BufManager *bufmgr, float dt) {
         lsp_ui_hide();
         return;
     }
+    size_t rope_len = String_len(buf->str);
 
     // EKSEKUSI REQUEST LSP (Saat Debounce Selesai)
     if (g_lsp_ui.request_pending) {
@@ -271,7 +274,7 @@ void lsp_ui_update(BufManager *bufmgr, float dt) {
             char *uri = Path_to_uri((char *)buf->path);
             if (uri) {
                 if (strcmp(g_lsp_ui.uri, uri) != 0) {
-                    Bytes text = String_get(buf->str, 0, buf->str->len);
+                    Bytes text = String_get(buf->str, 0, rope_len);
                     lsp_ui_set_document(uri, buf->language_id,
                                         text.data ? (const char *)text.data : "");
                     Bytes_free(&text);
@@ -287,7 +290,7 @@ void lsp_ui_update(BufManager *bufmgr, float dt) {
         lsp_ui_clear_completion();
 
         if (g_lsp_ui.uri[0] != '\0') {
-            Bytes text = String_get(buf->str, 0, buf->str->len);
+            Bytes text = String_get(buf->str, 0, rope_len);
             if (text.data) {
                 lsp_did_change(g_lsp_ui.uri, (const char *)text.data, buf->lsp_version);
 

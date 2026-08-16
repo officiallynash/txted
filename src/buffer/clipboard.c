@@ -12,6 +12,14 @@
 #include "rope.h"
 
 /**
+ * Struct untuk data Clipboard baik untuk Text Editor maupun OS
+ */
+struct Clipboard {
+    unsigned char *data;
+    size_t len;
+};
+
+/**
  * Helper internal: Kirim string ke OS Clipboard [PRIVATE API]
  */
 static void os_clipboard_set(const char *text) {

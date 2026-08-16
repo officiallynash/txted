@@ -4,6 +4,7 @@
  * SPDX-License-Identifier: MIT
  */
 #include <raylib.h>
+#include <stddef.h>
 #include <string.h>
 
 #include "buffer.h"
@@ -91,9 +92,10 @@ void set_cursor_from_mouse(BufManager *bufmgr, Vector2 mouse, int scroll_y, Font
 void sync_cursor_line_from_pos(Buffer *buf) {
     if (!buf || buf->lines.line_count == 0) return;
 
+    size_t rope_len = String_len(buf->str);
     // Pastikan cursor_pos berada dalam range buffer yang valid
-    if (buf->cursor.cursor_pos > buf->str->len) {
-        buf->cursor.cursor_pos = buf->str->len;
+    if (buf->cursor.cursor_pos > rope_len) {
+        buf->cursor.cursor_pos = rope_len;
     }
 
     size_t line = 0;
@@ -178,7 +180,7 @@ void Syntax_auto_indent(Buffer *active_buf) {
     if (!active_buf || !active_buf->str) return;
 
     size_t pos = active_buf->cursor.cursor_pos;
-    size_t len = active_buf->str->len;
+    size_t len = String_len(active_buf->str);
     if (pos > len) pos = len;
 
     // Ambil Indentasi Eksis Baris Sekarang

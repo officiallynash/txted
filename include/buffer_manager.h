@@ -24,7 +24,7 @@ typedef enum ViewFocus { WRITE, FILE_MANAGER } ViewFocus;
 /**
  * Struct pembungkus untuk Buffer, ini jantungnya Multi tab
  */
-typedef struct {
+typedef struct BufManager {
     Buffer *buf[MAX_TABS];  // Array buffer
     size_t num_tabs;
     int active_idx;
@@ -38,7 +38,7 @@ typedef struct {
     char *path_root;
 } BufManager;
 
-void BufManager_init(BufManager *bufmgr);
+BufManager *BufManager_init(void);
 void BufManager_newtab(BufManager *bufmgr, const char *filename);
 void BufManager_open(BufManager *bufmgr, const char *filename);
 Buffer *BufManager_getactive(BufManager *bufmgr);

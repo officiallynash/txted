@@ -56,8 +56,9 @@ void BufManager_set_workspace(BufManager *bufmgr, const char *any_path) {
 /**
  * Fungsi untuk inisiasi Buffer Manager [PUBLIC API]
  */
-void BufManager_init(BufManager *bufmgr) {
-    if (!bufmgr) return;
+BufManager *BufManager_init(void) {
+    BufManager *bufmgr = malloc(sizeof(BufManager));
+    if (!bufmgr) return NULL;
     bufmgr->active_idx = -1;
     bufmgr->num_tabs = 0;
     bufmgr->clp = Clipboard_init();
@@ -70,6 +71,7 @@ void BufManager_init(BufManager *bufmgr) {
     for (size_t i = 0; i < MAX_TABS; i++) {
         bufmgr->buf[i] = NULL;
     }
+    return bufmgr;
 }
 
 /**
@@ -225,6 +227,8 @@ void BufManager_destroy(BufManager *bufmgr) {
     if (bufmgr->path_root != NULL) free(bufmgr->path_root);
     bufmgr->active_idx = -1;
     bufmgr->num_tabs = 0;
+
+    free(bufmgr);
 }
 
 /**

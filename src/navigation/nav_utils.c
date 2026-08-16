@@ -5,6 +5,7 @@
  */
 #include <raylib.h>
 #include <stdbool.h>
+#include <stddef.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -17,6 +18,7 @@
 #include "notification.h"
 #include "raygui.h"
 #include "result.h"
+#include "rope.h"
 #include "ui.h"
 
 extern int visible_lines();                         // Visible lines (render.c)
@@ -29,10 +31,11 @@ extern char *format_pretty_path(const char *path);  // (fs.c)
 void Nav_move_up(Buffer *buf) {
     if (buf->cursor.y > 0) {
         buf->cursor.y--;
+        size_t rope_len = String_len(buf->str);
         size_t start = buf->lines.offset[buf->cursor.y];
         size_t end = (buf->cursor.y + 1 < buf->lines.line_count)
                          ? buf->lines.offset[buf->cursor.y + 1]
-                         : buf->str->len;
+                         : rope_len;
         size_t max_x = end > start ? end - start : 0;
 
         if (max_x > 0 && buf->cursor.y + 1 < buf->lines.line_count) max_x--; /* jangan di atas \n */
@@ -47,10 +50,11 @@ void Nav_move_up(Buffer *buf) {
 void Nav_move_down(Buffer *buf) {
     if (buf->cursor.y + 1 < buf->lines.line_count) {
         buf->cursor.y++;
+        size_t rope_len = String_len(buf->str);
         size_t start = buf->lines.offset[buf->cursor.y];
         size_t end = (buf->cursor.y + 1 < buf->lines.line_count)
                          ? buf->lines.offset[buf->cursor.y + 1]
-                         : buf->str->len;
+                         : rope_len;
         size_t max_x = end > start ? end - start : 0;
         if (max_x > 0 && buf->cursor.y + 1 < buf->lines.line_count) max_x--;
         if (buf->cursor.x > max_x) buf->cursor.x = max_x;
@@ -76,7 +80,8 @@ void Nav_move_left(Buffer *buf) {
  * Fungsi untuk navigasi kanan
  */
 void Nav_move_right(Buffer *buf) {
-    if (buf->cursor.cursor_pos < buf->str->len) {
+    size_t rope_len = String_len(buf->str);
+    if (buf->cursor.cursor_pos < rope_len) {
         buf->cursor.cursor_pos++;
         size_t y = 0;
         while (y + 1 < buf->lines.line_count && buf->lines.offset[y + 1] <= buf->cursor.cursor_pos)
@@ -124,10 +129,11 @@ void Nav_mouse_scroll(Buffer *buf, float wheel) {
  */
 void Nav_goto_end_of_line(Buffer *buf) {
     size_t end;
+    size_t rope_len = String_len(buf->str);
     if (buf->cursor.y + 1 < buf->lines.line_count) {
         end = buf->lines.offset[buf->cursor.y + 1] - 1;
     } else {
-        end = buf->str->len;
+        end = rope_len;
     }
     if (end < buf->lines.offset[buf->cursor.y]) end = buf->lines.offset[buf->cursor.y];
     buf->cursor.cursor_pos = end;

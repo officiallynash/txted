@@ -4,6 +4,7 @@
  * SPDX-License-Identifier: MIT
  */
 #include <stdbool.h>
+#include <stddef.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -14,6 +15,7 @@
 #include "git_client.h"
 #include "lsp_ui.h"
 #include "raylib.h"
+#include "rope.h"
 #include "syntax.h"
 #include "theme.h"
 #include "ui.h"
@@ -260,6 +262,7 @@ void draw_editor(BufManager *bufmgr, Font font) {
     Buffer *buf = BufManager_getactive(bufmgr);  // Active buffer
     if (!buf) return;
 
+    size_t rope_len = String_len(buf->str);
     EditorLayout Layout = get_editor_layout(bufmgr);
 
     int max_vis = visible_lines();
@@ -296,12 +299,12 @@ void draw_editor(BufManager *bufmgr, Font font) {
     HighlightToken tokens[1024];
     int token_count = 0;
 
-    if (buf->state && buf->str->len > 0) {
+    if (buf->state && rope_len > 0) {
         uint32_t start_byte = (uint32_t)buf->lines.offset[first];
-        uint32_t end_byte = (last < buf->lines.line_count) ? (uint32_t)buf->lines.offset[last]
-                                                           : (uint32_t)buf->str->len;
+        uint32_t end_byte =
+            (last < buf->lines.line_count) ? (uint32_t)buf->lines.offset[last] : (uint32_t)rope_len;
 
-        Bytes full_text = String_get(buf->str, 0, buf->str->len);
+        Bytes full_text = String_get(buf->str, 0, rope_len);
         if (full_text.data) {
             token_count = Syntax_get_highlights(buf->state, (const char *)full_text.data,
                                                 start_byte, end_byte, tokens, 1024);
@@ -366,7 +369,7 @@ void draw_editor(BufManager *bufmgr, Font font) {
 
                 size_t line_start = buf->lines.offset[y];
                 size_t line_end =
-                    (y + 1 < buf->lines.line_count) ? buf->lines.offset[y + 1] : buf->str->len;
+                    (y + 1 < buf->lines.line_count) ? buf->lines.offset[y + 1] : rope_len;
 
                 // Jika ada bagian baris ini yang masuk dalam seleksi
                 if (sel_start < line_end && sel_end > line_start) {
