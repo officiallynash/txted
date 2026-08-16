@@ -286,8 +286,8 @@ char *Path_to_uri(const char *path) {
 char Buffer_get_char_at(Buffer *buf, size_t line, size_t col) {
     if (!buf || line >= buf->lines.line_count) return '\0';
 
-    size_t rope_len = String_len(buf->str);
     size_t line_start = buf->lines.offset[line];
+    size_t rope_len = String_len(buf->str);
     size_t line_end = (line + 1 < buf->lines.line_count) ? buf->lines.offset[line + 1] : rope_len;
 
     // Pastikan col tidak melebihi panjang baris
@@ -439,7 +439,6 @@ void Buffer_insert(Buffer *buf, size_t pos_idx, const char *ch) {
     // Save Line Count dan Original Y
     size_t old_line_count = buf->lines.line_count;
     size_t orig_y = buf->cursor.y;
-    size_t rope_len = String_len(buf->str);
 
     Undo_push(&buf->undo, UNDO_INSERT, pos_idx, ch, text_len);  // UndoStack
     // Jika ada seleksi, hapus dulu baru nulis
@@ -460,6 +459,8 @@ void Buffer_insert(Buffer *buf, size_t pos_idx, const char *ch) {
         }
     }
 
+    size_t rope_len =
+        String_len(buf->str);  // Ini aman karena Insert ga perlu tahu actual len HAHAHAHHA
     // Jika TIDAK ADA newline (ngetik huruf biasa) -> Update offset biasa (Cepat)
     if (!contains_newline) {
         for (size_t i = buf->cursor.y + 1; i < buf->lines.line_count; i++) {
@@ -544,8 +545,6 @@ void Buffer_insert(Buffer *buf, size_t pos_idx, const char *ch) {
  */
 void Buffer_delete(Buffer *buf, size_t pos_idx) {
     if (!buf || !buf->str) return;
-    size_t rope_len = String_len(buf->str);
-    if (rope_len == 0) return;
 
     size_t len = 0;
     size_t start_del = 0;
@@ -563,6 +562,7 @@ void Buffer_delete(Buffer *buf, size_t pos_idx) {
     // Simpan old Line Count
     size_t old_line_count = buf->lines.line_count;
 
+    size_t rope_len = String_len(buf->str);  // Ambil Rope Len sebelum operasi hapus
     if (len == 0) return;
     if (start_del + len > rope_len) len = rope_len - start_del;
 
@@ -584,6 +584,7 @@ void Buffer_delete(Buffer *buf, size_t pos_idx) {
     String_delete(&buf->str, start_del, len);
     buf->cursor.cursor_pos = start_del;
 
+    size_t new_len = String_len(buf->str);  // Ambil actual len setelah operasi Hapus.
     /* Jika TIDAK ADA newline, update offset biasa */
     if (!contains_newline) {
         for (size_t i = buf->cursor.y + 1; i < buf->lines.line_count; i++) {
@@ -596,8 +597,8 @@ void Buffer_delete(Buffer *buf, size_t pos_idx) {
         free(buf->lines.offset);
         buf->lines = LineIndex_init();
 
-        if (rope_len > 0) {
-            Bytes all = String_get(buf->str, 0, rope_len);
+        if (new_len > 0) {
+            Bytes all = String_get(buf->str, 0, new_len);  // SINKRON HARUS PAKAI NEW LEN COKKKK
             if (all.data) {
                 LineIndex_insert(&buf->lines, (const char *)all.data, all.len);
                 Bytes_free(&all);
@@ -663,7 +664,7 @@ void Buffer_delete(Buffer *buf, size_t pos_idx) {
     sync_syntax_tree(buf);
 
     if (buf->language_id && buf->path) {
-        Bytes full_text = String_get(buf->str, 0, rope_len);
+        Bytes full_text = String_get(buf->str, 0, new_len);  // PAKAI NEW LEN COOOOOKKKKKK
         char *uri = Path_to_uri(buf->path);
         if (uri) {
             lsp_did_change(uri, (const char *)full_text.data, buf->lsp_version);
@@ -694,7 +695,7 @@ void Buffer_save(Buffer *buf, const char *filename) {
         }
     }
 
-    size_t rope_len = String_len(buf->str);
+    size_t rope_len = String_len(buf->str);  // Len sebelum auto format
     // Proses Auto format jika hanya punya language id
     if (buf->language_id != NULL) {
         char *uri = Path_to_uri(buf->path);
@@ -714,7 +715,8 @@ void Buffer_save(Buffer *buf, const char *filename) {
         }
     }
 
-    Bytes data = String_get(buf->str, 0, rope_len);
+    size_t final_len = String_len(buf->str);  // Len setelah di format oleh LSP
+    Bytes data = String_get(buf->str, 0, final_len);
 
     Result result = Fs_savefile(buf->path, (const char *)data.data, data.len);
     if (result.type == RESULT_OK) {
@@ -1008,5 +1010,5 @@ void Buffer_mark_line_edited(Buffer *buf, size_t line_idx) {
     buf->line_git[line_idx].status = GUTTER_MODIFIED;
     buf->line_git[line_idx].last_edited_at = (double)time(NULL);  // Gunakan time(NULL)
     strncpy(buf->line_git[line_idx].author, git.author[0] ? git.author : "You",
-            sizeof(buf->line_git[line_idx].author) - 1);
+            sizeof(buf->line_git[line_idx].author));
 }
