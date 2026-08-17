@@ -109,6 +109,9 @@ static bool file_exists(const char *path) {
  * PUBLIC API
  * =============================== */
 
+/**
+ * Fungsi untuk mengambil Directory name
+ */
 char *Fs_dirname(const char *path) {
     if (!path) return NULL;
     char *copy = strdup(path);

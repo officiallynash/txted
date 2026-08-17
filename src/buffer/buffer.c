@@ -253,6 +253,19 @@ static void Buffer_ensure_git_meta_capacity(Buffer *buf, size_t needed_cap) {
     buf->meta_capacity = new_cap;
 }
 
+/**
+ * Helper internal untuk update posisi kursor X & Y berdasarkan cursor_pos [PRIVATE API]
+ */
+static void sync_cursor_coords(Buffer *buf) {
+    if (!buf) return;
+    size_t y = 0;
+    while (y + 1 < buf->lines.line_count && buf->lines.offset[y + 1] <= buf->cursor.cursor_pos) {
+        y++;
+    }
+    buf->cursor.y = y;
+    buf->cursor.x = buf->cursor.cursor_pos - buf->lines.offset[y];
+}
+
 /* =============================
  * PUBLIC API
  * ============================= */
@@ -779,15 +792,27 @@ void Buffer_paste(Buffer *buf, Clipboard *clp) {
  * Fungsi untuk Undo [PUBLIC API]
  */
 void Buffer_undo(Buffer *buf) {
+    if (!buf) return;
+
     UndoAction a;
     if (!Undo_pop(&buf->undo, &a)) return;
 
     buf->undo.is_undoing = true;
+    buf->selection.is_selected = false;  // Matikan seleksi agar tidak ngerusak delete
 
     if (a.type == UNDO_INSERT) {
+        // Undo dari INSERT adalah DELETE teks tersebut
         buf->cursor.cursor_pos = a.offset + a.len;
+        sync_cursor_coords(buf);
         Buffer_delete(buf, buf->cursor.cursor_pos);
+
+        // Kembalikan kursor ke posisi awal sebelum insert
+        buf->cursor.cursor_pos = a.offset;
+        sync_cursor_coords(buf);
     } else if (a.type == UNDO_DELETE) {
+        // Undo dari DELETE adalah INSERT kembali teks yang terhapus
+        buf->cursor.cursor_pos = a.offset;
+        sync_cursor_coords(buf);
         Buffer_insert(buf, a.offset, a.text);
     }
 
@@ -803,14 +828,18 @@ void Buffer_redo(Buffer *buf) {
     UndoAction a;
     if (!Redo_pop(&buf->undo, &a)) return;
 
-    buf->undo.is_undoing = true;  // Kunci biar gak nge-push undo baru
+    buf->undo.is_undoing = true;
+    buf->selection.is_selected = false;  // Matikan seleksi
 
     if (a.type == UNDO_INSERT) {
-        // Redo INSERT = Lakukan insert teks lagi
+        // Redo INSERT = Insert ulang teks di offset asal
+        buf->cursor.cursor_pos = a.offset;
+        sync_cursor_coords(buf);
         Buffer_insert(buf, a.offset, a.text);
     } else if (a.type == UNDO_DELETE) {
-        // Redo DELETE = Lakukan delete lagi
+        // Redo DELETE = Delete ulang teks tersebut
         buf->cursor.cursor_pos = a.offset + a.len;
+        sync_cursor_coords(buf);
         Buffer_delete(buf, buf->cursor.cursor_pos);
     }
 

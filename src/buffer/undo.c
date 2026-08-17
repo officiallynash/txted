@@ -113,6 +113,8 @@ void Undo_push(UndoStack *us, UndoType type, size_t offset, const char *text, si
             last->len += len;
             last->timestamp_ms = ts;
             new_text[last->len] = '\0';
+
+            us->current = us->count;
             return;
         }
     }
