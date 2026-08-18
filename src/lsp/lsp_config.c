@@ -45,6 +45,9 @@ char *find_executable_in_path(const char *exec_name) {
     return NULL;
 }
 
+/**
+ * Helper internal untuk load Syntax Query (Tree Sitter)
+ */
 static char *Syntax_query(const char *lang_id, const char *scm_filename) {
     char path[256];
     snprintf(path, sizeof(path), "%squeries/%s/%s", GetApplicationDirectory(), lang_id,
@@ -68,6 +71,7 @@ static char *Syntax_query(const char *lang_id, const char *scm_filename) {
 
     return buf;
 }
+
 /**
  * Fungsi detail LSP config [PUBLIC API]
  */

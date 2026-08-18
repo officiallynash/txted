@@ -298,6 +298,9 @@ void lsp_ui_update(BufManager *bufmgr, float dt) {
                 Bytes_free(&text);
             }
 
+            char current_word[256];
+            Buffer_get_current_word(buf, current_word, sizeof(current_word));
+
             char trigger_char = '\0';
             if (g_lsp_ui.last_character > 0) {
                 // Ambil 1 karakter tepat sebelum posisi kursor
@@ -305,13 +308,28 @@ void lsp_ui_update(BufManager *bufmgr, float dt) {
                     Buffer_get_char_at(buf, g_lsp_ui.last_line, g_lsp_ui.last_character - 1);
 
                 // Cek apakah karakter tersebut merupakan trigger character LSP
-                if (prev_c == '.' || prev_c == '>' || prev_c == ':' || prev_c == '#') {
+                if (prev_c == '.') {
+                    trigger_char = '.';
+                } else if (prev_c == '>' && g_lsp_ui.last_character > 1) {
+                    char prev_prev_c =
+                        Buffer_get_char_at(buf, g_lsp_ui.last_line, g_lsp_ui.last_character - 2);
+                    if (prev_prev_c == '-') {
+                        trigger_char = '>';  // Valid operator ->
+                    }
+                } else if (prev_c == ':' || prev_c == '#') {
                     trigger_char = prev_c;
                 }
             }
+
+            if (trigger_char == '\0' && strlen(current_word) < 1) {
+                lsp_ui_hide();
+                return;
+            }
+
             // Baru minta completion
             g_lsp_ui.completion = lsp_completion(g_lsp_ui.uri, g_lsp_ui.last_line,
                                                  g_lsp_ui.last_character, trigger_char);
+
             g_lsp_ui.has_completion = (g_lsp_ui.completion.count > 0);
             if (g_lsp_ui.has_completion) {
                 g_lsp_ui.visible = true;

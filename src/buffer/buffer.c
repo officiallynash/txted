@@ -336,6 +336,7 @@ Buffer *Buffer_new() {
     new_buffer->language_id = NULL;
     new_buffer->scroll_y = 0;  // UI State
     new_buffer->is_dragging = false;
+    new_buffer->diagnostic = NULL;  // Diagnostic
 
     // Metadata Git
     new_buffer->meta_capacity = new_buffer->lines.line_count ? new_buffer->lines.line_count : 64;
@@ -422,6 +423,8 @@ Buffer *Buffer_open(const char *filename) {
                 Bytes_free(&full_text);
             }
 
+            new->diagnostic = NULL;  // Diagnostic jalan kalau sudah ada editing aja kali ya HAHAH
+            // Konsepnya itu terpusat di Draw Diagsnostic bar (render_lsp_ui.c) dan render.c
             sync_syntax_tree(new);  // Sync syntax
             lsp_clear_all_diagnostics();
             lsp_ui_hide();
@@ -431,6 +434,7 @@ Buffer *Buffer_open(const char *filename) {
     } else {
         new->language_id = NULL;
         new->state = NULL;
+        new->diagnostic = NULL;  // Set ke NULL aja
     }
 
     LangConfig_free(lang);   // LangConfig free
@@ -884,16 +888,19 @@ char *Buffer_get_line_text(Buffer *buf, size_t y) {
 void Buffer_free(Buffer *buf) {
     if (!buf) return;
 
+    // Tree sitter
     if (buf->state) {
         Syntax_free(buf->state);
         buf->state = NULL;
     }
 
+    // String Rope atau Buffer utama
     if (buf->str != NULL) {
         String_release(buf->str);
         buf->str = NULL;
     }
 
+    // Buffer path ke file
     if (buf->path != NULL) {
         char *uri = Path_to_uri(buf->path);
         if (uri) {
@@ -904,25 +911,36 @@ void Buffer_free(Buffer *buf) {
         buf->path = NULL;
     }
 
+    // Filename
     if (buf->filename != NULL) {
         free(buf->filename);
         buf->filename = NULL;
     }
 
+    // Index Line
     if (buf->lines.offset) {
         free(buf->lines.offset);
         buf->lines.offset = NULL;
     }
+
+    // Line Git
     if (buf->line_git != NULL) {
         free(buf->line_git);
         buf->line_git = NULL;
     }
 
+    // Undo
     Undo_free(&buf->undo);
 
+    // Language ID
     if (buf->language_id != NULL) {
         free(buf->language_id);
         buf->language_id = NULL;
+    }
+
+    // Diagnostic
+    if (buf->diagnostic != NULL) {
+        lsp_free_diagnostics(buf->diagnostic);
     }
 
     free(buf);

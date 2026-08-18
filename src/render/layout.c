@@ -8,14 +8,17 @@
 #include "buffer_manager.h"
 #include "ui.h"
 
+/**
+ * Helper untuk setting layout
+ */
 EditorLayout get_editor_layout(BufManager *bufmgr) {
     EditorLayout L = {0};
 
     int win_w = GetRenderWidth();
     int win_h = GetRenderHeight();
 
-    L.win_h = win_h;
-    L.win_w = win_w;
+    L.win_h = win_h;  // Height
+    L.win_w = win_w;  // Width
 
     L.editor_y = TAB_H;
     L.editor_h = win_h - TAB_H - STATUS_H - DIAG_PANEL_H;

@@ -220,8 +220,7 @@ void handle_input(BufManager *bufmgr, Font font) {
             sync_cursor_line_from_pos(buf);  // Sync cursor dengan Pos Rope
 
             // Debounce untuk LSP
-            if (isalnum(key) || key == '.' || key == '_' || key == '>' || key == ':' ||
-                key == '-') {
+            if (isalnum(key) || key == '.' || key == '>' || key == ':' || key == '-') {
                 lsp_debounce_timer = LSP_DEBOUNCE_DELAY;
             } else if (key == ' ') {  // Kalau spasi, sembunyikan LSP popup
                 lsp_ui_hide();

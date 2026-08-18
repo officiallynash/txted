@@ -11,13 +11,15 @@
 
 #include "buffer.h"
 #include "buffer_manager.h"
+#include "lsp_server.h"
 #include "lsp_ui.h"
 #include "theme.h"
 #include "ui.h"
 
 extern int calculate_score(const char *query, const char *label);  // Menghitung score (lsp_ui.c)
 extern int compare_scores(const void *a,
-                          const void *b);  // Menghitung compare_scores (completion.c)
+                          const void *b);     // Menghitung compare_scores (completion.c)
+extern void lsp_clear_all_diagnostics(void);  // Clear Diagnostic [lsp_client.c]
 
 /**
  * Fungsi untuk draw atau render Diagnostic [PUBLIC API]
@@ -32,25 +34,40 @@ void draw_diagnostic_bar(BufManager *bufmgr, Font font) {
              g_theme.line_num);
 
     Buffer *buf = BufManager_getactive(bufmgr);
-    if (!buf) return;
+    if (!buf) {
+        Vector2 pos = {(float)(Layout.editor_x + PAD_X), (float)(panel_y + 4)};
+        DrawTextEx(font, "No diagnostics", pos, FONT_SIZE, 1.0f, g_theme.comment);
+        return;
+    }
 
-    DiagnosticList *diagnostics = lsp_get_diagnostics(g_lsp_ui.uri);
+    if (buf->path) {  // Jika ada buf dan buf->path, langsung assign ke Diagnostic
+        char *uri = Path_to_uri(buf->path);
+        buf->diagnostic = lsp_get_diagnostics(uri);
+        free(uri);  // Jangan sampai lupa cokk
+    } else {        // Kalau kosong ya kasih NULL aja HAHAHAHA
+        buf->diagnostic = NULL;
+    }
 
-    if (!diagnostics || diagnostics->count == 0) {
+    if (buf->diagnostic == NULL || buf->diagnostic->count == 0) {
+        if (buf->diagnostic) {  // Safety check biar ga ketimpa
+            lsp_free_diagnostics(buf->diagnostic);
+            buf->diagnostic = NULL;
+        }
+
         Vector2 pos = {(float)(Layout.editor_x + PAD_X), (float)(panel_y + 4)};
         DrawTextEx(font, "No diagnostics", pos, FONT_SIZE, 1.0f, g_theme.comment);
         return;
     }
 
     DiagnosticItem *active_item = NULL;
-    for (size_t i = 0; i < diagnostics->count; i++) {
-        if ((size_t)diagnostics->items[i].start_line == buf->cursor.y) {
-            active_item = &diagnostics->items[i];
+    for (size_t i = 0; i < buf->diagnostic->count; i++) {
+        if ((size_t)buf->diagnostic->items[i].start_line == buf->cursor.y) {
+            active_item = &buf->diagnostic->items[i];
             break;
         }
     }
 
-    if (!active_item) active_item = &diagnostics->items[0];
+    if (!active_item) active_item = &buf->diagnostic->items[0];
 
     Color color = (active_item->severity == 1) ? g_theme.keyword : g_theme.warning;
 
@@ -59,6 +76,7 @@ void draw_diagnostic_bar(BufManager *bufmgr, Font font) {
              active_item->start_char + 1, active_item->message);
 
     Vector2 pos = {(float)(Layout.editor_x + PAD_X), (float)(panel_y + 4)};
+
     DrawTextEx(font, msg, pos, FONT_SIZE, 1.0f, color);
 }
 
@@ -395,7 +413,8 @@ void render_hover_ui(BufManager *bufmgr, Font font) {
                 total_visual_lines++;
             } else {
                 // Word-wrap simulation
-                char *word = strtok(raw_line, " ");
+                char *temp_line = strdup(raw_line);  // Clone string dahulu
+                char *word = strtok(temp_line, " ");
                 char current_wrap[512] = {0};
 
                 while (word) {
@@ -421,6 +440,8 @@ void render_hover_ui(BufManager *bufmgr, Font font) {
                     }
                     word = strtok(NULL, " ");
                 }
+
+                free(temp_line);  // Free clone string
                 if (strlen(current_wrap) > 0) {
                     float w = MeasureTextEx(font, current_wrap, FONT_SIZE, 1.0f).x;
                     if (w > max_measured_w) max_measured_w = w;
@@ -501,7 +522,8 @@ void render_hover_ui(BufManager *bufmgr, Font font) {
                 ty += line_h;
             } else {
                 // Render baris terbungkus
-                char *word = strtok(raw_line, " ");
+                char *temp_line = strdup(raw_line);
+                char *word = strtok(temp_line, " ");
                 char current_wrap[512] = {0};
 
                 while (word) {
@@ -533,6 +555,10 @@ void render_hover_ui(BufManager *bufmgr, Font font) {
                     }
                     word = strtok(NULL, " ");
                 }
+
+                // Free temporary clone string
+                free(temp_line);
+
                 if (strlen(current_wrap) > 0) {
                     if (ty + line_h >= y && ty <= y + box_h) {
                         DrawTextEx(font, current_wrap, (Vector2){x + padding_x, ty}, FONT_SIZE,

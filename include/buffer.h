@@ -69,7 +69,7 @@ typedef struct {
  */
 typedef struct {
     String *str;
-    SyntaxState *state;
+    SyntaxState *state;  // Tree-sitter
     char *language_id;
     int lsp_version;
     UndoStack undo;
@@ -83,6 +83,8 @@ typedef struct {
     char *path;
     char *filename;
     bool is_dragging;
+
+    DiagnosticList *diagnostic;  // Diagnostic
 
     // Git
     LineGitMeta *line_git;

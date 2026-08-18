@@ -455,42 +455,50 @@ void draw_editor(BufManager *bufmgr, Font font) {
             /* ------------------------------------------------------------- *
              * Render Squiggly / Underline Diagnostics
              * ------------------------------------------------------------- */
-            DiagnosticList *diagnostics = lsp_get_diagnostics(g_lsp_ui.uri);
+            if (g_lsp_ui.enabled &&
+                buf->path) {  // Diagnostic aktif ketika lsp aktif dan ada path-nya
+                char *uri = Path_to_uri(buf->path);  // Path to Uri
+                buf->diagnostic = lsp_get_diagnostics(uri);
 
-            if (diagnostics && diagnostics->count > 0) {
-                for (size_t i = 0; i < diagnostics->count; i++) {
-                    DiagnosticItem *item = &diagnostics->items[i];
+                if (buf->diagnostic && buf->diagnostic->count > 0) {
+                    for (size_t i = 0; i < buf->diagnostic->count; i++) {
+                        DiagnosticItem *item = &buf->diagnostic->items[i];
 
-                    // Cek apakah baris ini masuk dalam range diagnostik
-                    if ((size_t)item->start_line <= y && y <= (size_t)item->end_line) {
-                        size_t col_start = (y == (size_t)item->start_line) ? item->start_char : 0;
-                        size_t col_end = (y == (size_t)item->end_line) ? item->end_char : len;
+                        // Cek apakah baris ini masuk dalam range diagnostik
+                        if ((size_t)item->start_line <= y && y <= (size_t)item->end_line) {
+                            size_t col_start =
+                                (y == (size_t)item->start_line) ? item->start_char : 0;
+                            size_t col_end = (y == (size_t)item->end_line) ? item->end_char : len;
 
-                        // Jika range-nya 0 karakter, beri minimal 1 karakter agar garis kelihatan
-                        if (col_start == col_end && col_start < len) {
-                            col_end = col_start + 1;
+                            // Jika range-nya 0 karakter, beri minimal 1 karakter agar garis
+                            // kelihatan
+                            if (col_start == col_end && col_start < len) {
+                                col_end = col_start + 1;
+                            }
+
+                            float x1 = get_text_column_x(font, text, col_start, (float)text_x);
+                            float x2 = get_text_column_x(font, text, col_end, (float)text_x);
+
+                            // Tentukan warna garis sesuai severity
+                            Color diag_color = g_theme.error;  // Fallback / Error (Severity 1)
+                            if (item->severity == 2) {
+                                diag_color = g_theme.warning;  // Warning
+                            } else if (item->severity >= 3) {
+                                diag_color =
+                                    g_theme.info;  // Info / Hint (Pakai warna g_theme yang sesuai)
+                            }
+
+                            // Gambar garis bawah tipis tepat di bawah teks
+                            int line_y = py + FONT_SIZE + 2;
+                            int line_w = (int)(x2 - x1);
+                            if (line_w <= 0)
+                                line_w = (int)MeasureTextEx(font, " ", FONT_SIZE, 1.0f).x;
+
+                            DrawRectangle((int)x1, line_y, line_w, 2, diag_color);
                         }
-
-                        float x1 = get_text_column_x(font, text, col_start, (float)text_x);
-                        float x2 = get_text_column_x(font, text, col_end, (float)text_x);
-
-                        // Tentukan warna garis sesuai severity
-                        Color diag_color = g_theme.error;  // Fallback / Error (Severity 1)
-                        if (item->severity == 2) {
-                            diag_color = g_theme.warning;  // Warning
-                        } else if (item->severity >= 3) {
-                            diag_color =
-                                g_theme.info;  // Info / Hint (Pakai warna g_theme yang sesuai)
-                        }
-
-                        // Gambar garis bawah tipis tepat di bawah teks
-                        int line_y = py + FONT_SIZE + 2;
-                        int line_w = (int)(x2 - x1);
-                        if (line_w <= 0) line_w = (int)MeasureTextEx(font, " ", FONT_SIZE, 1.0f).x;
-
-                        DrawRectangle((int)x1, line_y, line_w, 2, diag_color);
                     }
                 }
+                free(uri);  // Hapus heap dari Uri
             }
 
             free(text);
