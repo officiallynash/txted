@@ -106,7 +106,7 @@ int main(int argc, char *argv[]) {
 
         // Render Modal Confirm Exit di LAYER PALING ATAS
         if (ExitWindowRequested) {
-            Draw_confirm_exit(font);
+            Draw_confirm_exit(bufmgr, font);
         }
 
         EndDrawing();
