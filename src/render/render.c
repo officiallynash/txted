@@ -274,6 +274,7 @@ void draw_editor(BufManager *bufmgr, Font font) {
 
     /* Buka Scissor cuma untuk area antara TAB dan STATUS BAR */
     BeginScissorMode(Layout.editor_x, Layout.editor_y, Layout.editor_w, Layout.editor_h);
+
     /* Fill the Editor*/
     DrawRectangle(Layout.editor_x, Layout.editor_y, Layout.editor_w, Layout.editor_h,
                   g_theme.bg_editor);

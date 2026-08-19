@@ -701,6 +701,10 @@ void Buffer_save(Buffer *buf, const char *filename) {
         Result result = Fs_create(filename);
 
         if (result.type == RESULT_OK) {
+            // Jaga2 untuk free buf path dan filename
+            if (buf->path) free(buf->path);
+            if (buf->filename) free(buf->filename);
+
             buf->path = strdup(result.data);
             buf->filename = strdup(get_display_name(buf->path));
 
@@ -711,8 +715,8 @@ void Buffer_save(Buffer *buf, const char *filename) {
             return;
         }
     }
+    if (!buf->path) return;  // Memastikan path bener sebelum save
 
-    size_t rope_len = String_len(buf->str);  // Len sebelum auto format
     // Proses Auto format jika hanya punya language id
     if (buf->language_id != NULL) {
         char *uri = Path_to_uri(buf->path);
@@ -720,6 +724,7 @@ void Buffer_save(Buffer *buf, const char *filename) {
             TextEditList edits = lsp_format(uri, 4, true);
             if (edits.count > 0) {
                 lsp_apply_text_edits(buf, &edits);
+                size_t rope_len = String_len(buf->str);  // Len sebelum auto format
                 Bytes data = String_get(buf->str, 0, rope_len);
                 if (data.data) {
                     lsp_did_change(uri, (const char *)data.data, buf->lsp_version);
@@ -727,26 +732,25 @@ void Buffer_save(Buffer *buf, const char *filename) {
                     Bytes_free(&data);
                 }
                 lsp_free_text_edits(&edits);
-                free(uri);
             }
+            free(uri);
         }
     }
 
     size_t final_len = String_len(buf->str);  // Len setelah di format oleh LSP
     Bytes data = String_get(buf->str, 0, final_len);
-
-    Result result = Fs_savefile(buf->path, (const char *)data.data, data.len);
-    if (result.type == RESULT_OK) {
-        buf->is_dirty = false;
-        Notif_show(result.data, NOTIF_SUCCESS, 3.0f);
-    } else {
-        Notif_show(result.data, NOTIF_ERROR, 3.0f);
+    if (data.data) {
+        Result result = Fs_savefile(buf->path, (const char *)data.data, data.len);
+        if (result.type == RESULT_OK) {
+            buf->is_dirty = false;
+            Notif_show(result.data, NOTIF_SUCCESS, 3.0f);
+        } else {
+            Notif_show(result.data, NOTIF_ERROR, 3.0f);
+        }
+        Result_free(&result);
+        Bytes_free(&data);
     }
-
     GitStatus_force();  // Force update GitStatus
-
-    Result_free(&result);
-    Bytes_free(&data);
 }
 
 /**

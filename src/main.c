@@ -98,6 +98,7 @@ int main(int argc, char *argv[]) {
             if (IsKeyPressed(KEY_N) || IsKeyPressed(KEY_ESCAPE)) ExitWindowRequested = false;
         }
 
+        // Gambar UI
         BeginDrawing();
         ClearBackground(g_theme.bg_main);
 

@@ -15,6 +15,7 @@
 #include "ui.h"
 
 // Extern dari git_client.c
+// Sengaja ga di masukkan ke Header biar private
 extern bool GitPopup_stage(const char *repo);
 extern bool GitPopup_commit(const char *repo, const char *message);
 extern bool GitPopup_push_async(const char *repo);

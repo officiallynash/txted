@@ -76,11 +76,12 @@ static void Update_navigation_click(BufManager *bufmgr) {
         if (mouse.y <= TAB_H) return;
 
         // Klik di area File Manager Sidebar
-        if (mouse.x >= Layout.fm_x && mouse.x < Layout.fm_x + Layout.fm_w) {
+        if (mouse.x >= Layout.fm_x && mouse.x < (Layout.fm_x + Layout.fm_w)) {
             bufmgr->focus_mode = FILE_MANAGER;  // atau FM
         }
+
         // Klik di area Write / Text Editor
-        else if (mouse.x >= Layout.editor_x) {
+        else if (mouse.x >= Layout.editor_x && mouse.x < (Layout.editor_x + Layout.editor_w)) {
             bufmgr->focus_mode = WRITE;
         }
     }
@@ -114,8 +115,9 @@ void handle_input(BufManager *bufmgr, Font font) {
     EditorLayout Layout = get_editor_layout(bufmgr);
 
     // Cek apakah mouse berada di wilayah Editor
-    bool is_mouse_in_editor =
-        (mouse.x >= Layout.editor_x) && (mouse.y > TAB_H) && !Is_active_menu();
+    bool is_mouse_in_editor = (mouse.x >= Layout.editor_x) &&
+                              (mouse.x < Layout.editor_x + Layout.editor_w) && (mouse.y > TAB_H) &&
+                              !Is_active_menu();
 
     bool is_mouse_scroll = false;
     float wheel = GetMouseWheelMove();
@@ -220,7 +222,8 @@ void handle_input(BufManager *bufmgr, Font font) {
             sync_cursor_line_from_pos(buf);  // Sync cursor dengan Pos Rope
 
             // Debounce untuk LSP
-            if (isalnum(key) || key == '.' || key == '>' || key == ':' || key == '-') {
+            if (isalnum(key) || key == '.' || key == '>' || key == ':' || key == '-' ||
+                key == '#') {
                 lsp_debounce_timer = LSP_DEBOUNCE_DELAY;
             } else if (key == ' ') {  // Kalau spasi, sembunyikan LSP popup
                 lsp_ui_hide();

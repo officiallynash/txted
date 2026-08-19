@@ -6,6 +6,7 @@
 #include <raylib.h>
 
 #include "buffer_manager.h"
+#include "settings_txted.h"
 #include "ui.h"
 
 /**
@@ -25,16 +26,20 @@ EditorLayout get_editor_layout(BufManager *bufmgr) {
         if (L.fm_w < 160) L.fm_w = 160;
         if (L.fm_w > L.win_w / 2) L.fm_w = L.win_w / 2;
 
-        L.editor_x = 0;
-        L.editor_w = L.win_w - L.fm_w - 1;
+        // Jika Posisi File Manager di Kanan
+        if (default_settings.fm_pos == FM_RIGHT) {
+            L.editor_x = 0;
+            L.editor_w = L.win_w - L.fm_w - 1;
+            L.fm_x = L.win_w - L.fm_w;
+        } else if (default_settings.fm_pos == FM_LEFT) {  // Jika posisinya di kiri
+            L.fm_x = 0;
+            L.editor_x = L.fm_w;
+            L.editor_w = L.win_w - L.fm_w;
+        }
 
-        // L.fm_x = 0;
-        L.fm_x = L.win_w - L.fm_w;
         L.fm_y = TAB_H;
         L.fm_h = L.win_h - TAB_H - STATUS_H;
 
-        // L.editor_x = L.fm_w;
-        // L.editor_w = L.win_w - L.fm_w;
     } else {
         L.fm_w = 0;
         L.fm_x = 0;

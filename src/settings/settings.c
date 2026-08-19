@@ -20,7 +20,7 @@ extern void Theme_init(const char *filename);  // Extern Theme init (theme.c)
  * Init default Values
  */
 Settings default_settings = {
-    .font_size = 18, .theme = "default", .font = "JetBrainsMono-Regular.ttf"};
+    .font_size = 18, .theme = "default", .font = "JetBrainsMono-Regular.ttf", .fm_pos = FM_LEFT};
 
 /**
  * Fungsi untuk Load Settings
@@ -51,6 +51,17 @@ void Settings_load(void) {
             // Font
             else if (strcmp(key, "font") == 0) {
                 strncpy(default_settings.font, val, sizeof(default_settings.font));
+            }
+            // Posisi File Manager
+            else if (strcmp(key, "fm_pos") == 0) {
+                // Jika kiri
+                if (strcmp(val, "left") == 0) {
+                    default_settings.fm_pos = FM_LEFT;
+                } else if (strcmp(val, "right") == 0) {  // jika kanan
+                    default_settings.fm_pos = FM_RIGHT;
+                } else {
+                    default_settings.fm_pos = FM_LEFT;  // kasih default kiri aja
+                }
             }
         }
     }

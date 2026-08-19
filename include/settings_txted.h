@@ -9,12 +9,18 @@
 #include "raylib.h"
 
 /**
+ * Enum penanda posisi untuk File Manager
+ */
+typedef enum { FM_LEFT, FM_RIGHT } Settings_fm;
+
+/**
  * Struct untuk data settings aplikasi
  */
 typedef struct {
     int font_size;
     char theme[64];
     char font[128];
+    Settings_fm fm_pos;
 } Settings;
 
 extern Settings default_settings;
