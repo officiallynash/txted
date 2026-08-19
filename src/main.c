@@ -4,7 +4,6 @@
  * SPDX-License-Identifier: MIT
  */
 #include <stdbool.h>
-#include <stdio.h>
 #include <unistd.h>
 
 #define RAY_IMPLEMENTATION
@@ -38,6 +37,7 @@ void render_all_ui(BufManager *bufmgr, Font font) {
     draw_dialog_modal(bufmgr, font);
     GitPopup_render(bufmgr, font);
 
+    // Jika LSP aktif, Kita tampilkan lsp
     if (g_lsp_ui.enabled) {
         render_lsp_completion_ui(bufmgr, font);
         render_signature_help(bufmgr, font);
@@ -71,27 +71,9 @@ int main(int argc, char *argv[]) {
         BufManager_newtab(bufmgr, NULL); /* tab awal */
     }
 
-    // Inisiasi Window
-    int win_h = GetRenderHeight();
-    int win_w = GetRenderWidth();
-    SetConfigFlags(FLAG_WINDOW_RESIZABLE);
-
-    // Init window dan dynamic title
-    InitWindow(win_w, win_h, "TxtEd - Simple Text Editor");
-    SetTargetFPS(60);
-    SetExitKey(KEY_NULL);
-
-    // Load font
-    char font_path[512];
-    char *home = getenv("HOME");
-    snprintf(font_path, sizeof(font_path), "%s/.config/txted/settings/fonts/%s", home,
-             default_settings.font);
-    Font font = LoadFontEx(font_path, FONT_SIZE, NULL, 0);
-
-    Theme_init(default_settings.theme);  // Init Theme
-    SetTextureFilter(font.texture, TEXTURE_FILTER_POINT);
-    GuiSetFont(font);
-    GuiSetStyle(DEFAULT, TEXT_SIZE, FONT_SIZE);
+    Font font;  // Inisiasi Font, karena font di Apply di Settings
+    // Apply settings
+    Settings_apply(bufmgr, &font);  // Passing font ke Apply pakai &
 
     // Loop utama Aplikasi
     while (!ExitWindow && !WindowShouldClose()) {
@@ -124,43 +106,7 @@ int main(int argc, char *argv[]) {
 
         // Render Modal Confirm Exit di LAYER PALING ATAS
         if (ExitWindowRequested) {
-            int win_w = GetRenderWidth();
-            int win_h = GetRenderHeight();
-
-            // Backdrop Gelap Transparan
-            DrawRectangle(0, 0, win_w, win_h, g_theme.backdrop);
-
-            // Dimensi Modal Dialog (Center)
-            float box_w = 380.0f;
-            float box_h = 130.0f;
-            Rectangle modal_rect = {(win_w - box_w) / 2.0f, (win_h - box_h) / 2.0f, box_w, box_h};
-
-            // Card Modal Background
-            DrawRectangleRounded(modal_rect, 0.12f, 4, g_theme.bg_card);
-            DrawRectangleRoundedLines(modal_rect, 0.12f, 4, g_theme.border);
-
-            // Text Pesan Konfirmasi
-            const char *msg = "Yakin ingin keluar dari TxtEd?";
-            DrawTextEx(font, msg, (Vector2){modal_rect.x + 20, modal_rect.y + 18}, FONT_SIZE, 1.0f,
-                       g_theme.text_normal);
-
-            // Dimensi Tombol
-            float btn_w = 120.0f;
-            float btn_h = 32.0f;
-            float btn_y = modal_rect.y + modal_rect.height - btn_h - 14.0f;
-
-            Rectangle btn_yes = {modal_rect.x + modal_rect.width - (btn_w * 2) - 28, btn_y, btn_w,
-                                 btn_h};
-            Rectangle btn_no = {modal_rect.x + modal_rect.width - btn_w - 16, btn_y, btn_w, btn_h};
-
-            // Tombol YES & NO Raygui
-            if (GuiButton(btn_yes, GuiIconText(ICON_EXIT, "Keluar"))) {
-                ExitWindow = true;
-            }
-
-            if (GuiButton(btn_no, GuiIconText(ICON_CROSS_SMALL, "Batal"))) {
-                ExitWindowRequested = false;
-            }
+            Draw_confirm_exit(font);
         }
 
         EndDrawing();

@@ -1,3 +1,4 @@
+#include "buffer_manager.h"
 /*
  * TxtEd - Simple Text Editor
  * Copyright (c) 2026 Nash
@@ -8,7 +9,12 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "raygui.h"
+#include "raylib.h"
 #include "settings_txted.h"
+#include "ui.h"
+
+extern void Theme_init(const char *filename);  // Extern Theme init (theme.c)
 
 /**
  * Init default Values
@@ -49,4 +55,30 @@ void Settings_load(void) {
         }
     }
     fclose(fp);
+}
+
+/**
+ * Fungsi untuk Apply setting
+ */
+void Settings_apply(BufManager *bufmgr, Font *font) {
+    EditorLayout layout = get_editor_layout(bufmgr);
+
+    SetConfigFlags(FLAG_WINDOW_RESIZABLE);
+
+    // Init window dan dynamic title
+    InitWindow(layout.win_w, layout.win_h, "TxtEd - Simple Text Editor");
+    SetTargetFPS(60);
+    SetExitKey(KEY_NULL);
+
+    // Load font
+    char font_path[512];
+    char *home = getenv("HOME");
+    snprintf(font_path, sizeof(font_path), "%s/.config/txted/settings/fonts/%s", home,
+             default_settings.font);
+    *font = LoadFontEx(font_path, FONT_SIZE, NULL, 0);
+
+    Theme_init(default_settings.theme);  // Init Theme
+    SetTextureFilter(font->texture, TEXTURE_FILTER_POINT);
+    GuiSetFont(*font);
+    GuiSetStyle(DEFAULT, TEXT_SIZE, FONT_SIZE);
 }

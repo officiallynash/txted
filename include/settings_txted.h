@@ -5,7 +5,12 @@
  */
 #ifndef SETTINGS_H
 #define SETTINGS_H
+#include "buffer_manager.h"
+#include "raylib.h"
 
+/**
+ * Struct untuk data settings aplikasi
+ */
 typedef struct {
     int font_size;
     char theme[64];
@@ -14,5 +19,6 @@ typedef struct {
 
 extern Settings default_settings;
 void Settings_load(void);
+void Settings_apply(BufManager *bufmgr, Font *font);
 
 #endif

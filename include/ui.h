@@ -51,7 +51,7 @@ typedef struct {
 
 extern FloatPrompt g_prompt;
 
-EditorLayout get_editor_layout(BufManager *bufmgr);
+EditorLayout get_editor_layout(BufManager *bufmgr);  // Layout manager
 
 void draw_tabs(BufManager *bufmgr, Font font);
 void draw_status(BufManager *bufmgr, Font font);
@@ -59,6 +59,7 @@ void draw_editor(BufManager *bufmgr, Font font);
 void draw_diagnostic_bar(BufManager *bufmgr, Font font);
 void draw_dialog_modal(BufManager *bufmgr, Font font);
 void handle_input(BufManager *bufmgr, Font font);
+void Draw_confirm_exit(BufManager *bufmgr, Font font);
 
 // Pop up
 char *FloatPrompt_ask(FloatPrompt *fp, const char *msg, const char *default_val, int icon_id,
