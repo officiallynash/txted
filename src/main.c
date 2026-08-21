@@ -21,10 +21,6 @@
 #include "theme.h"
 #include "ui.h"
 
-// State untuk exit
-bool ExitWindowRequested = false;
-bool ExitWindow = false;
-
 /* ---------------------- *
  * Render semua UI
  * ---------------------- */
@@ -47,11 +43,11 @@ void render_all_ui(BufManager *bufmgr, Font font) {
 }
 
 int main(int argc, char *argv[]) {
-    // State agar auto keluar
-    // #if defined(__linux__)
-    //     if (fork() > 0) exit(0);
-    //     setsid();
-    // #endif
+    // State agar auto keluar ketika launch dari terminal
+#if defined(__linux__)
+    if (fork() > 0) exit(0);
+    setsid();
+#endif
 
     // Inisasi Buffer Manager
     Settings_load();
@@ -76,13 +72,13 @@ int main(int argc, char *argv[]) {
     Settings_apply(bufmgr, &font);  // Passing font ke Apply pakai &
 
     // Loop utama Aplikasi
-    while (!ExitWindow && !WindowShouldClose()) {
+    while ((bufmgr->win_flags & TXTED_EXIT) != TXTED_EXIT && !WindowShouldClose()) {
         float dt = GetFrameTime();
         Notif_update(dt);
         GitStatus_update(bufmgr, dt);
 
         // Handle Input biasa hanya jika TIDAK sedang minta exit
-        if (!ExitWindowRequested) {
+        if ((bufmgr->win_flags & TXTED_REQ) != TXTED_REQ) {
             lsp_ui_update(bufmgr, dt);
 
             if (IsKeyPressed(KEY_SPACE) && IsKeyDown(KEY_LEFT_CONTROL)) {
@@ -94,8 +90,8 @@ int main(int argc, char *argv[]) {
         } else {
             lsp_ui_hide();
             // Hotkey shortcut keyboard saat modal exit aktif
-            if (IsKeyPressed(KEY_Y) || IsKeyPressed(KEY_ENTER)) ExitWindow = true;
-            if (IsKeyPressed(KEY_N) || IsKeyPressed(KEY_ESCAPE)) ExitWindowRequested = false;
+            if (IsKeyPressed(KEY_Y) || IsKeyPressed(KEY_ENTER)) bufmgr->win_flags |= TXTED_EXIT;
+            if (IsKeyPressed(KEY_N) || IsKeyPressed(KEY_ESCAPE)) bufmgr->win_flags &= ~TXTED_REQ;
         }
 
         // Gambar UI
@@ -106,7 +102,7 @@ int main(int argc, char *argv[]) {
         render_all_ui(bufmgr, font);
 
         // Render Modal Confirm Exit di LAYER PALING ATAS
-        if (ExitWindowRequested) {
+        if ((bufmgr->win_flags & TXTED_REQ) == TXTED_REQ) {
             Draw_confirm_exit(bufmgr, font);
         }
 

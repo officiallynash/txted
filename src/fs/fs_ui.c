@@ -380,5 +380,5 @@ void draw_file_manager(BufManager *bufmgr, Font font) {
 
     // Line separator
     float ws_y = L.fm_y + L.fm_h - DIAG_PANEL_H;
-    DrawLine(L.fm_x, (int)ws_y, L.fm_x + L.fm_w - 1, (int)ws_y, g_theme.border);
+    DrawLine(L.fm_x, (int)ws_y, L.fm_x + L.fm_w - 1, (int)ws_y, g_theme.line_num);
 }

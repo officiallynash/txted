@@ -12,13 +12,24 @@
 #include "lsp_server.h"
 #include "raylib.h"
 
+/**
+ * Struct penampung hasil dari Completion yang sudah di filter
+ */
 typedef struct {
     CompletionItem *item;
     int score;
 } FilteredItem;
 
+/**
+ * Enum penanda Completion dan Signature
+ * digunakan untuk auto deteksi ketika rendering
+ * agar tidak tunmpang tindih
+ */
 typedef enum { POPUP_BELOW, POPUP_ABOVE } PopupSide;
 
+/**
+ * Struct utama untuk mengatur LSP state
+ */
 typedef struct {
     bool enabled;
     bool visible;

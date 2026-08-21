@@ -67,6 +67,7 @@ BufManager *BufManager_init(void) {
     bufmgr->fm_width_ratio = 0.25f;
     bufmgr->focus_mode = WRITE;
     bufmgr->path_root = NULL;
+    bufmgr->win_flags = TXTED_NONE;
 
     for (size_t i = 0; i < MAX_TABS; i++) {
         bufmgr->buf[i] = NULL;

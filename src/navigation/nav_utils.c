@@ -22,7 +22,6 @@
 #include "ui.h"
 
 extern int visible_lines();                         // Visible lines (render.c)
-extern bool ExitWindowRequested;                    // ExitWindowRequested (main.c)
 extern char *format_pretty_path(const char *path);  // (fs.c)
 
 /**
@@ -243,7 +242,8 @@ void Nav_exit(BufManager *bufmgr, Font font) {
             "keluar.",
             NOTIF_WARNING, 4.0f);
     } else {
-        ExitWindowRequested = true;
+        // Minta request Exit melalui Buffer Manager
+        bufmgr->win_flags |= TXTED_REQ;
     }
 }
 

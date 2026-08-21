@@ -316,6 +316,7 @@ void draw_editor(BufManager *bufmgr, Font font) {
     for (size_t y = first; y < last; y++) {
         int py = Layout.editor_y + PAD_Y + (int)(y - first) * LINE_H;
 
+        // Active line
         if (y == buf->cursor.y) {
             DrawRectangle(Layout.editor_x + GUTTER_W, py - 4, Layout.editor_w - GUTTER_W, LINE_H,
                           g_theme.active_line);
@@ -545,7 +546,7 @@ void draw_editor(BufManager *bufmgr, Font font) {
         int cursor_h = FONT_SIZE + 2;
 
         if (((int)(GetTime() * 1.5f) % 2) == 0) {
-            DrawRectangle(cx, cy - 1, cursor_w, cursor_h, g_theme.cursor);
+            DrawRectangle(cx, cy - 4, cursor_w, cursor_h, g_theme.cursor);
         }
     }
 

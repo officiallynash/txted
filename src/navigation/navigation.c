@@ -21,7 +21,6 @@
 #include "raygui.h"
 #include "ui.h"
 
-extern bool ExitWindowRequested;   // ExitWindowRequested (main.c)
 extern bool Is_active_menu(void);  // Check if active menu is open (tab.c)
 extern int visible_lines(void);    // Jumlah baris yang terlihat (render.c)
 extern int calculate_score(const char *query, const char *label);  // Extern (lsp_ui.c)
@@ -443,7 +442,7 @@ void handle_input(BufManager *bufmgr, Font font) {
          * -------------------- */
         if (is_shift && IsKeyPressed(KEY_Q)) {
             Notif_show("File yang belum disimpan akan diabaikan!", NOTIF_INFO, 3.0f);
-            ExitWindowRequested = true;
+            bufmgr->win_flags |= TXTED_REQ;
         } else if (!is_shift && IsKeyPressed(KEY_Q)) {
             Nav_exit(bufmgr, font);
         }

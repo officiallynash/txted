@@ -21,6 +21,9 @@
 #define LINE_H 24
 #define GUTTER_W 50
 
+/**
+ * Struct untuk Layouting
+ */
 typedef struct {
     int win_h, win_w;
     int fm_x, fm_y, fm_w, fm_h;  // area file manager
@@ -30,12 +33,18 @@ typedef struct {
     int text_screen_x;           // X awal teks di layar
 } EditorLayout;
 
+/**
+ * Struct untuk membawa data dari Prompt
+ */
 typedef struct {
     char label[128];
     char subtext[128];
     int icon_id;
 } PromptItem;
 
+/**
+ * Struct untuk konfigurasi FloatPrompt
+ */
 typedef struct {
     bool is_active;
     bool edit_mode;

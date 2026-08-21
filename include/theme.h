@@ -8,11 +8,9 @@
 
 #include "raylib.h"
 
-typedef enum {
-    TOKYO_NIGHT,
-    DEFAULT_THEME,
-} ThemePreset;
-
+/**
+ * Struct untuk konfigurasi theme
+ */
 typedef struct {
     // Canvas / Window
     Color bg_main;     // Background editor utama

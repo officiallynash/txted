@@ -9,10 +9,6 @@
 #include "theme.h"
 #include "ui.h"
 
-// Extern value dari main.c
-extern bool ExitWindowRequested;
-extern bool ExitWindow;
-
 /**
  * Fungsi untuk draw atau render Confirm Exit
  */
@@ -47,10 +43,10 @@ void Draw_confirm_exit(BufManager *bufmgr, Font font) {
 
     // Tombol YES & NO Raygui
     if (GuiButton(btn_yes, GuiIconText(ICON_EXIT, "Keluar"))) {
-        ExitWindow = true;
+        bufmgr->win_flags |= TXTED_EXIT;
     }
 
     if (GuiButton(btn_no, GuiIconText(ICON_CROSS_SMALL, "Batal"))) {
-        ExitWindowRequested = false;
+        bufmgr->win_flags &= ~TXTED_REQ;
     }
 }

@@ -12,6 +12,9 @@
 
 #include "lsp_config.h"
 
+/**
+ * Struct untuk state dari Tree-Sitter (Yang disimpan di Buffer)
+ */
 typedef struct {
     TSParser *parser;
     TSTree *tree;
@@ -20,6 +23,9 @@ typedef struct {
     TSQuery *indents_query;
 } SyntaxState;
 
+/**
+ * Struct untuk menampung HighlightToken
+ */
 typedef struct {
     uint32_t start_byte;
     uint32_t end_byte;

@@ -12,8 +12,14 @@
 #define UNDO_MAX_ACTIONS 1000
 #define UNDO_TIMEOUT 500
 
+/**
+ * Enum untuk penanda aksi insert atau delete
+ */
 typedef enum { UNDO_INSERT, UNDO_DELETE } UndoType;
 
+/**
+ * Struct untuk konfigurasi Undo
+ */
 typedef struct {
     UndoType type;
     size_t offset;
@@ -23,6 +29,9 @@ typedef struct {
     long timestamp_ms;
 } UndoAction;
 
+/**
+ * Struct untuk Stack Undo
+ */
 typedef struct {
     UndoAction *actions;
     size_t count;

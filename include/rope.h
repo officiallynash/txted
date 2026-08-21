@@ -11,6 +11,9 @@
 
 typedef struct String String;
 
+/**
+ * Struct untuk membungkus ketika String_get
+ */
 typedef struct {
     unsigned char *data;
     size_t len;

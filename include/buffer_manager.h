@@ -1,3 +1,4 @@
+#include <stdint.h>
 /*
  * TxtEd - Simple Text Editor
  * Copyright (c) 2026 Nash
@@ -10,6 +11,15 @@
 #include <stddef.h>
 
 #include "buffer.h"
+
+/**
+ * Enum untuk penanda Flag Win (Kebutuhan untuk exit)
+ */
+typedef enum {
+    TXTED_NONE = 0,
+    TXTED_REQ = 1 << 0,
+    TXTED_EXIT = 1 << 1,
+} ExitRequest;
 
 /**
  * Enum untuk Switch Tab
@@ -35,7 +45,8 @@ typedef struct BufManager {
     float fm_width_ratio;  // Ratio untuk File Manager
     ViewFocus focus_mode;  // Focus mode
 
-    char *path_root;
+    char *path_root;    // Menyimpan path root, untuk kebutuhan workspace
+    uint8_t win_flags;  // Flag untuk menampung Request Exit
 } BufManager;
 
 BufManager *BufManager_init(void);

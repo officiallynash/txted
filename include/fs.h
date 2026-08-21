@@ -41,8 +41,9 @@ void draw_file_manager(BufManager *bufmgr, Font font);
 char *Fs_dirname(const char *path);
 void file_manager_refresh(void);
 
-// Initialize a FileList
+// Initialize a FileList untuk kebutuhan File Manager UI
 FileList *FileList_init(size_t capacity);
 void FileList_free(FileList *list);
 void Scan_project_files(const char *path, FileList *list);
+
 #endif  // !FS_H
