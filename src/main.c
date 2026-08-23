@@ -78,7 +78,7 @@ int main(int argc, char *argv[]) {
         GitStatus_update(bufmgr, dt);
 
         // Handle Input biasa hanya jika TIDAK sedang minta exit
-        if ((bufmgr->win_flags & TXTED_REQ) != TXTED_REQ) {
+        if ((bufmgr->win_flags & TXTED_REQ_EXIT) != TXTED_REQ_EXIT) {
             lsp_ui_update(bufmgr, dt);
 
             if (IsKeyPressed(KEY_SPACE) && IsKeyDown(KEY_LEFT_CONTROL)) {
@@ -91,7 +91,8 @@ int main(int argc, char *argv[]) {
             lsp_ui_hide();
             // Hotkey shortcut keyboard saat modal exit aktif
             if (IsKeyPressed(KEY_Y) || IsKeyPressed(KEY_ENTER)) bufmgr->win_flags |= TXTED_EXIT;
-            if (IsKeyPressed(KEY_N) || IsKeyPressed(KEY_ESCAPE)) bufmgr->win_flags &= ~TXTED_REQ;
+            if (IsKeyPressed(KEY_N) || IsKeyPressed(KEY_ESCAPE))
+                bufmgr->win_flags &= ~TXTED_REQ_EXIT;
         }
 
         // Gambar UI
@@ -102,7 +103,7 @@ int main(int argc, char *argv[]) {
         render_all_ui(bufmgr, font);
 
         // Render Modal Confirm Exit di LAYER PALING ATAS
-        if ((bufmgr->win_flags & TXTED_REQ) == TXTED_REQ) {
+        if ((bufmgr->win_flags & TXTED_REQ_EXIT) == TXTED_REQ_EXIT) {
             Draw_confirm_exit(bufmgr, font);
         }
 

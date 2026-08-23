@@ -289,7 +289,7 @@ static void draw_file_node_recursive(FileNode *node, Font font, EditorLayout L, 
  * Fungsi untuk Draw atau Render utama [PUBLIC API]
  */
 void draw_file_manager(BufManager *bufmgr, Font font) {
-    if (!bufmgr || !bufmgr->show_fm) return;
+    if (!bufmgr || (bufmgr->win_flags & TXTED_SHOW_FM) != TXTED_SHOW_FM) return;
 
     const char *wanted = bufmgr->path_root;
     if (wanted && wanted[0] && strcmp(g_loaded_root_path, wanted) != 0) {

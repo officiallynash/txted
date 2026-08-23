@@ -12,6 +12,11 @@
 #include "lsp_server.h"
 #include "raylib.h"
 
+// LSP Ui state tidak memakai Bitwise demi menghindari
+// Boilerplate atau ketidak keterbacaan kodenya
+// Selain itu penulisan dan untuk pengecekean setiap flag
+// akan semakin ribet jika memakai bitwise
+
 /**
  * Struct penampung hasil dari Completion yang sudah di filter
  */

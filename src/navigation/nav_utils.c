@@ -243,7 +243,7 @@ void Nav_exit(BufManager *bufmgr, Font font) {
             NOTIF_WARNING, 4.0f);
     } else {
         // Minta request Exit melalui Buffer Manager
-        bufmgr->win_flags |= TXTED_REQ;
+        bufmgr->win_flags |= TXTED_REQ_EXIT;
     }
 }
 
@@ -267,6 +267,7 @@ void Nav_create_new_file(BufManager *bufmgr, Font font) {
             BufManager_newtab(bufmgr, result.data);
         }
 
+        // Free semua Heap
         free(filename);
         free(cwd);
         free(pretty_name);

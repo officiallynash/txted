@@ -1,3 +1,4 @@
+#include "buffer_manager.h"
 /*
  * TxtEd - Simple Text Editor
  * Copyright (c) 2026 Nash
@@ -294,8 +295,12 @@ char *FloatPrompt_update_and_render(FloatPrompt *fp, Font font) {
 
         // Jika user memilih item dari suggestion box:
         if (match_count > 0 && fp->selected_idx < (int)match_count) {
-            return strdup(fp->items[matches[fp->selected_idx]].label);
+            int original_idx = matches[fp->selected_idx];
+            fp->selected_idx = original_idx;
+
+            return strdup(fp->items[original_idx].label);
         }
+
         // Jika prompt biasa tanpa suggestion:
         if (strlen(fp->input_buf) > 0) {
             return strdup(fp->input_buf);
@@ -359,4 +364,63 @@ char *FloatPrompt_ask_with_items(FloatPrompt *fp, const char *msg, const char *d
         if (result != NULL) break;
     }
     return result;
+}
+
+/**
+ * Fungsi untuk Fuzzy Search di Buffer [PUBLIC API]
+ */
+char *SearchPrompt_ask(BufManager *bufmgr, Font font) {
+    Buffer *buf = BufManager_getactive(bufmgr);
+    if (!buf) return NULL;
+
+    FloatPrompt *fp = &g_prompt;
+    FloatPrompt_open(fp, "Search", "", ICON_LENS);
+
+    // Alokasi statis untuk hit pencarian
+    static SearchHitBuffer hits[MAX_SEARCH_HIT];
+    static PromptItem items[MAX_SEARCH_HIT];
+
+    char *result = NULL;
+    char last_q[256] = "\0";
+
+    while (fp->is_active && !WindowShouldClose()) {
+        // Rebuild list kalau query berubah
+        if (strcmp(last_q, fp->input_buf) != 0) {
+            snprintf(last_q, sizeof(last_q), "%s", fp->input_buf);
+
+            int n = 0;
+            if (strlen(fp->input_buf) > 0) {
+                n = Buffer_search(buf, fp->input_buf, hits, MAX_SEARCH_HIT);
+            }
+
+            for (int i = 0; i < n; i++) {
+                snprintf(items[i].label, sizeof(items[i].label), "%s", hits[i].label);
+                items[i].icon_id = ICON_FILETYPE_TEXT;
+            }
+
+            fp->items = items;
+            fp->item_count = (size_t)n;
+            fp->selected_idx = 0;
+            fp->scroll_offset = 0;
+        }
+
+        BeginDrawing();
+        ClearBackground(g_theme.bg_editor);
+        render_all_ui(bufmgr, font);
+
+        result = FloatPrompt_update_and_render(fp, font);
+        EndDrawing();
+
+        if (result != NULL) {
+            // Karena fp->selected_idx sudah dikoreksi ke original index di
+            // FloatPrompt_update_and_render, akses ke array hits ini sekarang 100% aman dan akurat!
+            if (fp->item_count > 0 && fp->selected_idx >= 0 &&
+                fp->selected_idx < (int)fp->item_count) {
+                Buffer_goto_search_hit(buf, &hits[fp->selected_idx]);
+            }
+            free(result);
+            break;
+        }
+    }
+    return NULL;
 }

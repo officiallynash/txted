@@ -19,6 +19,10 @@ size_t String_len(String *str);  // Register Awal
  * PRIVATE API
  * ================================ */
 
+/**
+ * Struct pembungkus untuk Rope (String)
+ * Sengaja di Private karena ini inti dari Manipulasi teks di Buffer
+ */
 struct String {
     char *str;
     size_t len;

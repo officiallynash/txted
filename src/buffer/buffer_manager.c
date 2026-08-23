@@ -62,12 +62,12 @@ BufManager *BufManager_init(void) {
     bufmgr->active_idx = -1;
     bufmgr->num_tabs = 0;
     bufmgr->clp = Clipboard_init();
-    bufmgr->show_help = false;
-    bufmgr->show_fm = false;
     bufmgr->fm_width_ratio = 0.25f;
-    bufmgr->focus_mode = WRITE;
     bufmgr->path_root = NULL;
-    bufmgr->win_flags = TXTED_NONE;
+    bufmgr->win_flags = 0;
+
+    // Pasang default ke Write
+    bufmgr->win_flags |= TXTED_WRITE;
 
     for (size_t i = 0; i < MAX_TABS; i++) {
         bufmgr->buf[i] = NULL;
@@ -154,12 +154,14 @@ void BufManager_switchtab(BufManager *bufmgr, SwitchTab direction) {
     if (!bufmgr || bufmgr->num_tabs <= 1) return;
 
     switch (direction) {
+        // Untuk Prev Tab
         case PREV: {
             if (bufmgr->active_idx > 0) {
                 bufmgr->active_idx--;
             }
             break;
         }
+        // Untuk ke Next Tab
         case NEXT: {
             if ((size_t)bufmgr->active_idx + 1 < bufmgr->num_tabs) {
                 bufmgr->active_idx++;

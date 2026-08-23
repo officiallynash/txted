@@ -21,7 +21,8 @@ EditorLayout get_editor_layout(BufManager *bufmgr) {
     L.editor_y = TAB_H;
     L.editor_h = L.win_h - TAB_H - STATUS_H - DIAG_PANEL_H;
 
-    if (bufmgr->show_fm) {
+    // Jika flags Show FM aktif
+    if ((bufmgr->win_flags & TXTED_SHOW_FM) != 0) {
         L.fm_w = (int)(L.win_w * bufmgr->fm_width_ratio);
         if (L.fm_w < 160) L.fm_w = 160;
         if (L.fm_w > L.win_w / 2) L.fm_w = L.win_w / 2;

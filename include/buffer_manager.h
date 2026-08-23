@@ -1,4 +1,3 @@
-#include <stdint.h>
 /*
  * TxtEd - Simple Text Editor
  * Copyright (c) 2026 Nash
@@ -8,18 +7,20 @@
 #define BUFFER_MANAGER_H
 #define MAX_TABS 7
 
+// Daftar semua Flag di Struct Buffer Manager
+// Kita gunakan Bitwise untuk menghemat memory
+// Selain itu untuk mempercepat Toggle ketika perpindahan Flag
+#define TXTED_REQ_EXIT (1 << 0)
+#define TXTED_EXIT (1 << 1)
+#define TXTED_SHOW_FM (1 << 2)
+#define TXTED_SHOW_HELP (1 << 3)
+#define TXTED_WRITE (1 << 4)
+#define TXTED_FILE_MANAGER (1 << 5)
+
 #include <stddef.h>
+#include <stdint.h>
 
 #include "buffer.h"
-
-/**
- * Enum untuk penanda Flag Win (Kebutuhan untuk exit)
- */
-typedef enum {
-    TXTED_NONE = 0,
-    TXTED_REQ = 1 << 0,
-    TXTED_EXIT = 1 << 1,
-} ExitRequest;
 
 /**
  * Enum untuk Switch Tab
@@ -27,26 +28,16 @@ typedef enum {
 typedef enum SwitchTab { PREV, NEXT } SwitchTab;
 
 /**
- * Enum untuk Focus Mode
- */
-typedef enum ViewFocus { WRITE, FILE_MANAGER } ViewFocus;
-
-/**
  * Struct pembungkus untuk Buffer, ini jantungnya Multi tab
  */
 typedef struct BufManager {
     Buffer *buf[MAX_TABS];  // Array buffer
-    size_t num_tabs;
-    int active_idx;
+    size_t num_tabs; // Untuk num tabs
+    int active_idx; // Active idx
     Clipboard *clp;  // Clipboard
-
-    bool show_help;        // Menu help (agar ga bentrok dengan Main Ui)
-    bool show_fm;          // Flag penanda File Manager
     float fm_width_ratio;  // Ratio untuk File Manager
-    ViewFocus focus_mode;  // Focus mode
-
     char *path_root;    // Menyimpan path root, untuk kebutuhan workspace
-    uint8_t win_flags;  // Flag untuk menampung Request Exit
+    uint8_t win_flags;  // Flag untuk menampung state window, misal minta exit, dll
 } BufManager;
 
 BufManager *BufManager_init(void);

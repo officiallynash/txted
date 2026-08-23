@@ -73,6 +73,7 @@ void Draw_confirm_exit(BufManager *bufmgr, Font font);
 // Pop up
 char *FloatPrompt_ask(FloatPrompt *fp, const char *msg, const char *default_val, int icon_id,
                       Font font, BufManager *bufmgr);
+char *SearchPrompt_ask(BufManager *bufmgr, Font font);
 
 // Pop up dengan box suggestion
 char *FloatPrompt_ask_with_items(FloatPrompt *fp, const char *msg, const char *default_val,

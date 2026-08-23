@@ -6,6 +6,7 @@
 #include <stddef.h>
 #ifndef BUFFER_H
 #define BUFFER_H
+#define MAX_SEARCH_HIT 100
 
 #include <stdbool.h>
 
@@ -91,6 +92,15 @@ typedef struct {
     size_t meta_capacity;
 } Buffer;
 
+/**
+ * Struct untuk menampung Search
+ */
+typedef struct {
+    size_t line;
+    size_t col;
+    char label[256];
+} SearchHitBuffer;
+
 Buffer *Buffer_new();
 Buffer *Buffer_open(const char *filename);
 void Buffer_insert(Buffer *buf, size_t pos_idx, const char *ch);
@@ -103,6 +113,10 @@ char *Path_to_uri(const char *path);
 void Buffer_get_current_word(Buffer *buf, char *out_str, size_t max_len);
 char Buffer_get_char_at(Buffer *buf, size_t line, size_t col);
 void lsp_apply_completion(Buffer *buf, const CompletionItem *item);  // LSP
+
+// Search
+int Buffer_search(Buffer *buf, const char *query, SearchHitBuffer *out, int max_hits);
+void Buffer_goto_search_hit(Buffer *buf, const SearchHitBuffer *hit);
 
 // Buffer, Clipboard dan Undo Redo
 void Buffer_copy(Buffer *buf, Clipboard *clp);

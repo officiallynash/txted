@@ -22,6 +22,7 @@ static float dialog_scroll_y = 0.0f;  // Menyimpan offset scroll dialog
  * Internal State
  * ============================= */
 static int active_menu = -1;
+
 typedef void (*MenuAction)(BufManager *bufmgr, Font font);
 typedef struct {
     const char *label;
@@ -29,6 +30,10 @@ typedef struct {
     MenuAction action;
 } MenuItem;
 
+// Fungsi ini nantinya yang di extern ke file lain.
+// Harusnya kan ini masuk ke flag Buffer Manager
+// Tapi kalau di pikir2 karena Active_menu itu dinamis
+// Jadi lebih baik terpisah
 bool Is_active_menu(void) { return active_menu != -1; }
 typedef enum { DIALOG_NONE = 0, DIALOG_HELP, DIALOG_ABOUT } DialogState;
 
@@ -38,7 +43,7 @@ static DialogState current_dialog = DIALOG_NONE;
 static void UI_open_dialog(BufManager *bufmgr, DialogState state) {
     current_dialog = state;
     dialog_scroll_y = 0.0f;
-    bufmgr->show_help = true;
+    bufmgr->win_flags |= TXTED_SHOW_HELP;
 }
 
 /* ------------------------------- *
@@ -90,7 +95,14 @@ void Nav_open_git(BufManager *bufmgr, Font font) {
  */
 void Nav_show_fm(BufManager *bufmgr, Font font) {
     (void)font;
-    bufmgr->show_fm = !bufmgr->show_fm;
+
+    // Pakai Flag Bitwise
+    // Cek apakah bernilai TXTED_SHOW_FM
+    if ((bufmgr->win_flags & TXTED_SHOW_FM) != TXTED_SHOW_FM) {
+        bufmgr->win_flags |= TXTED_SHOW_FM;
+    } else {
+        bufmgr->win_flags &= ~TXTED_SHOW_FM;
+    }
 }
 
 /**
@@ -394,6 +406,7 @@ void draw_dialog_modal(BufManager *bufmgr, Font font) {
                                    "Ctrl + C : Copy",
                                    "Ctrl + X : Cut",
                                    "Ctrl + V : Paste",
+                                   "Ctrl + B : Fuzzy Search",
                                    "",
                                    "--- LSP ---",
                                    "Ctrl + K : Show Hover Doc",
@@ -476,6 +489,9 @@ void draw_dialog_modal(BufManager *bufmgr, Font font) {
     if (clicked_close || clicked_outside || pressed_esc) {
         current_dialog = DIALOG_NONE;
         just_opened = true;
-        bufmgr->show_help = false;
+
+        // Buat hapus flags show help
+        // Bukan hapus sih lebih ke mematikan
+        bufmgr->win_flags &= ~TXTED_SHOW_HELP;
     }
 }

@@ -43,10 +43,12 @@ void Draw_confirm_exit(BufManager *bufmgr, Font font) {
 
     // Tombol YES & NO Raygui
     if (GuiButton(btn_yes, GuiIconText(ICON_EXIT, "Keluar"))) {
+        // Set ke TXTED Exit
         bufmgr->win_flags |= TXTED_EXIT;
     }
 
     if (GuiButton(btn_no, GuiIconText(ICON_CROSS_SMALL, "Batal"))) {
-        bufmgr->win_flags &= ~TXTED_REQ;
+        // Set balik ke Req Exit
+        bufmgr->win_flags &= ~TXTED_REQ_EXIT;
     }
 }

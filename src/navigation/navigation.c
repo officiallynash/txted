@@ -62,8 +62,10 @@ extern void Nav_undo(BufManager *bufmgr, Font font);       // Nav_undo (nav_util
  * Fungsi untuk Navigation mouse berbasis Focus mode
  */
 static void Update_navigation_click(BufManager *bufmgr) {
-    if (!bufmgr->show_fm) {
-        bufmgr->focus_mode = WRITE;
+    // Jika bukan Show FM maka set ke Mode Write
+    if ((bufmgr->win_flags & TXTED_SHOW_FM) != TXTED_SHOW_FM) {
+        bufmgr->win_flags &= ~TXTED_FILE_MANAGER;  /// Matiin dulu File Manager
+        bufmgr->win_flags |= TXTED_WRITE;
         return;
     }
 
@@ -76,12 +78,14 @@ static void Update_navigation_click(BufManager *bufmgr) {
 
         // Klik di area File Manager Sidebar
         if (mouse.x >= Layout.fm_x && mouse.x < (Layout.fm_x + Layout.fm_w)) {
-            bufmgr->focus_mode = FILE_MANAGER;  // atau FM
+            bufmgr->win_flags &= ~TXTED_WRITE;        // Matiin dulu si Write
+            bufmgr->win_flags |= TXTED_FILE_MANAGER;  // set ke FM
         }
 
         // Klik di area Write / Text Editor
         else if (mouse.x >= Layout.editor_x && mouse.x < (Layout.editor_x + Layout.editor_w)) {
-            bufmgr->focus_mode = WRITE;
+            bufmgr->win_flags &= ~TXTED_FILE_MANAGER;  // Matiin dulu si File Manager
+            bufmgr->win_flags |= TXTED_WRITE;          // Set default ke Write
         }
     }
 }
@@ -120,7 +124,10 @@ void handle_input(BufManager *bufmgr, Font font) {
 
     bool is_mouse_scroll = false;
     float wheel = GetMouseWheelMove();
-    if (wheel != 0 && !bufmgr->show_help && !g_lsp_ui.has_hover) {  // Kalau ada hover matiin dulu
+
+    // Bool untuk show help
+    bool show_help = (bufmgr->win_flags & TXTED_SHOW_HELP) != TXTED_SHOW_HELP;
+    if (wheel != 0 && show_help && !g_lsp_ui.has_hover) {  // Kalau ada hover matiin dulu
         if (g_lsp_ui.visible && g_lsp_ui.has_completion) {
             // Scroll pilihan popup via mouse wheel!
             if (wheel > 0)
@@ -412,6 +419,7 @@ void handle_input(BufManager *bufmgr, Font font) {
             g_lsp_ui.has_hover = true;
             g_lsp_ui.hover_scroll = 0.0f;
         }
+
         /* -------------------- *
          * Save File (CTRL + S)
          * Save As (CTRL + SHIFT + S)
@@ -442,7 +450,7 @@ void handle_input(BufManager *bufmgr, Font font) {
          * -------------------- */
         if (is_shift && IsKeyPressed(KEY_Q)) {
             Notif_show("File yang belum disimpan akan diabaikan!", NOTIF_INFO, 3.0f);
-            bufmgr->win_flags |= TXTED_REQ;
+            bufmgr->win_flags |= TXTED_REQ_EXIT;
         } else if (!is_shift && IsKeyPressed(KEY_Q)) {
             Nav_exit(bufmgr, font);
         }
@@ -451,7 +459,19 @@ void handle_input(BufManager *bufmgr, Font font) {
          * FILE MANAGER (Ctrl + f)
          * -------------------- */
         if (IsKeyPressed(KEY_F)) {
-            bufmgr->show_fm = !bufmgr->show_fm;
+            if ((bufmgr->win_flags & TXTED_SHOW_FM) != TXTED_SHOW_FM) {
+                bufmgr->win_flags |= TXTED_SHOW_FM;
+            } else {
+                bufmgr->win_flags &= ~TXTED_SHOW_FM;
+            }
+        }
+
+        /* -------------------- *
+         * Fuzzy Search (Ctrl + B)
+         * -------------------- */
+        if (IsKeyPressed(KEY_B)) {
+            SearchPrompt_ask(bufmgr, font);
+            return;
         }
 
         /* -------------------- *

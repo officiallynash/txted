@@ -28,6 +28,7 @@
 
 extern void sync_cursor_line_from_pos(Buffer *buf);  // didefinisikan di navigation.c
 extern void lsp_clear_all_diagnostics(void);         // Clear Diagnostic [lsp_client.c]
+extern int visible_lines(void);                      // Didefinisikan di render.c
 
 /* =============================
  * PRIVATE API
@@ -1062,4 +1063,62 @@ void Buffer_mark_line_edited(Buffer *buf, size_t line_idx) {
     buf->line_git[line_idx].last_edited_at = (double)time(NULL);  // Gunakan time(NULL)
     strncpy(buf->line_git[line_idx].author, git.author[0] ? git.author : "You",
             sizeof(buf->line_git[line_idx].author));
+}
+
+/**
+ * Fungsi untuk akomodasi Search [PUBLIC API]
+ */
+int Buffer_search(Buffer *buf, const char *query, SearchHitBuffer *out, int max_hits) {
+    if (!buf || !query || !query[0] || !out || max_hits <= 0) return 0;
+
+    int count = 0;
+    size_t q_len = strlen(query);
+
+    for (size_t y = 0; y < buf->lines.line_count && count < max_hits; y++) {
+        char *line = Buffer_get_line_text(buf, y);
+        if (!line) continue;
+
+        const char *p = line;
+        while ((p = strcasestr(p, query)) != NULL) {
+            size_t col = (size_t)(p - line);
+
+            SearchHitBuffer *h = &out[count++];
+            h->line = y;
+            h->col = col;
+
+            char match_snippet[32];
+            snprintf(match_snippet, sizeof(match_snippet), "%.25s", p);
+
+            snprintf(h->label, sizeof(h->label), "[%zu:%zu] %.20s...", y + 1, col + 1,
+                     match_snippet);
+
+            p += (q_len > 0 ? q_len : 1);
+            if (count >= max_hits) break;
+        }
+        free(line);
+    }
+    return count;
+}
+
+/**
+ * Fungsi untuk melompat ke Hasil pencarian [PUBLIC API]
+ */
+void Buffer_goto_search_hit(Buffer *buf, const SearchHitBuffer *hit) {
+    if (!buf || !hit) return;
+
+    buf->cursor.y = hit->line;
+    buf->cursor.x = hit->col;
+
+    if (hit->line < buf->lines.line_count) {
+        buf->cursor.cursor_pos = buf->lines.offset[hit->line] + hit->col;
+    } else {
+        buf->cursor.cursor_pos = String_len(buf->str);
+    }
+
+    buf->selection.is_selected = false;
+
+    // scroll biar kelihatan
+    int vis = visible_lines();
+    if ((int)buf->cursor.y < buf->scroll_y) buf->scroll_y = (int)buf->cursor.y;
+    if ((int)buf->cursor.y >= buf->scroll_y + vis) buf->scroll_y = (int)buf->cursor.y - vis + 1;
 }
