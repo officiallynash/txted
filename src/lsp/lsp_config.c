@@ -82,7 +82,6 @@ LangConfig *LspConfig_detail(const char *filepath) {
         "clangd",       "--background-index",          "--header-insertion=iwyu",
         "--clang-tidy", "--completion-style=detailed", NULL};
 
-    static char *go_ls[] = {"gopls", NULL};
     // Cari titik '.' paling akhir
     const char *dot = strrchr(filepath, '.');
     if (!dot || dot == filepath) return NULL;
@@ -94,13 +93,6 @@ LangConfig *LspConfig_detail(const char *filepath) {
         config->language_id = "c";
         config->path_lsp = find_executable_in_path("clangd");
         config->lsp_args = clangd_args;
-        config->query_source = Syntax_query(config->language_id, "highlights.scm");
-        config->indent_source = Syntax_query(config->language_id, "indents.scm");
-    } else if (strcmp(dot + 1, "go") == 0) {
-        config->lang = GO;
-        config->language_id = "go";
-        config->path_lsp = find_executable_in_path("gopls");
-        config->lsp_args = go_ls;
         config->query_source = Syntax_query(config->language_id, "highlights.scm");
         config->indent_source = Syntax_query(config->language_id, "indents.scm");
     } else {

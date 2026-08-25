@@ -493,5 +493,10 @@ void draw_dialog_modal(BufManager *bufmgr, Font font) {
         // Buat hapus flags show help
         // Bukan hapus sih lebih ke mematikan
         bufmgr->win_flags &= ~TXTED_SHOW_HELP;
+
+        // Pastikan untuk buf tidak is_selected HAHAHA
+        // Kadang bug klasik HAHAHA
+        Buffer *buf = BufManager_getactive(bufmgr);
+        buf->selection.is_selected = false;
     }
 }

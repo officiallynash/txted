@@ -101,7 +101,7 @@ void Buffer_goto_search_hit(Buffer *buf, const SearchHitBuffer *hit) {
         buf->cursor.cursor_pos = String_len(buf->str);
     }
 
-    buf->selection.is_selected = false;
+    buf->selection.is_selected = false;  // Memastikan bahwa is_selected mati!
 
     // scroll biar kelihatan
     int vis = visible_lines();

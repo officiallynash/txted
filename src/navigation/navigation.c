@@ -51,6 +51,7 @@ extern void Nav_paste(BufManager *bufmgr, Font font);      // Nav_paste (nav_uti
 extern void Nav_redo(BufManager *bufmgr, Font font);       // Nav_redo (nav_utils.c)
 extern void Nav_undo(BufManager *bufmgr, Font font);       // Nav_undo (nav_utils.c)
 
+// helper untuk hide Signature Help (pakai macro aja kali ya HAHAHA)
 #define SIGNATURE_HIDE()                                   \
     if (g_lsp_ui.sig_y != buf->cursor.y) {                 \
         g_lsp_ui.has_signature = false;                    \

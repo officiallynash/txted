@@ -16,8 +16,8 @@
 #include "theme.h"
 #include "ui.h"
 
-FloatPrompt g_prompt = {0};
-extern void render_all_ui(BufManager *bufmgr, Font font);
+FloatPrompt g_prompt = {0};  // Deklarasi awal g_prompt nantinya buat di extern
+extern void render_all_ui(BufManager *bufmgr, Font font);  // Didefinisikan di main.c
 extern int calculate_score(const char *query,
                            const char *label);  // Calculate score for fuzzy matching (LSP_UI)
 

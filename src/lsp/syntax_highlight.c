@@ -8,7 +8,6 @@
 #include <string.h>
 #include <tree_sitter/api.h>
 #include <tree_sitter/tree-sitter-c.h>
-#include <tree_sitter/tree-sitter-go.h>
 
 #include "lsp_config.h"
 #include "notification.h"
@@ -32,9 +31,6 @@ SyntaxState *Syntax_init(LangConfig *lang) {
     switch (lang->lang) {
         case C:
             ts_lang = tree_sitter_c();
-            break;
-        case GO:
-            ts_lang = tree_sitter_go();
             break;
         case GENERAL:
             ts_lang = NULL;

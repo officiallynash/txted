@@ -7,7 +7,7 @@
 #define LSP_CONFIG_H
 
 // Enum untuk type bahasa
-typedef enum { GO, C, GENERAL } LangType;
+typedef enum {  C, GENERAL } LangType;
 
 /**
  * Struct untuk data Config LSP dan Tree-sitter saat Open File
