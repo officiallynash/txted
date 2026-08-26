@@ -5,6 +5,7 @@
  */
 #include <asm-generic/errno.h>
 #include <stdbool.h>
+#include <stddef.h>
 #define _POSIX_C_SOURCE 200809L
 #include <fcntl.h>
 #include <pthread.h>
@@ -17,7 +18,8 @@
 
 #include "cJSON.h"
 #include "lsp_server.h"
-#define MAX_DIAG_DOCS 16
+
+constexpr size_t MAX_DIAG_DOCS = 16;
 
 /* =============================
  * INTERNAL STATE
@@ -82,7 +84,7 @@ static void free_one_diagnostic_list(DiagnosticList *dl) {
         free(dl->items[i].source);
     }
     free(dl->items);
-    dl->items = NULL;
+    dl->items = nullptr;
     dl->count = 0;
     dl->uri[0] = '\0';
 }
@@ -108,7 +110,7 @@ void lsp_clear_all_diagnostics(void) {
  * Fungsi untuk mendapatkan diagnostic berdasarkan URI [PUBLIC API]
  */
 DiagnosticList *lsp_get_diagnostics(const char *uri) {
-    if (!uri) return NULL;
+    if (!uri) return nullptr;
 
     pthread_mutex_lock(&diag_mutex);
     for (int i = 0; i < g_diag_count; i++) {
@@ -118,7 +120,7 @@ DiagnosticList *lsp_get_diagnostics(const char *uri) {
         }
     }
     pthread_mutex_unlock(&diag_mutex);
-    return NULL;
+    return nullptr;
 }
 
 /**
@@ -140,7 +142,7 @@ static void store_diagnostics(const char *uri, cJSON *diagnostics_array) {
 
     // Jika slot kosong
     if (slot < 0) {
-        if (g_diag_count >= MAX_DIAG_DOCS) {
+        if (g_diag_count >= (int)MAX_DIAG_DOCS) {
             // Buang yang paling lama
             free_one_diagnostic_list(&g_diagnostics[0]);
             memmove(&g_diagnostics[0], &g_diagnostics[1],
@@ -248,7 +250,7 @@ CompletionList lsp_completion(const char *uri, int line, int character, char tri
     response_received = false;
     if (pending_result) {
         cJSON_Delete(pending_result);
-        pending_result = NULL;
+        pending_result = nullptr;
     }
 
     char *json = cJSON_PrintUnformatted(req);
@@ -269,14 +271,14 @@ CompletionList lsp_completion(const char *uri, int line, int character, char tri
     }
 
     cJSON *result = pending_result;
-    pending_result = NULL;
+    pending_result = nullptr;
     pending_id = -1;
     pthread_mutex_unlock(&pending_mutex);
 
     if (!result) return list;
 
     // Parsing result
-    cJSON *items = NULL;
+    cJSON *items = nullptr;
     if (cJSON_IsArray(result)) {
         items = result;
     } else if (cJSON_IsObject(result)) {
@@ -314,10 +316,10 @@ CompletionList lsp_completion(const char *uri, int line, int character, char tri
             if (cJSON_IsString(detail) && detail->valuestring) {
                 ci->detail = strdup(detail->valuestring);
             } else {
-                ci->detail = NULL;
+                ci->detail = nullptr;
             }
 
-            ci->header_include = NULL;
+            ci->header_include = nullptr;
             cJSON *add_edits = cJSON_GetObjectItem(item, "additionalTextEdits");
             if (add_edits && cJSON_IsArray(add_edits)) {
                 cJSON *first_edit = cJSON_GetArrayItem(add_edits, 0);
@@ -375,7 +377,7 @@ SignatureHelp lsp_signature_help(const char *uri, int line, int character) {
     response_received = false;
     if (pending_result) {
         cJSON_Delete(pending_result);
-        pending_result = NULL;
+        pending_result = nullptr;
     }
 
     char *json = cJSON_PrintUnformatted(req);
@@ -392,7 +394,7 @@ SignatureHelp lsp_signature_help(const char *uri, int line, int character) {
     }
 
     cJSON *result = pending_result;
-    pending_result = NULL;
+    pending_result = nullptr;
     pending_id = -1;
     pthread_mutex_unlock(&pending_mutex);
 
@@ -510,7 +512,7 @@ void lsp_free_signature_help(SignatureHelp *help) {
         }
     }
     free(help->items);
-    help->items = NULL;
+    help->items = nullptr;
     help->count = 0;
 }
 
@@ -549,7 +551,7 @@ HoverInfo lsp_hover(const char *uri, int line, int character) {
     response_received = false;
     if (pending_result) {
         cJSON_Delete(pending_result);
-        pending_result = NULL;
+        pending_result = nullptr;
     }
 
     char *json = cJSON_PrintUnformatted(req);
@@ -566,7 +568,7 @@ HoverInfo lsp_hover(const char *uri, int line, int character) {
     }
 
     cJSON *result = pending_result;
-    pending_result = NULL;
+    pending_result = nullptr;
     pending_id = -1;
     pthread_mutex_unlock(&pending_mutex);
 
@@ -599,11 +601,11 @@ HoverInfo lsp_hover(const char *uri, int line, int character) {
                     if (cJSON_IsString(v)) total += strlen(v->valuestring) + 2;
                 }
             }
-            hover.contents = malloc(total + 1);
+            hover.contents = calloc(total + 1, sizeof(char));
             hover.contents[0] = '\0';
             for (int i = 0; i < n; i++) {
                 cJSON *item = cJSON_GetArrayItem(contents, i);
-                const char *s = NULL;
+                const char *s = nullptr;
                 if (cJSON_IsString(item))
                     s = item->valuestring;
                 else if (cJSON_IsObject(item)) {
@@ -642,7 +644,7 @@ HoverInfo lsp_hover(const char *uri, int line, int character) {
 void lsp_free_hover(HoverInfo *hover) {
     if (!hover) return;
     free(hover->contents);
-    hover->contents = NULL;
+    hover->contents = nullptr;
     hover->has_range = false;
 }
 
@@ -681,7 +683,7 @@ TextEditList lsp_format(const char *uri, int tab_size, bool insert_spaces) {
     response_received = false;
     if (pending_result) {
         cJSON_Delete(pending_result);
-        pending_result = NULL;
+        pending_result = nullptr;
     }
 
     char *json = cJSON_PrintUnformatted(req);
@@ -698,7 +700,7 @@ TextEditList lsp_format(const char *uri, int tab_size, bool insert_spaces) {
     }
 
     cJSON *result = pending_result;
-    pending_result = NULL;
+    pending_result = nullptr;
     pending_id = -1;
     pthread_mutex_unlock(&pending_mutex);
 
@@ -752,7 +754,7 @@ void lsp_free_text_edits(TextEditList *list) {
         free(list->edits[i].new_text);
     }
     free(list->edits);
-    list->edits = NULL;
+    list->edits = nullptr;
     list->count = 0;
 }
 
@@ -767,7 +769,7 @@ static void *reader_func(void *arg) {
     (void)arg;
 
     size_t capacity = 16384;
-    char *buf = malloc(capacity);
+    char *buf = calloc(capacity, sizeof(char));
     size_t buf_len = 0;
 
     while (running) {
@@ -907,14 +909,14 @@ bool lsp_start(const char *lsp_path, char **argv, const char *workspace_root) {
     stdout_fd = out_pipe[0];
 
     running = true;
-    pthread_create(&reader_thread, NULL, reader_func, NULL);
+    pthread_create(&reader_thread, nullptr, reader_func, nullptr);
 
     // ---------- INITIALIZE ----------
     int init_id = next_id();
 
     pthread_mutex_lock(&pending_mutex);
     pending_id = init_id;
-    pending_result = NULL;
+    pending_result = nullptr;
     response_received = false;
     pthread_mutex_unlock(&pending_mutex);
 
@@ -1033,7 +1035,7 @@ bool lsp_start(const char *lsp_path, char **argv, const char *workspace_root) {
     }
 
     cJSON *init_result = pending_result;
-    pending_result = NULL;
+    pending_result = nullptr;
     pending_id = -1;
     response_received = false;
     pthread_mutex_unlock(&pending_mutex);
@@ -1142,7 +1144,7 @@ void lsp_free_completion(CompletionList *list) {
         free(list->items[i].header_include);
     }
     free(list->items);
-    list->items = NULL;
+    list->items = nullptr;
     list->count = 0;
 }
 
@@ -1181,5 +1183,5 @@ void lsp_stop(void) {
         lsp_pid = -1;
     }
 
-    pthread_join(reader_thread, NULL);
+    pthread_join(reader_thread, nullptr);
 }

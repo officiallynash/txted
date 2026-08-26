@@ -131,7 +131,7 @@ static MenuItem help_items[] = {{"Help", "", Nav_show_help}, {"About", "", Nav_s
  * Render Dropdown Items
  */
 static void draw_dropdown_items(int menu_idx, float x, float y, BufManager *bufmgr, Font font) {
-    MenuItem *items = NULL;
+    MenuItem *items = nullptr;
     int count = 0;
 
     if (menu_idx == 0) {
@@ -174,7 +174,7 @@ static void draw_dropdown_items(int menu_idx, float x, float y, BufManager *bufm
                 active_menu = -1;
                 item_clicked = true;
 
-                if (act != NULL) {
+                if (act != nullptr) {
                     act(bufmgr, font);
                 }
                 break;  // Keluar dari loop item agar tidak memproses event lain
@@ -257,10 +257,10 @@ int draw_menu(BufManager *bufmgr, Font font, Vector2 mouse_pos) {
  * Fungsi untuk Draw Tabs
  */
 void draw_tabs(BufManager *bufmgr, Font font) {
-    int win_w = GetRenderWidth();
-    int win_h = GetRenderHeight();
+    // Ambil config Layout
+    EditorLayout layout = get_editor_layout(bufmgr);
 
-    DrawRectangle(0, win_h - TAB_H, win_w, TAB_H, g_theme.bg_sidebar);
+    DrawRectangle(0, layout.win_h - TAB_H, layout.win_w, TAB_H, g_theme.bg_sidebar);
 
     Vector2 mouse_pos = GetMousePosition();
     int x = draw_menu(bufmgr, font, mouse_pos);
@@ -319,7 +319,7 @@ void draw_tabs(BufManager *bufmgr, Font font) {
     }
 
     if (bufmgr->num_tabs == 0) {
-        BufManager_newtab(bufmgr, NULL);
+        BufManager_newtab(bufmgr, nullptr);
     }
 
     /* Tombol '+' New Tab (Hanya render jika belum melewati limit MAX_TABS) */
@@ -331,7 +331,7 @@ void draw_tabs(BufManager *bufmgr, Font font) {
         DrawTextEx(font, "+", plus_pos, 20, 1.0f, g_theme.text_normal);
 
         if (CheckCollisionPointRec(mouse_pos, plus) && IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
-            BufManager_newtab(bufmgr, NULL);
+            BufManager_newtab(bufmgr, nullptr);
         }
     }
 }
@@ -349,8 +349,10 @@ void draw_dialog_modal(BufManager *bufmgr, Font font) {
     }
 
     Vector2 mouse_pos = GetMousePosition();
-    float screen_w = (float)GetScreenWidth();
-    float screen_h = (float)GetScreenHeight();
+
+    EditorLayout layout = get_editor_layout(bufmgr);
+    float screen_w = (float)layout.win_w;
+    float screen_h = (float)layout.win_h;
 
     // Render Backdrop Gelap Transparan
     DrawRectangle(0, 0, (int)screen_w, (int)screen_h, g_theme.backdrop);

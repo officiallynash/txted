@@ -19,15 +19,14 @@ extern char *format_pretty_path(const char *path);  // Didefinisikan di fs.c
  * Fungsi untuk Draw Status Bar
  */
 void draw_status(BufManager *bufmgr, Font font) {
-    int win_w = GetRenderWidth();
-    int win_h = GetRenderHeight();
+    EditorLayout layout = get_editor_layout(bufmgr);  // Ambil layout
 
     // Gambar background status bar di paling bawah layar aktual
-    DrawRectangle(0, win_h - STATUS_H, win_w, STATUS_H, g_theme.bg_sidebar);
+    DrawRectangle(0, layout.win_h - STATUS_H, layout.win_w, STATUS_H, g_theme.bg_sidebar);
 
     Buffer *buf = BufManager_getactive(bufmgr);
     if (!buf) {
-        Vector2 pos = {(float)PAD_X, (float)(win_h - STATUS_H + 6)};
+        Vector2 pos = {(float)PAD_X, (float)(layout.win_h - STATUS_H + 6)};
         DrawTextEx(font, "No buffer", pos, FONT_SIZE, 1.0f, g_theme.text_normal);
         return;
     }
@@ -55,7 +54,7 @@ void draw_status(BufManager *bufmgr, Font font) {
 
     free(path_name);  // Free path name
 
-    Vector2 left_pos = {(float)PAD_X, (float)(win_h - STATUS_H + 6)};
+    Vector2 left_pos = {(float)PAD_X, (float)(layout.win_h - STATUS_H + 6)};
     DrawTextEx(font, left, left_pos, FONT_SIZE, 1.0f, text_color);
 
     char right[128];
@@ -70,6 +69,7 @@ void draw_status(BufManager *bufmgr, Font font) {
              buf->language_id ? buf->language_id : "none", buf->cursor.y + 1, buf->cursor.x + 1);
 
     Vector2 rsize = MeasureTextEx(font, right, FONT_SIZE, 1.0f);
-    Vector2 right_pos = {(float)(win_w - (int)rsize.x - PAD_X), (float)(win_h - STATUS_H + 6)};
+    Vector2 right_pos = {(float)(layout.win_w - (int)rsize.x - PAD_X),
+                         (float)(layout.win_h - STATUS_H + 6)};
     DrawTextEx(font, right, right_pos, FONT_SIZE, 1.0f, g_theme.text_normal);
 }

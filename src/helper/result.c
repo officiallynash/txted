@@ -21,5 +21,5 @@ Result Err(const char *msg) { return (Result){.type = RESULT_ERR, .data = (void 
  * Fungsi untuk membersihkan Result
  */
 void Result_free(Result *result) {
-    if (result->data) result->data = NULL;
+    if (result->data) result->data = nullptr;
 }

@@ -17,23 +17,23 @@
  * Fungsi untuk inisialisasi state syntax highlighting [PUBLIC API]
  */
 SyntaxState *Syntax_init(LangConfig *lang) {
-    if (!lang) return NULL;
-    SyntaxState *state = malloc(sizeof(SyntaxState));
-    if (!state) return NULL;
+    if (!lang) return nullptr;
+    SyntaxState *state = calloc(1, sizeof(SyntaxState));
+    if (!state) return nullptr;
 
     state->parser = ts_parser_new();
-    state->query = NULL;  // Pastikan ter-nullify dulu
+    state->query = nullptr;  // Pastikan ter-nullify dulu
 
     uint32_t error_offset;
     TSQueryError error_type;
 
-    const TSLanguage *ts_lang = NULL;
+    const TSLanguage *ts_lang = nullptr;
     switch (lang->lang) {
         case C:
             ts_lang = tree_sitter_c();
             break;
         case GENERAL:
-            ts_lang = NULL;
+            ts_lang = nullptr;
             break;
     }
 
@@ -67,7 +67,7 @@ SyntaxState *Syntax_init(LangConfig *lang) {
         }
     }
 
-    state->tree = NULL;
+    state->tree = nullptr;
     state->is_enabled = true;
 
     return state;

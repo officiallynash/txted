@@ -3,15 +3,15 @@
  * Copyright (c) 2026 Nash
  * SPDX-License-Identifier: MIT
  */
-#include <raylib.h>
 #ifndef GIT_CLIENT_H
 #define GIT_CLIENT_H
 
+#include <raylib.h>
 #include <stdbool.h>
 
 #include "buffer_manager.h"
 
-#define MAX_FILE_GIT 256
+constexpr int MAX_FILE_GIT = 256;
 
 /**
  * Struct untuk menampung Status dari File

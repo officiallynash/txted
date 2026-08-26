@@ -5,7 +5,9 @@
  */
 #ifndef BUFFER_MANAGER_H
 #define BUFFER_MANAGER_H
-#define MAX_TABS 7
+
+// define max tab
+constexpr int MAX_TABS = 7;
 
 // Daftar semua Flag di Struct Buffer Manager
 // Kita gunakan Bitwise untuk menghemat memory
@@ -32,12 +34,12 @@ typedef enum SwitchTab { PREV, NEXT } SwitchTab;
  */
 typedef struct BufManager {
     Buffer *buf[MAX_TABS];  // Array buffer
-    size_t num_tabs; // Untuk num tabs
-    int active_idx; // Active idx
-    Clipboard *clp;  // Clipboard
-    float fm_width_ratio;  // Ratio untuk File Manager
-    char *path_root;    // Menyimpan path root, untuk kebutuhan workspace
-    uint8_t win_flags;  // Flag untuk menampung state window, misal minta exit, dll
+    size_t num_tabs;        // Untuk num tabs
+    int active_idx;         // Active idx
+    Clipboard *clp;         // Clipboard
+    float fm_width_ratio;   // Ratio untuk File Manager
+    char *path_root;        // Menyimpan path root, untuk kebutuhan workspace
+    uint8_t win_flags;      // Flag untuk menampung state window, misal minta exit, dll
 } BufManager;
 
 BufManager *BufManager_init(void);

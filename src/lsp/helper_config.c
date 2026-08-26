@@ -49,7 +49,7 @@ void filter_and_sort_completion(CompletionList *list, const char *query) {
  * Mengambil item completion aktif sesuai urutan hasil Filter & Sort [PUBLIC API]
  */
 CompletionItem *lsp_get_selected_item(const char *current_word) {
-    if (!g_lsp_ui.has_completion || g_lsp_ui.completion.count == 0) return NULL;
+    if (!g_lsp_ui.has_completion || g_lsp_ui.completion.count == 0) return nullptr;
 
     FilteredItem filtered[256];
     int total_items = 0;
@@ -66,14 +66,14 @@ CompletionItem *lsp_get_selected_item(const char *current_word) {
         }
     }
 
-    if (total_items == 0) return NULL;
+    if (total_items == 0) return nullptr;
 
     if (current_word[0] != '\0') {
         qsort(filtered, total_items, sizeof(FilteredItem), compare_scores);
     }
 
     if (g_lsp_ui.selected_index < 0 || g_lsp_ui.selected_index >= total_items) {
-        return NULL;
+        return nullptr;
     }
 
     return filtered[g_lsp_ui.selected_index].item;

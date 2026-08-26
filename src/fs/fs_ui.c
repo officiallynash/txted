@@ -36,7 +36,7 @@ typedef struct FileNode {
 } FileNode;
 
 // Internal state
-static FileNode *g_fm_root = NULL;
+static FileNode *g_fm_root = nullptr;
 static float g_fm_scroll_y = 0.0f;
 static char g_active_file_path[512] = {0};
 static char g_loaded_root_path[512] = "";
@@ -157,7 +157,7 @@ void FileNode_load_children(FileNode *node) {
     DIR *dir = opendir(node->path);
     if (dir) {
         struct dirent *entry;
-        while ((entry = readdir(dir)) != NULL) {
+        while ((entry = readdir(dir)) != nullptr) {
             if (strcmp(entry->d_name, ".") == 0 || strcmp(entry->d_name, "..") == 0) continue;
 
             char child_path[1024];
@@ -295,7 +295,7 @@ void draw_file_manager(BufManager *bufmgr, Font font) {
     if (wanted && wanted[0] && strcmp(g_loaded_root_path, wanted) != 0) {
         if (g_fm_root) {
             FileNode_free(g_fm_root);
-            g_fm_root = NULL;
+            g_fm_root = nullptr;
         }
 
         strncpy(g_loaded_root_path, wanted, sizeof(g_loaded_root_path) - 1);

@@ -22,13 +22,13 @@ char *find_executable_in_path(const char *exec_name) {
         char *dir = strtok(path_copy, ":");
         char full_path[1024];
 
-        while (dir != NULL) {
+        while (dir != nullptr) {
             snprintf(full_path, sizeof(full_path), "%s/%s", dir, exec_name);
             if (access(full_path, X_OK) == 0) {
                 free(path_copy);
                 return strdup(full_path);
             }
-            dir = strtok(NULL, ":");
+            dir = strtok(nullptr, ":");
         }
         free(path_copy);
     }
@@ -64,7 +64,7 @@ static char *Syntax_query(const char *lang_id, const char *scm_filename) {
         return NULL;
     }
 
-    char *buf = malloc(size + 1);
+    char *buf = calloc(size + 1, sizeof(char));
     fread(buf, 1, size, fp);
     fclose(fp);
     buf[size] = '\0';
@@ -76,7 +76,7 @@ static char *Syntax_query(const char *lang_id, const char *scm_filename) {
  * Fungsi detail LSP config [PUBLIC API]
  */
 LangConfig *LspConfig_detail(const char *filepath) {
-    if (!filepath) return NULL;
+    if (!filepath) return nullptr;
 
     static char *clangd_args[] = {
         "clangd",       "--background-index",          "--header-insertion=iwyu",
@@ -84,9 +84,9 @@ LangConfig *LspConfig_detail(const char *filepath) {
 
     // Cari titik '.' paling akhir
     const char *dot = strrchr(filepath, '.');
-    if (!dot || dot == filepath) return NULL;
+    if (!dot || dot == filepath) return nullptr;
 
-    LangConfig *config = malloc(sizeof(LangConfig));
+    LangConfig *config = calloc(1, sizeof(LangConfig));
 
     if (strcmp(dot + 1, "c") == 0 || strcmp(dot + 1, "h") == 0) {
         config->lang = C;
@@ -97,7 +97,7 @@ LangConfig *LspConfig_detail(const char *filepath) {
         config->indent_source = Syntax_query(config->language_id, "indents.scm");
     } else {
         free(config);
-        return NULL;  // Kalau ga ada return NULL aja HHAHAHA
+        return nullptr;  // Kalau ga ada return NULL aja HHAHAHA
     }
 
     return config;

@@ -1,6 +1,6 @@
 CC = clang
-CFLAGS = -Wall -Wextra -Iinclude -O2 -fsanitize=leak
-LDFLAGS = -lraylib -lGL -lm -lpthread -ldl -lrt -lX11 -ltree-sitter -ltree-sitter-c 
+CFLAGS = -Wall -Wextra -Iinclude -O2 -fsanitize=leak -std=gnu23
+LDFLAGS = -lraylib -lGL -lm -lpthread -ldl -lrt -lX11 -ltree-sitter -ltree-sitter-c
 
 SRC_DIR = src
 INC_DIR = include

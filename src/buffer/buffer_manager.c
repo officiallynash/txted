@@ -57,20 +57,20 @@ void BufManager_set_workspace(BufManager *bufmgr, const char *any_path) {
  * Fungsi untuk inisiasi Buffer Manager [PUBLIC API]
  */
 BufManager *BufManager_init(void) {
-    BufManager *bufmgr = malloc(sizeof(BufManager));
-    if (!bufmgr) return NULL;
+    BufManager *bufmgr = calloc(1, sizeof(BufManager));
+    if (!bufmgr) return nullptr;
     bufmgr->active_idx = -1;
     bufmgr->num_tabs = 0;
     bufmgr->clp = Clipboard_init();
     bufmgr->fm_width_ratio = 0.25f;
-    bufmgr->path_root = NULL;
+    bufmgr->path_root = nullptr;
     bufmgr->win_flags = 0;
 
     // Pasang default ke Write
     bufmgr->win_flags |= TXTED_WRITE;
 
     for (size_t i = 0; i < MAX_TABS; i++) {
-        bufmgr->buf[i] = NULL;
+        bufmgr->buf[i] = nullptr;
     }
     return bufmgr;
 }
@@ -80,7 +80,7 @@ BufManager *BufManager_init(void) {
  */
 Buffer *BufManager_getactive(BufManager *bufmgr) {
     if (!bufmgr || bufmgr->active_idx < 0 || (size_t)bufmgr->active_idx >= bufmgr->num_tabs) {
-        return NULL;
+        return nullptr;
     }
 
     return bufmgr->buf[bufmgr->active_idx];
@@ -185,7 +185,7 @@ void BufManager_closetab(BufManager *bufmgr) {
 
     // Free buffer target & set NULL
     Buffer_free(active);
-    bufmgr->buf[idx] = NULL;
+    bufmgr->buf[idx] = nullptr;
 
     // ika ini satu-satunya tab tersisa, buat buffer baru
     if (bufmgr->num_tabs == 1) {
@@ -200,7 +200,7 @@ void BufManager_closetab(BufManager *bufmgr) {
         bufmgr->buf[i] = bufmgr->buf[i + 1];
     }
 
-    bufmgr->buf[bufmgr->num_tabs - 1] = NULL;
+    bufmgr->buf[bufmgr->num_tabs - 1] = nullptr;
     bufmgr->num_tabs--;
 
     // Update active_idx secara pasti dan aman
@@ -218,16 +218,16 @@ void BufManager_destroy(BufManager *bufmgr) {
     for (size_t i = 0; i < bufmgr->num_tabs; i++) {
         if (bufmgr->buf[i]) {
             Buffer_free(bufmgr->buf[i]);
-            bufmgr->buf[i] = NULL;  // Safety nullify
+            bufmgr->buf[i] = nullptr;  // Safety nullify
         }
     }
 
     if (bufmgr->clp) {
         Clipboard_free(bufmgr->clp);
-        bufmgr->clp = NULL;
+        bufmgr->clp = nullptr;
     }
 
-    if (bufmgr->path_root != NULL) free(bufmgr->path_root);
+    if (bufmgr->path_root != nullptr) free(bufmgr->path_root);
     bufmgr->active_idx = -1;
     bufmgr->num_tabs = 0;
 

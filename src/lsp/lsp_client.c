@@ -52,7 +52,7 @@ int calculate_score(const char *query, const char *label) {
 
     // SUBSTRING MATCHING
     char *found = strcasestr(label, query);
-    if (found != NULL) {
+    if (found != nullptr) {
         int base_score = 500;
         if (strncmp(found, query, q_len) == 0) base_score += 250;
         base_score -= (int)(found - label) * 10;
@@ -144,7 +144,7 @@ void Ensure_lsp_init(LangConfig *lang, const char *filepath) {
         Notif_show("LSP server executable tidak ditemukan di PATH!", NOTIF_WARNING, 3.0f);
         return;
     }
-    if (g_lsp_ui.root_uri != NULL) {
+    if (g_lsp_ui.root_uri != nullptr) {
         return;
     }
 
@@ -158,7 +158,7 @@ void Ensure_lsp_init(LangConfig *lang, const char *filepath) {
 
         size_t len = strlen(temp_uri);
         if (len > 0 && temp_uri[len - 1] != '/') {
-            g_lsp_ui.root_uri = malloc(len + 2);
+            g_lsp_ui.root_uri = calloc(len + 2, sizeof(char));
             snprintf(g_lsp_ui.root_uri, len + 2, "%s/", temp_uri);
             free(temp_uri);
         } else {
@@ -186,9 +186,9 @@ void lsp_ui_shutdown(void) {
         g_lsp_ui.visible = false;
         lsp_ui_clear_completion();
         lsp_stop();
-        if (g_lsp_ui.root_uri != NULL) {
+        if (g_lsp_ui.root_uri != nullptr) {
             free(g_lsp_ui.root_uri);
-            g_lsp_ui.root_uri = NULL;
+            g_lsp_ui.root_uri = nullptr;
         }
 
         memset(&g_lsp_ui, 0, sizeof(g_lsp_ui));

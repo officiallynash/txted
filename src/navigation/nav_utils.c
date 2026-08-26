@@ -294,7 +294,7 @@ void Nav_save_as(BufManager *bufmgr, Font font) {
 void Nav_save(BufManager *bufmgr, Font font) {
     Buffer *buf = BufManager_getactive(bufmgr);
 
-    if (buf->path == NULL) {
+    if (buf->path == nullptr) {
         char *filename = FloatPrompt_ask(&g_prompt, "Nama File", "", ICON_FILE_SAVE, font, bufmgr);
 
         if (filename) {
@@ -353,7 +353,7 @@ void Nav_cut(BufManager *bufmgr, Font font) {
 void Nav_paste(BufManager *bufmgr, Font font) {
     (void)font;
     Buffer *buf = BufManager_getactive(bufmgr);
-
+    if (!buf) return;
     Buffer_paste(buf, bufmgr->clp);
 }
 

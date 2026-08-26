@@ -8,18 +8,22 @@
 
 #include <raylib.h>
 #include <stdbool.h>
+#include <stddef.h>
 
 #include "buffer_manager.h"
 #include "settings_txted.h"
 
-#define TAB_H 36
-#define STATUS_H 26
-#define DIAG_PANEL_H 26
-#define PAD_X 16
-#define PAD_Y 10
+// Karena float harus di deklarasikan dari awal
+// Jadi ga bisa pakai constexpr,
+// Ya kita tahu bahwa font size itu dinamis berdasarkan settings
 #define FONT_SIZE (float)default_settings.font_size
-#define LINE_H 24
-#define GUTTER_W 50
+constexpr size_t TAB_H = 36;
+constexpr size_t STATUS_H = 26;
+constexpr size_t DIAG_PANEL_H = 26;
+constexpr size_t PAD_X = 16;
+constexpr size_t PAD_Y = 10;
+constexpr size_t LINE_H = 24;
+constexpr size_t GUTTER_W = 50;
 
 /**
  * Struct untuk Layouting

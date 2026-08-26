@@ -15,8 +15,8 @@
 
 #include "notification.h"
 
-GitStatus git = {0};
-GitPopup git_popup = {0};
+GitStatus git = {};
+GitPopup git_popup = {};
 float GitStatus_timer = 0.0f;
 static bool g_push_in_progress = false;
 static bool g_push_success = false;

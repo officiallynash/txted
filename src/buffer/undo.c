@@ -29,12 +29,12 @@ void Undo_free(UndoStack *us) {
     for (size_t i = 0; i < us->count; i++) {
         if (us->actions[i].text) {
             free(us->actions[i].text);
-            us->actions[i].text = NULL;  // Biar anti double free!
+            us->actions[i].text = nullptr;  // Biar anti double free!
         }
     }
 
     free(us->actions);
-    us->actions = NULL;  // Biar kalau dipanggil lagi aman
+    us->actions = nullptr;  // Biar kalau dipanggil lagi aman
     us->count = 0;
     us->capacity = 0;
     us->current = 0;
@@ -60,7 +60,7 @@ static void Undo_discard_redo(UndoStack *us) {
  */
 void Undo_init(UndoStack *us) {
     us->capacity = 128;
-    us->actions = malloc(sizeof(UndoAction) * us->capacity);
+    us->actions = calloc(us->capacity, sizeof(UndoAction));
     us->count = 0;
     us->current = 0;
     us->is_undoing = false;
@@ -103,7 +103,7 @@ void Undo_push(UndoStack *us, UndoType type, size_t offset, const char *text, si
         UndoAction *last = &us->actions[us->count - 1];
         if (last->type == UNDO_DELETE && offset + len == last->offset &&
             ts - last->timestamp_ms < UNDO_TIMEOUT) {
-            char *new_text = malloc(last->len + len + 1);
+            char *new_text = calloc(last->len + len + 1, sizeof(char));
             memcpy(new_text, text, len);                    // Teks baru di depan
             memcpy(new_text + len, last->text, last->len);  // Teks lama di belakang
 
@@ -135,7 +135,7 @@ void Undo_push(UndoStack *us, UndoType type, size_t offset, const char *text, si
     a->type = type;
     a->offset = offset;
     a->len = len;
-    a->text = malloc(len + 1);
+    a->text = calloc(len + 1, sizeof(char));
     memcpy(a->text, text, len);
     a->text[len] = '\0';
     a->timestamp_ms = ts;

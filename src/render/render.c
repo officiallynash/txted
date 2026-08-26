@@ -263,7 +263,7 @@ void draw_editor(BufManager *bufmgr, Font font) {
     if (!buf) return;
 
     size_t rope_len = String_len(buf->str);
-    EditorLayout Layout = get_editor_layout(bufmgr);
+    EditorLayout Layout = get_editor_layout(bufmgr);  // Ambil layout
 
     int max_vis = visible_lines();
 

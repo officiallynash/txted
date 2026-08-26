@@ -6,7 +6,6 @@
 #include <stddef.h>
 #ifndef BUFFER_H
 #define BUFFER_H
-#define MAX_SEARCH_HIT 100
 
 #include <stdbool.h>
 

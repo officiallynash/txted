@@ -9,8 +9,8 @@
 #include <stdbool.h>
 #include <stddef.h>
 
-#define UNDO_MAX_ACTIONS 1000
-#define UNDO_TIMEOUT 500
+constexpr int UNDO_MAX_ACTIONS = 1000;
+constexpr int UNDO_TIMEOUT = 500;
 
 /**
  * Enum untuk penanda aksi insert atau delete

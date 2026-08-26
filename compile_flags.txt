@@ -1,2 +1,2 @@
--Wall -Wextra -Iinclude -O2
+-Wall -Wextra -Iinclude -O2 -std=gnu23
 -lraylib -lGL -lm -lpthread -ldl -lrt -lX11 -ltree-sitter -ltree-sitter-c

@@ -10,7 +10,8 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
-#define MAX_SIZE_LEAF 1024
+
+constexpr size_t MAX_SIZE_LEAF = 1024;  // Perubahan jadi constexpr agar aman dari overflow
 
 String *String_new();            // Register awal
 size_t String_len(String *str);  // Register Awal
@@ -44,11 +45,12 @@ static void String_retain(String *str) {
  * Fungsi internal untuk membuat new leaf [PRIVATE API]
  */
 static String *String_make_leaf(const char *text, size_t len) {
-    String *new = malloc(sizeof(String));
-    new->str = malloc(len + 1);
+    // Perubahan pakai calloc agar lebih aman kali ya
+    String *new = calloc(1, sizeof(String));
+    new->str = calloc(len + 1, sizeof(char));
     if (!new->str) {
         free(new);
-        return NULL;
+        return nullptr;
     }
 
     memcpy(new->str, text, len);
@@ -56,8 +58,8 @@ static String *String_make_leaf(const char *text, size_t len) {
     new->len = len;
     new->weight = len;
     new->ref_count = 1;
-    new->left = NULL;
-    new->right = NULL;
+    new->left = nullptr;
+    new->right = nullptr;
 
     return new;
 }
@@ -81,10 +83,10 @@ static String *String_concat(String *left, String *right) {
     }
 
     // Alokasi baru untuk parent
-    String *parent = malloc(sizeof(String));
-    if (!parent) return NULL;
+    String *parent = calloc(1, sizeof(String));
+    if (!parent) return nullptr;
 
-    parent->str = NULL;
+    parent->str = nullptr;
     parent->left = left;
     parent->right = right;
 
@@ -105,21 +107,21 @@ static String *String_concat(String *left, String *right) {
 static void String_split(String *root, size_t index, String **left, String **right) {
     // Guard clause kalau Root itu Kosong
     if (!root) {
-        *left = *right = NULL;
+        *left = *right = nullptr;
         return;
     }
 
     if (root->str) {
         // jika index kurang dari nol maka Kiri kosong
         if (index <= 0) {
-            *left = NULL;
+            *left = nullptr;
             *right = root;
             String_retain(root);
         }
         // Jika index lebih dari root len, maka kanan kosong
         else if (index >= root->len) {
             *left = root;
-            *right = NULL;
+            *right = nullptr;
             String_retain(root);
         }
         // Kalau tidak maka buat baru
@@ -162,7 +164,8 @@ static void String_collect(String *str, size_t start, size_t len, unsigned char 
             size_t bytes_to_copy = str->len - start;
             if (bytes_to_copy > len) bytes_to_copy = len;
 
-            memcpy(buffer + *offset, str->str + start, bytes_to_copy);  // Copy memory zero cost
+            memcpy(buffer + *offset, str->str + start,
+                   bytes_to_copy);  // Copy memory zero cost
             *offset += bytes_to_copy;
         }
 
@@ -175,7 +178,8 @@ static void String_collect(String *str, size_t start, size_t len, unsigned char 
 
         size_t copy_from_left = (left_len < len) ? left_len : len;
 
-        String_collect(str->left, start, copy_from_left, buffer, offset);  // Recursive
+        String_collect(str->left, start, copy_from_left, buffer,
+                       offset);  // Recursive
 
         if (len > copy_from_left) {
             String_collect(str->right, 0, len - copy_from_left, buffer, offset);
@@ -199,13 +203,8 @@ size_t String_len(String *str) { return str ? str->len : 0; }
  * Fungsi untuk deklarasi String [PUBLIC API]
  */
 String *String_new() {
-    String *new = malloc(sizeof(String));
-
-    new->str = NULL;
-    new->len = 0;
-    new->weight = 0;
-    new->ref_count = 1;
-    new->left = new->right = NULL;
+    String *new = calloc(1, sizeof(String));
+    // Karena pakai calloc jadi ga perlu pasang flag lain kali ya HAHHA
     return new;
 }
 
@@ -221,7 +220,7 @@ void String_release(String *str) {
     String_release(str->left);
     String_release(str->right);
 
-    if (str->str != NULL) {
+    if (str->str != nullptr) {
         free(str->str);
     }
     free(str);
@@ -233,7 +232,7 @@ void String_release(String *str) {
 void String_insert(String **str, size_t index, const char *text, size_t len) {
     if (!text || len == 0) return;
 
-    String *inserted = NULL;
+    String *inserted = nullptr;
     // Jika teks melebihi 1024 maka bagi menjadi 2
     if (len > MAX_SIZE_LEAF) {
         size_t mid = len / 2;
@@ -257,16 +256,17 @@ void String_insert(String **str, size_t index, const char *text, size_t len) {
     }
 
     // Jika bukan left dan right langsung assign ke Root
-    if (*str && (*str)->len == 0 && (*str)->str == NULL && (*str)->left == NULL &&
-        (*str)->right == NULL) {
+    if (*str && (*str)->len == 0 && (*str)->str == nullptr && (*str)->left == nullptr &&
+        (*str)->right == nullptr) {
         free(*str);
         *str = inserted;
         return;
     }
 
-    // Inisiasi left dan right untuk split jika String tidak kosong dalam hal ini ada left dan right
-    String *left = NULL;
-    String *right = NULL;
+    // Inisiasi left dan right untuk split jika String tidak kosong dalam hal ini
+    // ada left dan right
+    String *left = nullptr;
+    String *right = nullptr;
 
     String_split(*str, index, &left, &right);  // Split
     *str = String_concat(String_concat(left, inserted), right);
@@ -289,10 +289,10 @@ void String_delete(String **str, size_t pos_idx, size_t len) {
         len = (*str)->len - pos_idx;
     }
 
-    String *left = NULL;
-    String *mid_and_right = NULL;
-    String *middle = NULL;
-    String *right = NULL;
+    String *left = nullptr;
+    String *mid_and_right = nullptr;
+    String *middle = nullptr;
+    String *right = nullptr;
 
     // Potong bagian kiri [0 ... pos_idx]
     String_split(*str, pos_idx, &left, &mid_and_right);
@@ -318,7 +318,7 @@ void String_delete(String **str, size_t pos_idx, size_t len) {
  * Fungsi untuk Get Public API
  */
 Bytes String_get(String *str, size_t index, size_t len) {
-    Bytes result = {.data = NULL, .len = 0};
+    Bytes result = {.data = nullptr, .len = 0};
 
     if (!str || index >= str->len || len == 0) return result;
 
@@ -326,7 +326,7 @@ Bytes String_get(String *str, size_t index, size_t len) {
         len = str->len - index;
     }
 
-    unsigned char *buf = malloc(len + 1);
+    unsigned char *buf = calloc(len + 1, sizeof(unsigned char));
     if (!buf) return result;
 
     size_t offset = 0;

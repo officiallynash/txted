@@ -24,7 +24,7 @@ struct Clipboard {
  */
 static void os_clipboard_set(const char *text) {
     if (!text) return;
-    const char *cmd = NULL;
+    const char *cmd = nullptr;
 
 #if defined(__APPLE__)
     cmd = "pbcopy";
@@ -48,7 +48,7 @@ static void os_clipboard_set(const char *text) {
  * Helper internal: Ambil string dari OS Clipboard [PRIVATE API]
  */
 static char *os_clipboard_get(size_t *out_len) {
-    const char *cmd = NULL;
+    const char *cmd = nullptr;
 
 #if defined(__APPLE__)
     cmd = "pbpaste";
@@ -63,14 +63,14 @@ static char *os_clipboard_get(size_t *out_len) {
 #endif
 
     FILE *pipe = popen(cmd, "r");
-    if (!pipe) return NULL;
+    if (!pipe) return nullptr;
 
     size_t capacity = 1024;
     size_t len = 0;
-    char *buffer = malloc(capacity);
+    char *buffer = calloc(capacity, sizeof(char));
     if (!buffer) {
         pclose(pipe);
-        return NULL;
+        return nullptr;
     }
 
     char chunk[256];
@@ -82,7 +82,7 @@ static char *os_clipboard_get(size_t *out_len) {
             if (!new_buf) {
                 free(buffer);
                 pclose(pipe);
-                return NULL;
+                return nullptr;
             }
             buffer = new_buf;
         }
@@ -100,8 +100,8 @@ static char *os_clipboard_get(size_t *out_len) {
  * Fungsi untuk inisiasi Clipboard [PUBLIC API]
  */
 Clipboard *Clipboard_init() {
-    Clipboard *init = malloc(sizeof(Clipboard));
-    init->data = NULL;
+    Clipboard *init = calloc(1, sizeof(Clipboard));
+    init->data = nullptr;
     init->len = 0;
     return init;
 }
@@ -123,12 +123,12 @@ void Clipboard_set(Clipboard *clp, Bytes *bytes) {
     if (!clp || !bytes || !bytes->data || bytes->len == 0) return;
     if (clp->data) {
         free(clp->data);
-        clp->data = NULL;
+        clp->data = nullptr;
     }
 
-    unsigned char *temp = malloc(bytes->len + 1);
+    unsigned char *temp = calloc(bytes->len + 1, sizeof(unsigned char));
     if (!temp) {
-        clp->data = NULL;
+        clp->data = nullptr;
         clp->len = 0;
         return;
     }
@@ -149,7 +149,7 @@ void Clipboard_set(Clipboard *clp, Bytes *bytes) {
  * Ambil teks clipboard terbaru dari OS [PRIVATE API]
  */
 const char *Clipboard_get_text(Clipboard *clp) {
-    if (!clp) return NULL;
+    if (!clp) return nullptr;
 
     size_t os_len = 0;
     char *os_data = os_clipboard_get(&os_len);

@@ -35,7 +35,7 @@ int Ensure_dir_exists(const char *file_path) {
     if (strcmp(dir_path, ".") == 0 || strcmp(dir_path, "/") == 0) return 0;
 
     char tmp[1024];
-    char *p = NULL;
+    char *p = nullptr;
 
     snprintf(tmp, sizeof(tmp), "%s", dir_path);
     // Bikin folder-folder secara recursive
@@ -67,7 +67,7 @@ char *format_pretty_path(const char *path) {
             size_t path_len = strlen(path);
             size_t new_len = 1 + (path_len - home_len) + 1;  // 1 untuk '~' + sisa path + '\0'
 
-            char *pretty = malloc(new_len);
+            char *pretty = calloc(new_len, sizeof(char));
             if (pretty) {
                 snprintf(pretty, new_len, "~%s", path + home_len);
                 return pretty;
@@ -113,9 +113,9 @@ static bool file_exists(const char *path) {
  * Fungsi untuk mengambil Directory name
  */
 char *Fs_dirname(const char *path) {
-    if (!path) return NULL;
+    if (!path) return nullptr;
     char *copy = strdup(path);
-    if (!copy) return NULL;
+    if (!copy) return nullptr;
 
     char *slash = strrchr(copy, '/');
     if (!slash) {
@@ -135,11 +135,11 @@ char *Fs_dirname(const char *path) {
  * Fungsi untuk mengambil Full path [PUBLIC API]
  */
 char *Get_full_path(const char *filename) {
-    if (!filename || filename[0] == '\0') return NULL;
+    if (!filename || filename[0] == '\0') return nullptr;
 
     char resolved[1024];
     // Coba dapatkan realpath langsung
-    if (realpath(filename, resolved) != NULL) {
+    if (realpath(filename, resolved) != nullptr) {
         return strdup(resolved);
     }
 
@@ -150,12 +150,12 @@ char *Get_full_path(const char *filename) {
 
     // Jika relatif dan belum ada di disk (fallback gabung CWD)
     char cwd[1024];
-    if (getcwd(cwd, sizeof(cwd)) != NULL) {
+    if (getcwd(cwd, sizeof(cwd)) != nullptr) {
         char full[2048];
         snprintf(full, sizeof(full), "%s/%s", cwd, filename);
 
         // Coba realpath sekali lagi setelah digabung CWD
-        if (realpath(full, resolved) != NULL) {
+        if (realpath(full, resolved) != nullptr) {
             return strdup(resolved);
         }
         return strdup(full);
@@ -185,8 +185,9 @@ Result Fs_open(const char *filename) {
     long fsz = ftell(file);
     fseek(file, 0, SEEK_SET);
 
-    unsigned char *buffer =
-        malloc(fsz + 1);  // Buat buffer file disini pakai u8, kalau di Rust itu Vec<u8>
+    unsigned char *buffer = calloc(
+        fsz + 1,
+        sizeof(unsigned char));  // Buat buffer file disini pakai u8, kalau di Rust itu Vec<u8>
     if (!buffer) {
         return Err("Gagal alokasi Buffer!");
     }
@@ -194,8 +195,8 @@ Result Fs_open(const char *filename) {
     size_t got = fread(buffer, 1, fsz, file);  // Baca file ke Buffer
     buffer[got] = '\0';                        // Null terminator
 
-    fclose(file);                               // Tutup file agar tidak corrupt
-    FileData *data = malloc(sizeof(FileData));  // Persiapan struct untuk penampung hasil
+    fclose(file);                                  // Tutup file agar tidak corrupt
+    FileData *data = calloc(1, sizeof(FileData));  // Persiapan struct untuk penampung hasil
 
     data->data = buffer;
     data->full_path = strdup(full_path);
@@ -238,23 +239,23 @@ Result Fs_create(const char *filename) {
  */
 void Fs_metadata_free(FileData *fm) {
     if (!fm) return;
-    if (fm->data != NULL) free(fm->data);
-    if (fm->full_path != NULL) free(fm->full_path);
+    if (fm->data != nullptr) free(fm->data);
+    if (fm->full_path != nullptr) free(fm->full_path);
     fm->size = 0;
-    if (fm != NULL) free(fm);
+    if (fm != nullptr) free(fm);
 }
 
 /**
  * Fungsi untuk Membuat FIleList [PUBLIC API]
  */
 FileList *FileList_init(size_t capacity) {
-    FileList *list = malloc(sizeof(FileList));
-    if (!list) return NULL;
+    FileList *list = calloc(1, sizeof(FileList));
+    if (!list) return nullptr;
 
-    list->items = malloc(capacity * sizeof(PromptItem));
+    list->items = calloc(capacity, sizeof(PromptItem));
     if (!list->items) {
         free(list);
-        return NULL;
+        return nullptr;
     }
     list->item_count = 0;
     list->capacity = (capacity > 0) ? capacity : 128;
@@ -266,7 +267,7 @@ FileList *FileList_init(size_t capacity) {
  */
 void FileList_free(FileList *list) {
     if (!list) return;
-    if (list->items != NULL) free(list->items);
+    if (list->items != nullptr) free(list->items);
     free(list);
 }
 
@@ -280,7 +281,7 @@ void Scan_project_files(const char *base_path, FileList *list) {
 
     if (!dir) return;
 
-    while ((dp = readdir(dir)) != NULL) {
+    while ((dp = readdir(dir)) != nullptr) {
         // Abaikan "." (current dir) dan ".." (parent dir)
         if (strcmp(dp->d_name, ".") == 0 || strcmp(dp->d_name, "..") == 0) {
             continue;
@@ -321,14 +322,14 @@ void Scan_project_files(const char *base_path, FileList *list) {
 char *Fs_find_project_root(const char *filepath) {
     if (!filepath) {
         // Fallback jika filepath NULL, ambil CWD (Current Working Directory)
-        char *cwd = getcwd(NULL, 0);
+        char *cwd = getcwd(nullptr, 0);
         return cwd ? cwd : strdup("/");
     }
 
     // Dapatkan Full Absolute Path terlebih dahulu
     char *full_path = Get_full_path(filepath);
     if (!full_path) {
-        char *cwd = getcwd(NULL, 0);
+        char *cwd = getcwd(nullptr, 0);
         return cwd ? cwd : strdup("/");
     }
 
@@ -376,7 +377,7 @@ char *Fs_find_project_root(const char *filepath) {
         snprintf(parent, sizeof(parent), "%s/..", temp_dir);
 
         char resolved[1024];
-        if (realpath(parent, resolved) != NULL) {
+        if (realpath(parent, resolved) != nullptr) {
             if (strcmp(temp_dir, resolved) == 0) break;  // Sampai di paling atas (/)
             snprintf(temp_dir, sizeof(temp_dir), "%s", resolved);
         } else {

@@ -13,7 +13,7 @@
 
 #include "raygui.h"
 
-UITheme g_theme = {0};
+UITheme g_theme = {};
 
 typedef struct {
     const char *key;

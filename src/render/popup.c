@@ -16,7 +16,11 @@
 #include "theme.h"
 #include "ui.h"
 
-FloatPrompt g_prompt = {0};  // Deklarasi awal g_prompt nantinya buat di extern
+// Pakai constexpr agar lebih ramah size pada saat compile time
+// Ini jauh lebih typesafe daripada sekedar define
+constexpr size_t MAX_SEARCH_HIT = 100;
+
+FloatPrompt g_prompt = {};  // Deklarasi awal g_prompt nantinya buat di extern
 extern void render_all_ui(BufManager *bufmgr, Font font);  // Didefinisikan di main.c
 extern int calculate_score(const char *query,
                            const char *label);  // Calculate score for fuzzy matching (LSP_UI)
@@ -144,24 +148,24 @@ bool GuiCustomInputBox(Rectangle bounds, char *text, int textSize, bool *editMod
 /**
  * Render dan update FloatPrompt [PRIVATE API]
  */
-char *FloatPrompt_update_and_render(FloatPrompt *fp, Font font) {
-    if (!fp->is_active) return NULL;
+char *FloatPrompt_update_and_render(BufManager *bufmgr, FloatPrompt *fp, Font font) {
+    if (!fp->is_active) return nullptr;
     GuiSetFont(font);
     GuiSetStyle(DEFAULT, TEXT_SIZE, FONT_SIZE);
 
     if (IsKeyPressed(KEY_ESCAPE)) {
         fp->is_active = false;
         fp->edit_mode = false;
-        return NULL;
+        return nullptr;
     }
 
-// HITUNG FUZZY MATCHING (Jika ada items)
-#define MAX_MATCHES 100
+    // HITUNG FUZZY MATCHING (Jika ada items)
+    const int MAX_MATCHES = 100;
 
     int matches[MAX_MATCHES];
     size_t match_count = 0;
 
-    if (fp->items != NULL && fp->item_count > 0) {
+    if (fp->items != nullptr && fp->item_count > 0) {
         for (size_t i = 0; i < fp->item_count; i++) {
             if (calculate_score(fp->input_buf, fp->items[i].label) > 0) {
                 matches[match_count++] = (int)i;
@@ -210,8 +214,7 @@ char *FloatPrompt_update_and_render(FloatPrompt *fp, Font font) {
 
     if (fp->selected_idx > max_idx) fp->selected_idx = max_idx;
 
-    int win_w = GetRenderWidth();
-    int win_h = GetRenderHeight();
+    EditorLayout layout = get_editor_layout(bufmgr);
 
     // DIMENSI DINAMIS (Membesar ke bawah jika ada Suggestion)
     float box_w = 420.0f;
@@ -222,7 +225,8 @@ char *FloatPrompt_update_and_render(FloatPrompt *fp, Font font) {
 
     // Tambah tinggi modal jika ada suggestion
     float box_h = base_h + (match_count > 0 ? suggestions_h + 10.0f : 0.0f);
-    Rectangle modal_rect = {(win_w - box_w) / 2.0f, (win_h - box_h) / 3.0f, box_w, box_h};
+    Rectangle modal_rect = {(layout.win_w - box_w) / 2.0f, (layout.win_h - box_h) / 3.0f, box_w,
+                            box_h};
 
     if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
         Vector2 mouse_pos = GetMousePosition();
@@ -231,7 +235,7 @@ char *FloatPrompt_update_and_render(FloatPrompt *fp, Font font) {
         }
     }
 
-    DrawRectangle(0, 0, win_w, win_h, (Color){0, 0, 0, 100});
+    DrawRectangle(0, 0, layout.win_w, layout.win_h, (Color){0, 0, 0, 100});
 
     DrawRectangleRounded(modal_rect, 0.1f, 4, g_theme.bg_card);
     DrawRectangleRoundedLines(modal_rect, 0.1f, 4, g_theme.border);
@@ -307,7 +311,7 @@ char *FloatPrompt_update_and_render(FloatPrompt *fp, Font font) {
         }
     }
 
-    return NULL;
+    return nullptr;
 }
 
 /* ================================
@@ -319,12 +323,12 @@ char *FloatPrompt_update_and_render(FloatPrompt *fp, Font font) {
  */
 char *FloatPrompt_ask(FloatPrompt *fp, const char *msg, const char *default_val, int icon_id,
                       Font font, BufManager *bufmgr) {
-    fp->items = NULL;
+    fp->items = nullptr;
     fp->item_count = 0;
     fp->selected_idx = 0;
 
     FloatPrompt_open(fp, msg, default_val, icon_id);
-    char *result = NULL;
+    char *result = nullptr;
 
     while (fp->is_active && !WindowShouldClose()) {
         BeginDrawing();
@@ -333,10 +337,10 @@ char *FloatPrompt_ask(FloatPrompt *fp, const char *msg, const char *default_val,
         render_all_ui(bufmgr, font);
 
         // Render overlay popup
-        result = FloatPrompt_update_and_render(fp, font);
+        result = FloatPrompt_update_and_render(bufmgr, fp, font);
         EndDrawing();
 
-        if (result != NULL) break;
+        if (result != nullptr) break;
     }
 
     return result;
@@ -353,15 +357,15 @@ char *FloatPrompt_ask_with_items(FloatPrompt *fp, const char *msg, const char *d
     fp->selected_idx = 0;
 
     FloatPrompt_open(fp, msg, default_val, icon_id);
-    char *result = NULL;
+    char *result = nullptr;
 
     while (fp->is_active && !WindowShouldClose()) {
         BeginDrawing();
         ClearBackground(g_theme.bg_editor);
         render_all_ui(bufmgr, font);
-        result = FloatPrompt_update_and_render(fp, font);
+        result = FloatPrompt_update_and_render(bufmgr, fp, font);
         EndDrawing();
-        if (result != NULL) break;
+        if (result != nullptr) break;
     }
     return result;
 }
@@ -371,7 +375,7 @@ char *FloatPrompt_ask_with_items(FloatPrompt *fp, const char *msg, const char *d
  */
 char *SearchPrompt_ask(BufManager *bufmgr, Font font) {
     Buffer *buf = BufManager_getactive(bufmgr);
-    if (!buf) return NULL;
+    if (!buf) return nullptr;
 
     FloatPrompt *fp = &g_prompt;
     FloatPrompt_open(fp, "Search", "", ICON_LENS);
@@ -380,7 +384,7 @@ char *SearchPrompt_ask(BufManager *bufmgr, Font font) {
     static SearchHitBuffer hits[MAX_SEARCH_HIT];
     static PromptItem items[MAX_SEARCH_HIT];
 
-    char *result = NULL;
+    char *result = nullptr;
     char last_q[256] = "\0";
 
     while (fp->is_active && !WindowShouldClose()) {
@@ -408,10 +412,10 @@ char *SearchPrompt_ask(BufManager *bufmgr, Font font) {
         ClearBackground(g_theme.bg_editor);
         render_all_ui(bufmgr, font);
 
-        result = FloatPrompt_update_and_render(fp, font);
+        result = FloatPrompt_update_and_render(bufmgr, fp, font);
         EndDrawing();
 
-        if (result != NULL) {
+        if (result != nullptr) {
             // Karena fp->selected_idx sudah dikoreksi ke original index di
             // FloatPrompt_update_and_render, akses ke array hits ini sekarang 100% aman dan akurat!
             if (fp->item_count > 0 && fp->selected_idx >= 0 &&
@@ -422,5 +426,5 @@ char *SearchPrompt_ask(BufManager *bufmgr, Font font) {
             break;
         }
     }
-    return NULL;
+    return nullptr;
 }

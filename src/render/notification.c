@@ -1,12 +1,12 @@
+#include "buffer_manager.h"
 /*
  * TxtEd - Simple Text Editor
  * Copyright (c) 2026 Nash
  * SPDX-License-Identifier: MIT
  */
-#include "notification.h"
-
 #include <string.h>
 
+#include "notification.h"
 #include "theme.h"
 #include "ui.h"
 
@@ -21,10 +21,10 @@ struct NotificationManager {
     bool active;
 };
 
-NotificationManager notif = {0};  // Global instance
+NotificationManager notif = {};  // Global instance
 
 /**
- * Inisialisasi Notification
+ * Inisialisasi Notification [PUBLIC API]
  */
 void Notif_init(void) {
     notif.message[0] = '\0';
@@ -34,7 +34,7 @@ void Notif_init(void) {
 }
 
 /**
- * Tampilkan Notification
+ * Tampilkan Notification [PUBLIC API
  */
 void Notif_show(const char *msg, NotifType type, float duration_sec) {
     if (!msg) return;
@@ -49,7 +49,7 @@ void Notif_show(const char *msg, NotifType type, float duration_sec) {
 }
 
 /**
- * Update Notification
+ * Update Notification [PUBLIC API]
  */
 void Notif_update(float delta_time) {
     notif.timer -= delta_time;
@@ -60,13 +60,12 @@ void Notif_update(float delta_time) {
 }
 
 /**
- * Render Notification
+ * Render Notification [PUBLIC API]
  */
-void Notif_draw(Font font) {
+void Notif_draw(BufManager *bufmgr, Font font) {
     if (!notif.active) return;
 
-    int win_w = GetRenderWidth();
-    int win_h = GetRenderHeight();
+    EditorLayout layout = get_editor_layout(bufmgr);
 
     // Menentukan Warna berdasarkan Tipe
     Color bg_color;
@@ -109,8 +108,8 @@ void Notif_draw(Font font) {
     float box_h = text_size.y + (padding_y * 2);
 
     // Posisi di Pojok Kanan Bawah (di atas status bar)
-    float pos_x = win_w - box_w - 20.0f;
-    float pos_y = win_h - box_h - 40.0f;
+    float pos_x = layout.win_w - box_w - 20.0f;
+    float pos_y = layout.win_h - box_h - 40.0f;
 
     Rectangle rect = {pos_x, pos_y, box_w, box_h};
 

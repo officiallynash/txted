@@ -39,7 +39,7 @@ void render_all_ui(BufManager *bufmgr, Font font) {
         render_signature_help(bufmgr, font);
         render_hover_ui(bufmgr, font);
     }
-    Notif_draw(font);
+    Notif_draw(bufmgr, font);
 }
 
 int main(int argc, char *argv[]) {
@@ -64,7 +64,7 @@ int main(int argc, char *argv[]) {
         // Argumen sebagai Filename
         BufManager_newtab(bufmgr, argv[1]);
     } else {
-        BufManager_newtab(bufmgr, NULL); /* tab awal */
+        BufManager_newtab(bufmgr, nullptr); /* tab awal */
     }
 
     Font font;  // Inisiasi Font, karena font di Apply di Settings

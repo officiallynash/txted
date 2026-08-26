@@ -45,13 +45,13 @@ void draw_diagnostic_bar(BufManager *bufmgr, Font font) {
         buf->diagnostic = lsp_get_diagnostics(uri);
         free(uri);  // Jangan sampai lupa cokk
     } else {        // Kalau kosong ya kasih NULL aja HAHAHAHA
-        buf->diagnostic = NULL;
+        buf->diagnostic = nullptr;
     }
 
-    if (buf->diagnostic == NULL || buf->diagnostic->count == 0) {
+    if (buf->diagnostic == nullptr || buf->diagnostic->count == 0) {
         if (buf->diagnostic) {  // Safety check biar ga ketimpa
             lsp_free_diagnostics(buf->diagnostic);
-            buf->diagnostic = NULL;
+            buf->diagnostic = nullptr;
         }
 
         Vector2 pos = {(float)(Layout.editor_x + PAD_X), (float)(panel_y + 4)};
@@ -59,7 +59,7 @@ void draw_diagnostic_bar(BufManager *bufmgr, Font font) {
         return;
     }
 
-    DiagnosticItem *active_item = NULL;
+    DiagnosticItem *active_item = nullptr;
     for (size_t i = 0; i < buf->diagnostic->count; i++) {
         if ((size_t)buf->diagnostic->items[i].start_line == buf->cursor.y) {
             active_item = &buf->diagnostic->items[i];

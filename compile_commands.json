@@ -6,54 +6,8 @@
       "-Wextra",
       "-Iinclude",
       "-O2",
-      "-c",
-      "-o",
-      "build/buffer/buffer.o",
-      "src/buffer/buffer.c"
-    ],
-    "directory": "/home/nash/Project/txted",
-    "file": "/home/nash/Project/txted/src/buffer/buffer.c",
-    "output": "/home/nash/Project/txted/build/buffer/buffer.o"
-  },
-  {
-    "arguments": [
-      "/usr/bin/clang",
-      "-Wall",
-      "-Wextra",
-      "-Iinclude",
-      "-O2",
-      "-c",
-      "-o",
-      "build/buffer/buffer_manager.o",
-      "src/buffer/buffer_manager.c"
-    ],
-    "directory": "/home/nash/Project/txted",
-    "file": "/home/nash/Project/txted/src/buffer/buffer_manager.c",
-    "output": "/home/nash/Project/txted/build/buffer/buffer_manager.o"
-  },
-  {
-    "arguments": [
-      "/usr/bin/clang",
-      "-Wall",
-      "-Wextra",
-      "-Iinclude",
-      "-O2",
-      "-c",
-      "-o",
-      "build/buffer/rope.o",
-      "src/buffer/rope.c"
-    ],
-    "directory": "/home/nash/Project/txted",
-    "file": "/home/nash/Project/txted/src/buffer/rope.c",
-    "output": "/home/nash/Project/txted/build/buffer/rope.o"
-  },
-  {
-    "arguments": [
-      "/usr/bin/clang",
-      "-Wall",
-      "-Wextra",
-      "-Iinclude",
-      "-O2",
+      "-fsanitize=leak",
+      "-std=gnu23",
       "-c",
       "-o",
       "build/buffer/clipboard.o",
@@ -70,14 +24,16 @@
       "-Wextra",
       "-Iinclude",
       "-O2",
+      "-fsanitize=leak",
+      "-std=gnu23",
       "-c",
       "-o",
-      "build/buffer/undo.o",
-      "src/buffer/undo.c"
+      "build/buffer/search.o",
+      "src/buffer/search.c"
     ],
     "directory": "/home/nash/Project/txted",
-    "file": "/home/nash/Project/txted/src/buffer/undo.c",
-    "output": "/home/nash/Project/txted/build/buffer/undo.o"
+    "file": "/home/nash/Project/txted/src/buffer/search.c",
+    "output": "/home/nash/Project/txted/build/buffer/search.o"
   },
   {
     "arguments": [
@@ -86,6 +42,26 @@
       "-Wextra",
       "-Iinclude",
       "-O2",
+      "-fsanitize=leak",
+      "-std=gnu23",
+      "-c",
+      "-o",
+      "build/fs/fs_ui.o",
+      "src/fs/fs_ui.c"
+    ],
+    "directory": "/home/nash/Project/txted",
+    "file": "/home/nash/Project/txted/src/fs/fs_ui.c",
+    "output": "/home/nash/Project/txted/build/fs/fs_ui.o"
+  },
+  {
+    "arguments": [
+      "/usr/bin/clang",
+      "-Wall",
+      "-Wextra",
+      "-Iinclude",
+      "-O2",
+      "-fsanitize=leak",
+      "-std=gnu23",
       "-c",
       "-o",
       "build/fs/fs.o",
@@ -102,6 +78,8 @@
       "-Wextra",
       "-Iinclude",
       "-O2",
+      "-fsanitize=leak",
+      "-std=gnu23",
       "-c",
       "-o",
       "build/render/tab.o",
@@ -118,6 +96,8 @@
       "-Wextra",
       "-Iinclude",
       "-O2",
+      "-fsanitize=leak",
+      "-std=gnu23",
       "-c",
       "-o",
       "build/render/status.o",
@@ -134,38 +114,8 @@
       "-Wextra",
       "-Iinclude",
       "-O2",
-      "-c",
-      "-o",
-      "build/render/render.o",
-      "src/render/render.c"
-    ],
-    "directory": "/home/nash/Project/txted",
-    "file": "/home/nash/Project/txted/src/render/render.c",
-    "output": "/home/nash/Project/txted/build/render/render.o"
-  },
-  {
-    "arguments": [
-      "/usr/bin/clang",
-      "-Wall",
-      "-Wextra",
-      "-Iinclude",
-      "-O2",
-      "-c",
-      "-o",
-      "build/render/navigation.o",
-      "src/render/navigation.c"
-    ],
-    "directory": "/home/nash/Project/txted",
-    "file": "/home/nash/Project/txted/src/render/navigation.c",
-    "output": "/home/nash/Project/txted/build/render/navigation.o"
-  },
-  {
-    "arguments": [
-      "/usr/bin/clang",
-      "-Wall",
-      "-Wextra",
-      "-Iinclude",
-      "-O2",
+      "-fsanitize=leak",
+      "-std=gnu23",
       "-c",
       "-o",
       "build/render/notification.o",
@@ -182,6 +132,8 @@
       "-Wextra",
       "-Iinclude",
       "-O2",
+      "-fsanitize=leak",
+      "-std=gnu23",
       "-c",
       "-o",
       "build/render/popup.o",
@@ -198,14 +150,16 @@
       "-Wextra",
       "-Iinclude",
       "-O2",
+      "-fsanitize=leak",
+      "-std=gnu23",
       "-c",
       "-o",
-      "build/render/theme.o",
-      "src/render/theme.c"
+      "build/render/layout.o",
+      "src/render/layout.c"
     ],
     "directory": "/home/nash/Project/txted",
-    "file": "/home/nash/Project/txted/src/render/theme.c",
-    "output": "/home/nash/Project/txted/build/render/theme.o"
+    "file": "/home/nash/Project/txted/src/render/layout.c",
+    "output": "/home/nash/Project/txted/build/render/layout.o"
   },
   {
     "arguments": [
@@ -214,14 +168,16 @@
       "-Wextra",
       "-Iinclude",
       "-O2",
+      "-fsanitize=leak",
+      "-std=gnu23",
       "-c",
       "-o",
-      "build/render/diagnostic.o",
-      "src/render/diagnostic.c"
+      "build/render/render.o",
+      "src/render/render.c"
     ],
     "directory": "/home/nash/Project/txted",
-    "file": "/home/nash/Project/txted/src/render/diagnostic.c",
-    "output": "/home/nash/Project/txted/build/render/diagnostic.o"
+    "file": "/home/nash/Project/txted/src/render/render.c",
+    "output": "/home/nash/Project/txted/build/render/render.o"
   },
   {
     "arguments": [
@@ -230,14 +186,16 @@
       "-Wextra",
       "-Iinclude",
       "-O2",
+      "-fsanitize=leak",
+      "-std=gnu23",
       "-c",
       "-o",
-      "build/lsp/lsp_completion.o",
-      "src/lsp/lsp_completion.c"
+      "build/render/confirm_exit.o",
+      "src/render/confirm_exit.c"
     ],
     "directory": "/home/nash/Project/txted",
-    "file": "/home/nash/Project/txted/src/lsp/lsp_completion.c",
-    "output": "/home/nash/Project/txted/build/lsp/lsp_completion.o"
+    "file": "/home/nash/Project/txted/src/render/confirm_exit.c",
+    "output": "/home/nash/Project/txted/build/render/confirm_exit.o"
   },
   {
     "arguments": [
@@ -246,14 +204,16 @@
       "-Wextra",
       "-Iinclude",
       "-O2",
+      "-fsanitize=leak",
+      "-std=gnu23",
       "-c",
       "-o",
-      "build/lsp/lsp_ui.o",
-      "src/lsp/lsp_ui.c"
+      "build/lsp/lsp_server.o",
+      "src/lsp/lsp_server.c"
     ],
     "directory": "/home/nash/Project/txted",
-    "file": "/home/nash/Project/txted/src/lsp/lsp_ui.c",
-    "output": "/home/nash/Project/txted/build/lsp/lsp_ui.o"
+    "file": "/home/nash/Project/txted/src/lsp/lsp_server.c",
+    "output": "/home/nash/Project/txted/build/lsp/lsp_server.o"
   },
   {
     "arguments": [
@@ -262,14 +222,16 @@
       "-Wextra",
       "-Iinclude",
       "-O2",
+      "-fsanitize=leak",
+      "-std=gnu23",
       "-c",
       "-o",
-      "build/lsp/syntax.o",
-      "src/lsp/syntax.c"
+      "build/lsp/lsp_config.o",
+      "src/lsp/lsp_config.c"
     ],
     "directory": "/home/nash/Project/txted",
-    "file": "/home/nash/Project/txted/src/lsp/syntax.c",
-    "output": "/home/nash/Project/txted/build/lsp/syntax.o"
+    "file": "/home/nash/Project/txted/src/lsp/lsp_config.c",
+    "output": "/home/nash/Project/txted/build/lsp/lsp_config.o"
   },
   {
     "arguments": [
@@ -278,14 +240,16 @@
       "-Wextra",
       "-Iinclude",
       "-O2",
+      "-fsanitize=leak",
+      "-std=gnu23",
       "-c",
       "-o",
-      "build/lsp/lsp_helper.o",
-      "src/lsp/lsp_helper.c"
+      "build/lsp/lsp_client.o",
+      "src/lsp/lsp_client.c"
     ],
     "directory": "/home/nash/Project/txted",
-    "file": "/home/nash/Project/txted/src/lsp/lsp_helper.c",
-    "output": "/home/nash/Project/txted/build/lsp/lsp_helper.o"
+    "file": "/home/nash/Project/txted/src/lsp/lsp_client.c",
+    "output": "/home/nash/Project/txted/build/lsp/lsp_client.o"
   },
   {
     "arguments": [
@@ -294,6 +258,62 @@
       "-Wextra",
       "-Iinclude",
       "-O2",
+      "-fsanitize=leak",
+      "-std=gnu23",
+      "-c",
+      "-o",
+      "build/lsp/render_lsp_ui.o",
+      "src/lsp/render_lsp_ui.c"
+    ],
+    "directory": "/home/nash/Project/txted",
+    "file": "/home/nash/Project/txted/src/lsp/render_lsp_ui.c",
+    "output": "/home/nash/Project/txted/build/lsp/render_lsp_ui.o"
+  },
+  {
+    "arguments": [
+      "/usr/bin/clang",
+      "-Wall",
+      "-Wextra",
+      "-Iinclude",
+      "-O2",
+      "-fsanitize=leak",
+      "-std=gnu23",
+      "-c",
+      "-o",
+      "build/lsp/syntax_highlight.o",
+      "src/lsp/syntax_highlight.c"
+    ],
+    "directory": "/home/nash/Project/txted",
+    "file": "/home/nash/Project/txted/src/lsp/syntax_highlight.c",
+    "output": "/home/nash/Project/txted/build/lsp/syntax_highlight.o"
+  },
+  {
+    "arguments": [
+      "/usr/bin/clang",
+      "-Wall",
+      "-Wextra",
+      "-Iinclude",
+      "-O2",
+      "-fsanitize=leak",
+      "-std=gnu23",
+      "-c",
+      "-o",
+      "build/lsp/helper_config.o",
+      "src/lsp/helper_config.c"
+    ],
+    "directory": "/home/nash/Project/txted",
+    "file": "/home/nash/Project/txted/src/lsp/helper_config.c",
+    "output": "/home/nash/Project/txted/build/lsp/helper_config.o"
+  },
+  {
+    "arguments": [
+      "/usr/bin/clang",
+      "-Wall",
+      "-Wextra",
+      "-Iinclude",
+      "-O2",
+      "-fsanitize=leak",
+      "-std=gnu23",
       "-c",
       "-o",
       "build/main.o",
@@ -310,6 +330,8 @@
       "-Wextra",
       "-Iinclude",
       "-O2",
+      "-fsanitize=leak",
+      "-std=gnu23",
       "-c",
       "-o",
       "build/helper/result.o",
@@ -326,22 +348,8 @@
       "-Wextra",
       "-Iinclude",
       "-O2",
-      "-c",
-      "-o",
-      "build/helper/nav_utils.o",
-      "src/helper/nav_utils.c"
-    ],
-    "directory": "/home/nash/Project/txted",
-    "file": "/home/nash/Project/txted/src/helper/nav_utils.c",
-    "output": "/home/nash/Project/txted/build/helper/nav_utils.o"
-  },
-  {
-    "arguments": [
-      "/usr/bin/clang",
-      "-Wall",
-      "-Wextra",
-      "-Iinclude",
-      "-O2",
+      "-fsanitize=leak",
+      "-std=gnu23",
       "-c",
       "-o",
       "build/helper/cJSON.o",
@@ -358,13 +366,123 @@
       "-Wextra",
       "-Iinclude",
       "-O2",
+      "-fsanitize=leak",
+      "-std=gnu23",
       "-c",
       "-o",
-      "build/helper/nav_helper.o",
-      "src/helper/nav_helper.c"
+      "build/navigation/navigation.o",
+      "src/navigation/navigation.c"
     ],
     "directory": "/home/nash/Project/txted",
-    "file": "/home/nash/Project/txted/src/helper/nav_helper.c",
-    "output": "/home/nash/Project/txted/build/helper/nav_helper.o"
+    "file": "/home/nash/Project/txted/src/navigation/navigation.c",
+    "output": "/home/nash/Project/txted/build/navigation/navigation.o"
+  },
+  {
+    "arguments": [
+      "/usr/bin/clang",
+      "-Wall",
+      "-Wextra",
+      "-Iinclude",
+      "-O2",
+      "-fsanitize=leak",
+      "-std=gnu23",
+      "-c",
+      "-o",
+      "build/navigation/nav_helper.o",
+      "src/navigation/nav_helper.c"
+    ],
+    "directory": "/home/nash/Project/txted",
+    "file": "/home/nash/Project/txted/src/navigation/nav_helper.c",
+    "output": "/home/nash/Project/txted/build/navigation/nav_helper.o"
+  },
+  {
+    "arguments": [
+      "/usr/bin/clang",
+      "-Wall",
+      "-Wextra",
+      "-Iinclude",
+      "-O2",
+      "-fsanitize=leak",
+      "-std=gnu23",
+      "-c",
+      "-o",
+      "build/navigation/nav_utils.o",
+      "src/navigation/nav_utils.c"
+    ],
+    "directory": "/home/nash/Project/txted",
+    "file": "/home/nash/Project/txted/src/navigation/nav_utils.c",
+    "output": "/home/nash/Project/txted/build/navigation/nav_utils.o"
+  },
+  {
+    "arguments": [
+      "/usr/bin/clang",
+      "-Wall",
+      "-Wextra",
+      "-Iinclude",
+      "-O2",
+      "-fsanitize=leak",
+      "-std=gnu23",
+      "-c",
+      "-o",
+      "build/git/git_client.o",
+      "src/git/git_client.c"
+    ],
+    "directory": "/home/nash/Project/txted",
+    "file": "/home/nash/Project/txted/src/git/git_client.c",
+    "output": "/home/nash/Project/txted/build/git/git_client.o"
+  },
+  {
+    "arguments": [
+      "/usr/bin/clang",
+      "-Wall",
+      "-Wextra",
+      "-Iinclude",
+      "-O2",
+      "-fsanitize=leak",
+      "-std=gnu23",
+      "-c",
+      "-o",
+      "build/git/git_ui.o",
+      "src/git/git_ui.c"
+    ],
+    "directory": "/home/nash/Project/txted",
+    "file": "/home/nash/Project/txted/src/git/git_ui.c",
+    "output": "/home/nash/Project/txted/build/git/git_ui.o"
+  },
+  {
+    "arguments": [
+      "/usr/bin/clang",
+      "-Wall",
+      "-Wextra",
+      "-Iinclude",
+      "-O2",
+      "-fsanitize=leak",
+      "-std=gnu23",
+      "-c",
+      "-o",
+      "build/settings/settings.o",
+      "src/settings/settings.c"
+    ],
+    "directory": "/home/nash/Project/txted",
+    "file": "/home/nash/Project/txted/src/settings/settings.c",
+    "output": "/home/nash/Project/txted/build/settings/settings.o"
+  },
+  {
+    "arguments": [
+      "/usr/bin/clang",
+      "-Wall",
+      "-Wextra",
+      "-Iinclude",
+      "-O2",
+      "-fsanitize=leak",
+      "-std=gnu23",
+      "-c",
+      "-o",
+      "build/settings/theme.o",
+      "src/settings/theme.c"
+    ],
+    "directory": "/home/nash/Project/txted",
+    "file": "/home/nash/Project/txted/src/settings/theme.c",
+    "output": "/home/nash/Project/txted/build/settings/theme.o"
   }
 ]

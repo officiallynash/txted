@@ -40,7 +40,8 @@ extern int visible_lines(void);                      // Didefinisikan di render.
 LineIndex LineIndex_init() {
     LineIndex li;
     li.capacity = 32;
-    li.offset = malloc(sizeof(size_t) * li.capacity);
+    // Ganti pakai calloc biar lebih aman
+    li.offset = calloc(li.capacity, sizeof(size_t));
     li.line_count = 1;
     li.offset[0] = 0;
 
@@ -275,14 +276,14 @@ static void sync_cursor_coords(Buffer *buf) {
  * Fungsi untuk mengkonversi path ke URI [PUBLIC API]
  */
 char *Path_to_uri(const char *path) {
-    if (!path) return NULL;
+    if (!path) return nullptr;
 
     // Jika path sudah ber-prefix file://, kembalikan copy-nya saja
     if (strncmp(path, "file://", 7) == 0) return strdup(path);
 
     // Alokasi memori yang aman
     size_t len = strlen(path) + 16;
-    char *uri = malloc(len);
+    char *uri = calloc(len, sizeof(char));
 
     // Pastikan jika path diawali '/', maka pakai file:// (jadi file:///)
     if (path[0] == '/') {
@@ -324,20 +325,20 @@ Buffer *Buffer_new() {
     String *new = String_new();
     Position cursor = {.x = 0, .y = 0, .cursor_pos = 0};
 
-    Buffer *new_buffer = malloc(sizeof(Buffer));
+    Buffer *new_buffer = calloc(1, sizeof(Buffer));
 
     new_buffer->str = new;
     new_buffer->cursor = cursor;
     new_buffer->lines = LineIndex_init();
-    new_buffer->path = NULL;
+    new_buffer->path = nullptr;
     new_buffer->filename = strdup("Untilted");
     new_buffer->selection.is_selected = false;
     new_buffer->is_dirty = false;
-    new_buffer->state = NULL;
-    new_buffer->language_id = NULL;
+    new_buffer->state = nullptr;
+    new_buffer->language_id = nullptr;
     new_buffer->scroll_y = 0;  // UI State
     new_buffer->is_dragging = false;
-    new_buffer->diagnostic = NULL;  // Diagnostic
+    new_buffer->diagnostic = nullptr;  // Diagnostic
 
     // Metadata Git
     new_buffer->meta_capacity = new_buffer->lines.line_count ? new_buffer->lines.line_count : 64;
@@ -352,7 +353,7 @@ Buffer *Buffer_new() {
  * Fungsi untuk membuka file dan memasukkan ke dalam Buffer [PUBLIC API]
  */
 Buffer *Buffer_open(const char *filename) {
-    Buffer *new = NULL;  // default pointer
+    Buffer *new = nullptr;  // default pointer
 
     // Buka file
     Result result = Fs_open(filename);
@@ -366,7 +367,7 @@ Buffer *Buffer_open(const char *filename) {
     FileData *data = (FileData *)result.data;
 
     // Inisiasi data
-    new = malloc(sizeof(Buffer));
+    new = calloc(1, sizeof(Buffer));
     String *new_str = String_new();
     String_insert(&new_str, 0, (const char *)data->data, data->size);
 
@@ -399,7 +400,7 @@ Buffer *Buffer_open(const char *filename) {
 
     // LSP dan Syntax init
     LangConfig *lang = LspConfig_detail(new->path);
-    if (lang != NULL) {
+    if (lang != nullptr) {
         new->state = Syntax_init(lang);
         if (new->state) Syntax_update(new->state, (const char *)data->data, data->size);
 
@@ -424,7 +425,8 @@ Buffer *Buffer_open(const char *filename) {
                 Bytes_free(&full_text);
             }
 
-            new->diagnostic = NULL;  // Diagnostic jalan kalau sudah ada editing aja kali ya HAHAH
+            new->diagnostic =
+                nullptr;  // Diagnostic jalan kalau sudah ada editing aja kali ya HAHAH
             // Konsepnya itu terpusat di Draw Diagsnostic bar (render_lsp_ui.c) dan render.c
             sync_syntax_tree(new);  // Sync syntax
             lsp_clear_all_diagnostics();
@@ -433,9 +435,9 @@ Buffer *Buffer_open(const char *filename) {
         }
 
     } else {
-        new->language_id = NULL;
-        new->state = NULL;
-        new->diagnostic = NULL;  // Set ke NULL aja
+        new->language_id = nullptr;
+        new->state = nullptr;
+        new->diagnostic = nullptr;  // Set ke NULL aja
     }
 
     LangConfig_free(lang);   // LangConfig free
@@ -663,7 +665,7 @@ void Buffer_delete(Buffer *buf, size_t pos_idx) {
         // Update status baris penggabungan saat ini
         if (cur_y < buf->meta_capacity) {
             buf->line_git[cur_y].status = GUTTER_MODIFIED;
-            buf->line_git[cur_y].last_edited_at = (double)time(NULL);
+            buf->line_git[cur_y].last_edited_at = (double)time(nullptr);
             strncpy(buf->line_git[cur_y].author, git.author[0] ? git.author : "You",
                     sizeof(buf->line_git[cur_y].author) - 1);
         }
@@ -672,7 +674,7 @@ void Buffer_delete(Buffer *buf, size_t pos_idx) {
         size_t y = buf->cursor.y;
         if (y < buf->meta_capacity) {
             buf->line_git[y].status = GUTTER_MODIFIED;
-            buf->line_git[y].last_edited_at = (double)time(NULL);
+            buf->line_git[y].last_edited_at = (double)time(nullptr);
             strncpy(buf->line_git[y].author, git.author[0] ? git.author : "You",
                     sizeof(buf->line_git[y].author) - 1);
         }
@@ -698,7 +700,7 @@ void Buffer_delete(Buffer *buf, size_t pos_idx) {
  */
 void Buffer_save(Buffer *buf, const char *filename) {
     if (!buf) return;
-    if (filename != NULL) {
+    if (filename != nullptr) {
         Result result = Fs_create(filename);
 
         if (result.type == RESULT_OK) {
@@ -719,7 +721,7 @@ void Buffer_save(Buffer *buf, const char *filename) {
     if (!buf->path) return;  // Memastikan path bener sebelum save
 
     // Proses Auto format jika hanya punya language id
-    if (buf->language_id != NULL) {
+    if (buf->language_id != nullptr) {
         char *uri = Path_to_uri(buf->path);
         if (uri) {
             TextEditList edits = lsp_format(uri, 4, true);
@@ -859,7 +861,7 @@ void Buffer_redo(Buffer *buf) {
  * Fungsi untuk mengambil text line berdasarkan y (line = y + 1) [PUBLIC API]
  */
 char *Buffer_get_line_text(Buffer *buf, size_t y) {
-    if (!buf || y >= buf->lines.line_count) return NULL;
+    if (!buf || y >= buf->lines.line_count) return nullptr;
 
     // Mencari indeks posisi awal dan akhir dari line
     size_t start = buf->lines.offset[y];
@@ -877,7 +879,7 @@ char *Buffer_get_line_text(Buffer *buf, size_t y) {
     Bytes data = String_get(buf->str, start, length);  // Ambil data dari buffer
     if (!data.data) return NULL;
 
-    char *result = malloc(length + 1);
+    char *result = calloc(length + 1, sizeof(char));
     if (result) {
         memcpy(result, data.data, length);
         result[length] = '\0';
@@ -896,55 +898,55 @@ void Buffer_free(Buffer *buf) {
     // Tree sitter
     if (buf->state) {
         Syntax_free(buf->state);
-        buf->state = NULL;
+        buf->state = nullptr;
     }
 
     // String Rope atau Buffer utama
-    if (buf->str != NULL) {
+    if (buf->str != nullptr) {
         String_release(buf->str);
-        buf->str = NULL;
+        buf->str = nullptr;
     }
 
     // Buffer path ke file
-    if (buf->path != NULL) {
+    if (buf->path != nullptr) {
         char *uri = Path_to_uri(buf->path);
         if (uri) {
             lsp_did_close((const char *)uri);
             free(uri);
         }
         free(buf->path);
-        buf->path = NULL;
+        buf->path = nullptr;
     }
 
     // Filename
-    if (buf->filename != NULL) {
+    if (buf->filename != nullptr) {
         free(buf->filename);
-        buf->filename = NULL;
+        buf->filename = nullptr;
     }
 
     // Index Line
     if (buf->lines.offset) {
         free(buf->lines.offset);
-        buf->lines.offset = NULL;
+        buf->lines.offset = nullptr;
     }
 
     // Line Git
-    if (buf->line_git != NULL) {
+    if (buf->line_git != nullptr) {
         free(buf->line_git);
-        buf->line_git = NULL;
+        buf->line_git = nullptr;
     }
 
     // Undo
     Undo_free(&buf->undo);
 
     // Language ID
-    if (buf->language_id != NULL) {
+    if (buf->language_id != nullptr) {
         free(buf->language_id);
-        buf->language_id = NULL;
+        buf->language_id = nullptr;
     }
 
     // Diagnostic
-    if (buf->diagnostic != NULL) {
+    if (buf->diagnostic != nullptr) {
         lsp_free_diagnostics(buf->diagnostic);
     }
 
