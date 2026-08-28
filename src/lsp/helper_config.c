@@ -25,7 +25,7 @@ int compare_scores(const void *a, const void *b) {
  * Fungsi untuk memfilter dan mengurutkan completion [PRIVATE API]
  */
 void filter_and_sort_completion(CompletionList *list, const char *query) {
-    FilteredItem filtered[256];
+    FilteredItem filtered[256] = {};
     int filtered_count = 0;
 
     for (size_t i = 0; i < list->count && filtered_count < 256; i++) {
@@ -51,7 +51,7 @@ void filter_and_sort_completion(CompletionList *list, const char *query) {
 CompletionItem *lsp_get_selected_item(const char *current_word) {
     if (!g_lsp_ui.has_completion || g_lsp_ui.completion.count == 0) return nullptr;
 
-    FilteredItem filtered[256];
+    FilteredItem filtered[256] = {};
     int total_items = 0;
 
     for (size_t i = 0; i < g_lsp_ui.completion.count && total_items < 256; i++) {

@@ -12,8 +12,6 @@
 
 #include "buffer.h"
 
-extern int visible_lines(void);  // Didefinisikan di render.c
-
 // Search bagian dari Buffer.c, tetapi dikarenakan File Buffer.c sudah membengkak sampai 1000 lines
 // ++ akan lebih bijak jika search buffer di pisah dari Buffer.c tetapi tetap masih menggunakan
 // header buffer.h untuk pintu masuknya, dan untuk UI masih sama di file popup.c dengan header ui.h
@@ -84,27 +82,4 @@ int Buffer_search(Buffer *buf, const char *query, SearchHitBuffer *out, int max_
         free(line);
     }
     return count;
-}
-
-/**
- * Fungsi untuk melompat ke Hasil pencarian [PUBLIC API]
- */
-void Buffer_goto_search_hit(Buffer *buf, const SearchHitBuffer *hit) {
-    if (!buf || !hit) return;
-
-    buf->cursor.y = hit->line;
-    buf->cursor.x = hit->col;
-
-    if (hit->line < buf->lines.line_count) {
-        buf->cursor.cursor_pos = buf->lines.offset[hit->line] + hit->col;
-    } else {
-        buf->cursor.cursor_pos = String_len(buf->str);
-    }
-
-    buf->selection.is_selected = false;  // Memastikan bahwa is_selected mati!
-
-    // scroll biar kelihatan
-    int vis = visible_lines();
-    if ((int)buf->cursor.y < buf->scroll_y) buf->scroll_y = (int)buf->cursor.y;
-    if ((int)buf->cursor.y >= buf->scroll_y + vis) buf->scroll_y = (int)buf->cursor.y - vis + 1;
 }

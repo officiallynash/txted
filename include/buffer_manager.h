@@ -6,23 +6,23 @@
 #ifndef BUFFER_MANAGER_H
 #define BUFFER_MANAGER_H
 
+#include <stddef.h>
+#include <stdint.h>
+
+#include "buffer.h"
+
 // define max tab
 constexpr int MAX_TABS = 7;
 
 // Daftar semua Flag di Struct Buffer Manager
 // Kita gunakan Bitwise untuk menghemat memory
 // Selain itu untuk mempercepat Toggle ketika perpindahan Flag
-#define TXTED_REQ_EXIT (1 << 0)
-#define TXTED_EXIT (1 << 1)
-#define TXTED_SHOW_FM (1 << 2)
-#define TXTED_SHOW_HELP (1 << 3)
-#define TXTED_WRITE (1 << 4)
-#define TXTED_FILE_MANAGER (1 << 5)
-
-#include <stddef.h>
-#include <stdint.h>
-
-#include "buffer.h"
+constexpr uint8_t TXTED_REQ_EXIT = (1 << 0);
+constexpr uint8_t TXTED_EXIT = (1 << 1);
+constexpr uint8_t TXTED_SHOW_FM = (1 << 2);
+constexpr uint8_t TXTED_SHOW_HELP = (1 << 3);
+constexpr uint8_t TXTED_WRITE = (1 << 4);
+constexpr uint8_t TXTED_FILE_MANAGER = (1 << 5);
 
 /**
  * Enum untuk Switch Tab
@@ -48,7 +48,8 @@ void BufManager_open(BufManager *bufmgr, const char *filename);
 Buffer *BufManager_getactive(BufManager *bufmgr);
 void BufManager_switchtab(BufManager *bufmgr, SwitchTab direction);
 void BufManager_closetab(BufManager *bufmgr);
-void BufManager_destroy(BufManager *bufmgr);
+void BufManager_destroy(BufManager **bufmgr);
 size_t BufManager_checkdirty(BufManager *bufmgr);
 
+#define defer_bufmgr __attribute__((cleanup(BufManager_destroy)))
 #endif

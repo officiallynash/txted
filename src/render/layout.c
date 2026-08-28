@@ -13,7 +13,7 @@
  * Helper untuk setting layout
  */
 EditorLayout get_editor_layout(BufManager *bufmgr) {
-    EditorLayout L = {0};
+    EditorLayout L = {};
 
     L.win_h = GetRenderHeight();  // Height
     L.win_w = GetRenderWidth();   // Width
@@ -51,6 +51,7 @@ EditorLayout get_editor_layout(BufManager *bufmgr) {
         L.editor_w = L.win_w;
     }
 
+    L.visible_lines = (L.editor_h - (PAD_Y * 2)) / LINE_H;
     L.gutter_screen_x = L.editor_x;
     L.text_screen_x = L.editor_x + PAD_X + GUTTER_W;
 

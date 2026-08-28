@@ -25,7 +25,7 @@
 #include "rope.h"
 
 float lsp_debounce_timer = 0.0f;  // Debounce
-LspUiState g_lsp_ui = {0};
+LspUiState g_lsp_ui = {};
 extern int compare_scores(const void *a, const void *b);  // compare_scores (completion.c)
 
 /* ================================
@@ -101,7 +101,7 @@ int calculate_score(const char *query, const char *label) {
 static void lsp_ui_clear_completion(void) {
     if (g_lsp_ui.has_completion) {
         lsp_free_completion(&g_lsp_ui.completion);
-        g_lsp_ui.completion.items = NULL;
+        g_lsp_ui.completion.items = nullptr;
         g_lsp_ui.completion.count = 0;
         g_lsp_ui.has_completion = false;
     }

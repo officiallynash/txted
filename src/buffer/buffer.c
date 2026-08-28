@@ -28,7 +28,6 @@
 
 extern void sync_cursor_line_from_pos(Buffer *buf);  // didefinisikan di navigation.c
 extern void lsp_clear_all_diagnostics(void);         // Clear Diagnostic [lsp_client.c]
-extern int visible_lines(void);                      // Didefinisikan di render.c
 
 /* =============================
  * PRIVATE API
@@ -224,7 +223,7 @@ bool lsp_apply_text_edits(Buffer *buf, TextEditList *edits) {
         if (buf->cursor.cursor_pos > rope_len) buf->cursor.cursor_pos = rope_len;
 
         // Sync syntax + dirty
-        buf->is_dirty = true;
+        buf->buf_flags |= BUF_IS_DIRTY;
         sync_syntax_tree(buf);
     }
 
@@ -333,11 +332,10 @@ Buffer *Buffer_new() {
     new_buffer->path = nullptr;
     new_buffer->filename = strdup("Untilted");
     new_buffer->selection.is_selected = false;
-    new_buffer->is_dirty = false;
+    new_buffer->buf_flags = 0;
     new_buffer->state = nullptr;
     new_buffer->language_id = nullptr;
-    new_buffer->scroll_y = 0;  // UI State
-    new_buffer->is_dragging = false;
+    new_buffer->scroll_y = 0;          // UI State
     new_buffer->diagnostic = nullptr;  // Diagnostic
 
     // Metadata Git
@@ -384,12 +382,11 @@ Buffer *Buffer_open(const char *filename) {
     // Setting untuk path dan filename
     new->path = strdup(data->full_path);
     new->filename = strdup(get_display_name(new->path));
-    new->is_dirty = false;
+    new->buf_flags = 0;
 
     // Setting default untuk new selection (Default is false)
     new->selection.is_selected = false;
     new->scroll_y = 0;  // UI State
-    new->is_dragging = false;
 
     // Git
     new->meta_capacity = (lines.line_count > 64) ? lines.line_count : 64;
@@ -416,7 +413,7 @@ Buffer *Buffer_open(const char *filename) {
 
             size_t rope_len = String_len(new->str);
             Bytes full_text = String_get(new->str, 0, rope_len);
-            if (full_text.data) {
+            if (full_text.data != nullptr) {
                 lsp_ui_set_document(uri, lang->language_id, (const char *)full_text.data);
 
                 // Langsung kirim didChange
@@ -452,7 +449,7 @@ Buffer *Buffer_open(const char *filename) {
 void Buffer_insert(Buffer *buf, size_t pos_idx, const char *ch) {
     if (!buf || !ch) return;
 
-    buf->is_dirty = true;
+    buf->buf_flags |= BUF_IS_DIRTY;  // Set flag ke dirty
     size_t text_len = strlen(ch);
     if (text_len == 0) return;
 
@@ -568,7 +565,7 @@ void Buffer_delete(Buffer *buf, size_t pos_idx) {
 
     size_t len = 0;
     size_t start_del = 0;
-    buf->is_dirty = true;
+    buf->buf_flags |= BUF_IS_DIRTY;
 
     if (buf->selection.is_selected) {
         Get_selected_position(buf, &start_del, &len);
@@ -745,7 +742,7 @@ void Buffer_save(Buffer *buf, const char *filename) {
     if (data.data) {
         Result result = Fs_savefile(buf->path, (const char *)data.data, data.len);
         if (result.type == RESULT_OK) {
-            buf->is_dirty = false;
+            buf->buf_flags &= ~BUF_IS_DIRTY;
             Notif_show(result.data, NOTIF_SUCCESS, 3.0f);
         } else {
             Notif_show(result.data, NOTIF_ERROR, 3.0f);

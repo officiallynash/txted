@@ -5,15 +5,12 @@
  */
 #include <raylib.h>
 #include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
 
+#include "buffer.h"
 #include "git_client.h"
 #include "lsp_ui.h"
 #include "theme.h"
 #include "ui.h"
-
-extern char *format_pretty_path(const char *path);  // Didefinisikan di fs.c
 
 /**
  * Fungsi untuk Draw Status Bar
@@ -30,34 +27,28 @@ void draw_status(BufManager *bufmgr, Font font) {
         DrawTextEx(font, "No buffer", pos, FONT_SIZE, 1.0f, g_theme.text_normal);
         return;
     }
-    Color text_color = buf->is_dirty ? g_theme.cursor : g_theme.text_normal;
+    Color text_color = (buf->buf_flags & BUF_IS_DIRTY) != 0 ? g_theme.cursor : g_theme.text_normal;
 
-    char left[256];
-    char *path_name =
-        bufmgr->path_root ? format_pretty_path(bufmgr->path_root) : strdup("No Workspaces");
-
+    char left[256] = {0};
     const char *mark = Git_file_mark(buf->path);  // Git Mark
     if (git.is_repo) {                            // Jika path adalah repo
         if (mark[0]) {                            // Jika ada perubahan di File
-            snprintf(left, sizeof(left), "File: %s [%s] | Branch: %s%s | Workspace: %s",
+            snprintf(left, sizeof(left), "File: %s [%s] | Branch: %s%s ",
                      buf->filename ? buf->filename : "Untitled", mark, git.branch,
-                     git.has_changes ? "*" : "", path_name);
+                     git.has_changes ? "*" : "");
         } else {
-            snprintf(left, sizeof(left), "File: %s | Branch: %s%s | Workspace: %s",
+            snprintf(left, sizeof(left), "File: %s | Branch: %s%s ",
                      buf->filename ? buf->filename : "Untitled", git.branch,
-                     git.has_changes ? "*" : "", path_name);
+                     git.has_changes ? "*" : "");
         }
     } else {  // Kalau bukan repo render biasa
-        snprintf(left, sizeof(left), "File: %s | Workspace: %s",
-                 buf->filename ? buf->filename : "Untitled", path_name);
+        snprintf(left, sizeof(left), "File: %s ", buf->filename ? buf->filename : "Untitled");
     }
-
-    free(path_name);  // Free path name
 
     Vector2 left_pos = {(float)PAD_X, (float)(layout.win_h - STATUS_H + 6)};
     DrawTextEx(font, left, left_pos, FONT_SIZE, 1.0f, text_color);
 
-    char right[128];
+    char right[128] = {0};
 
     const char *lsp_status = "Inactive";
     if (buf->language_id != NULL) {

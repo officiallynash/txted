@@ -99,7 +99,7 @@ void FileNode_free(FileNode *node) {
 void file_manager_refresh(void) {
     if (g_fm_root) {
         FileNode_free(g_fm_root);
-        g_fm_root = NULL;
+        g_fm_root = nullptr;
     }
     // Reset path terload agar draw_file_manager otomatis re-build root node
     g_loaded_root_path[0] = '\0';
@@ -160,7 +160,7 @@ void FileNode_load_children(FileNode *node) {
         while ((entry = readdir(dir)) != nullptr) {
             if (strcmp(entry->d_name, ".") == 0 || strcmp(entry->d_name, "..") == 0) continue;
 
-            char child_path[1024];
+            char child_path[1024] = {0};
             if (strcmp(node->path, ".") == 0) {
                 snprintf(child_path, sizeof(child_path), "%s", entry->d_name);
             } else {
@@ -233,7 +233,7 @@ static void draw_file_node_recursive(FileNode *node, Font font, EditorLayout L, 
                     strncpy(g_active_file_path, node->path, sizeof(g_active_file_path));
                     Buffer *buf = BufManager_getactive(bufmgr);
 
-                    if (buf && buf->is_dirty) {
+                    if (buf && (buf->buf_flags & BUF_IS_DIRTY) != 0) {
                         BufManager_newtab(bufmgr, node->path);
                     } else {
                         BufManager_open(bufmgr, node->path);
@@ -255,7 +255,7 @@ static void draw_file_node_recursive(FileNode *node, Font font, EditorLayout L, 
             mark = Git_file_mark(node->path);
         }
 
-        char label[300];
+        char label[300] = {0};
         if (mark[0]) {
             snprintf(label, sizeof(label), "%s%s [%s]", prefix, node->name, mark);
         } else {
@@ -311,7 +311,7 @@ void draw_file_manager(BufManager *bufmgr, Font font) {
     }
 
     if (!g_fm_root) {
-        char cwd[512];
+        char cwd[512] = {0};
         if (getcwd(cwd, sizeof(cwd))) {
             strncpy(g_loaded_root_path, cwd, sizeof(g_loaded_root_path) - 1);
             const char *folder_name = strrchr(cwd, '/');

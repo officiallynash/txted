@@ -3,17 +3,22 @@
  * Copyright (c) 2026 Nash
  * SPDX-License-Identifier: MIT
  */
-#include <stddef.h>
 #ifndef BUFFER_H
 #define BUFFER_H
 
 #include <stdbool.h>
+#include <stddef.h>
+#include <stdint.h>
 
 #include "clipboard.h"
 #include "lsp_server.h"
 #include "rope.h"
 #include "syntax.h"
 #include "undo.h"
+
+// Flag untuk penanda Buf Flag
+constexpr uint8_t BUF_IS_DIRTY = (1 << 0);
+constexpr uint8_t BUF_IS_DRAGGING = (1 << 1);
 
 /**
  * Enum untuk Gutter Git
@@ -78,11 +83,10 @@ typedef struct {
     Position cursor;
     Selection selection;
 
-    int scroll_y;  // Ui State
-    bool is_dirty;
+    int scroll_y;       // Ui State
+    uint8_t buf_flags;  // Buffer flag penanda
     char *path;
     char *filename;
-    bool is_dragging;
 
     DiagnosticList *diagnostic;  // Diagnostic
 
@@ -115,7 +119,6 @@ void lsp_apply_completion(Buffer *buf, const CompletionItem *item);  // LSP
 
 // Search
 int Buffer_search(Buffer *buf, const char *query, SearchHitBuffer *out, int max_hits);
-void Buffer_goto_search_hit(Buffer *buf, const SearchHitBuffer *hit);
 
 // Buffer, Clipboard dan Undo Redo
 void Buffer_copy(Buffer *buf, Clipboard *clp);

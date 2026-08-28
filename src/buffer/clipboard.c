@@ -73,7 +73,7 @@ static char *os_clipboard_get(size_t *out_len) {
         return nullptr;
     }
 
-    char chunk[256];
+    char chunk[256] = {0};
     while (fgets(chunk, sizeof(chunk), pipe)) {
         size_t chunk_len = strlen(chunk);
         if (len + chunk_len + 1 > capacity) {

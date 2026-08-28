@@ -26,7 +26,7 @@ static bool prev_push_state = false;
  * Fungsi untuk menjalankan git CMD khusus info [PRIVATE API]
  */
 static bool run_git(const char *repo, const char *args, char *out, size_t out_sz) {
-    char cmd[1024];
+    char cmd[1024] = {0};
     if (repo && repo[0]) {
         snprintf(cmd, sizeof(cmd), "git -C \"%s\" %s 2>/dev/null", repo, args);
     } else {
@@ -46,7 +46,7 @@ static bool run_git(const char *repo, const char *args, char *out, size_t out_sz
  * Fungsi untuk mengeksekusi CMD Git (Push, Stage) [PRIVATE API]
  */
 static int run_git_rc(const char *repo, const char *args, char *err, size_t err_sz) {
-    char cmd[1024];
+    char cmd[1024] = {0};
     if (repo && repo[0]) {
         snprintf(cmd, sizeof(cmd), "git -C \"%s\" %s 2>&1", repo, args);
     } else {
@@ -94,8 +94,8 @@ bool GitPopup_commit(const char *repo, const char *message) {
         return false;
     }
 
-    char args[512];
-    char msg[240];
+    char args[512] = {0};
+    char msg[240] = {0};
     strncpy(msg, message, sizeof(msg) - 1);
     for (char *p = msg; *p; p++)
         if (*p == '"') *p = '\'';
@@ -142,7 +142,7 @@ static void *git_push_worker(void *arg) {
     g_push_success = ok;
     g_push_in_progress = false;  // Flag penanda selesai
     free(repo);
-    return NULL;
+    return nullptr;
 }
 
 /**
@@ -207,7 +207,7 @@ bool GitStatus_refresh(const char *repo, GitStatus *git) {
     if (!git) return false;
     memset(git, 0, sizeof(*git));
 
-    char buf[8192];
+    char buf[8192] = {0};
 
     if (!run_git(repo, "rev-parse --is-inside-work-tree", buf, sizeof(buf))) {
         git->is_repo = false;
@@ -406,7 +406,7 @@ void Git_fetch_file_diff(const char *repo_path, const char *file_path, Buffer *b
     if (!repo_path || !file_path || !buf || !buf->line_git) return;
 
     // Command diff tanpa context line (-U0)
-    char args[512];
+    char args[512] = {0};
     snprintf(args, sizeof(args), "diff -U0 -- \"%s\"", file_path);
 
     char output[16384] = {0};
@@ -489,7 +489,7 @@ void Git_fetch_file_blame(const char *repo_path, const char *file_path, Buffer *
     if (!repo_path || !file_path || !buf) return;
 
     // Command git blame dengan format porcelain (machine-readable)
-    char args[512];
+    char args[512] = {0};
     snprintf(args, sizeof(args), "blame --porcelain -- \"%s\"", file_path);
 
     char output[65536] = {0};  // Penampung output blame

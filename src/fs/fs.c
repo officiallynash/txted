@@ -28,13 +28,13 @@
  * Fungsi untuk membuat Folder Recursive [PRIVATE API]
  */
 int Ensure_dir_exists(const char *file_path) {
-    char path_copy[1024];
+    char path_copy[1024] = {0};
     snprintf(path_copy, sizeof(path_copy), "%s", file_path);
 
     char *dir_path = dirname(path_copy);
     if (strcmp(dir_path, ".") == 0 || strcmp(dir_path, "/") == 0) return 0;
 
-    char tmp[1024];
+    char tmp[1024] = {0};
     char *p = nullptr;
 
     snprintf(tmp, sizeof(tmp), "%s", dir_path);
@@ -137,7 +137,7 @@ char *Fs_dirname(const char *path) {
 char *Get_full_path(const char *filename) {
     if (!filename || filename[0] == '\0') return nullptr;
 
-    char resolved[1024];
+    char resolved[1024] = {0};
     // Coba dapatkan realpath langsung
     if (realpath(filename, resolved) != nullptr) {
         return strdup(resolved);
@@ -149,9 +149,9 @@ char *Get_full_path(const char *filename) {
     }
 
     // Jika relatif dan belum ada di disk (fallback gabung CWD)
-    char cwd[1024];
+    char cwd[1024] = {0};
     if (getcwd(cwd, sizeof(cwd)) != nullptr) {
-        char full[2048];
+        char full[2048] = {0};
         snprintf(full, sizeof(full), "%s/%s", cwd, filename);
 
         // Coba realpath sekali lagi setelah digabung CWD
@@ -185,6 +185,10 @@ Result Fs_open(const char *filename) {
     long fsz = ftell(file);
     fseek(file, 0, SEEK_SET);
 
+    // Sebenarnya ada cara yang lebih cepat yaitu
+    // Menggunakan temp buffer lalu pakai while fgets
+    // ya tapi juga ada resiko. maka akan lebih bijak pakai calloc
+    // dengan kombinasi Result atau error handling
     unsigned char *buffer = calloc(
         fsz + 1,
         sizeof(unsigned char));  // Buat buffer file disini pakai u8, kalau di Rust itu Vec<u8>
@@ -275,7 +279,7 @@ void FileList_free(FileList *list) {
  * Fungsi untuk memindai file dalam project [PUBLIC API]
  */
 void Scan_project_files(const char *base_path, FileList *list) {
-    char path[1024];
+    char path[1024] = {0};
     struct dirent *dp;
     DIR *dir = opendir(base_path);
 
@@ -333,7 +337,7 @@ char *Fs_find_project_root(const char *filepath) {
         return cwd ? cwd : strdup("/");
     }
 
-    char current_dir[1024];
+    char current_dir[1024] = {0};
 
     // Cek apakah ini file atau folder
     struct stat st;
@@ -358,8 +362,8 @@ char *Fs_find_project_root(const char *filepath) {
                              "compile_commands.json"};
     size_t num_markers = sizeof(markers) / sizeof(markers[0]);
 
-    char check_path[1024];
-    char temp_dir[1024];
+    char check_path[1024] = {0};
+    char temp_dir[1024] = {0};
     snprintf(temp_dir, sizeof(temp_dir), "%s", current_dir);
 
     // Panjat direktori ke atas
@@ -373,10 +377,10 @@ char *Fs_find_project_root(const char *filepath) {
         }
 
         // Naik satu tingkat ke folder parent
-        char parent[1024];
+        char parent[1024] = {0};
         snprintf(parent, sizeof(parent), "%s/..", temp_dir);
 
-        char resolved[1024];
+        char resolved[1024] = {0};
         if (realpath(parent, resolved) != nullptr) {
             if (strcmp(temp_dir, resolved) == 0) break;  // Sampai di paling atas (/)
             snprintf(temp_dir, sizeof(temp_dir), "%s", resolved);

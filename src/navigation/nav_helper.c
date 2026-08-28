@@ -13,7 +13,6 @@
 #include "rope.h"
 #include "ui.h"
 
-extern int visible_lines(void);  // Jumlah baris yang terlihat (render.c)
 extern void expand_tabs(const char *src, char *dst, size_t dst_size,
                         int tab_size);  // expand_tabs (render.c)
 
@@ -211,7 +210,7 @@ void Syntax_auto_indent(Buffer *active_buf) {
         if (base_spaces > 200) base_spaces = 200;
         if (inner_spaces > 200) inner_spaces = 200;
 
-        char str1[256], str2[256];
+        char str1[256] = {0}, str2[256] = {0};
         str1[0] = '\n';
         memset(str1 + 1, ' ', inner_spaces);
         str1[inner_spaces + 1] = '\0';
@@ -257,7 +256,7 @@ void Syntax_auto_indent(Buffer *active_buf) {
     if (space_to_add < 0) space_to_add = 0;
     if (space_to_add > 200) space_to_add = 200;
 
-    char insert_str[256];
+    char insert_str[256] = {0};
     insert_str[0] = '\n';
     memset(insert_str + 1, ' ', space_to_add);
     insert_str[space_to_add + 1] = '\0';

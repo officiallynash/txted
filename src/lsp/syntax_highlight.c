@@ -45,7 +45,7 @@ SyntaxState *Syntax_init(LangConfig *lang) {
         state->query = ts_query_new(ts_lang, lang->query_source, strlen(lang->query_source),
                                     &error_offset, &error_type);
         if (!state->query) {
-            char msg[254];
+            char msg[254] = {0};
             snprintf(msg, sizeof(msg),
                      "[TREE-SITTER ERROR] Failed at character index: %u, Error code: %d",
                      error_offset, error_type);
@@ -58,7 +58,7 @@ SyntaxState *Syntax_init(LangConfig *lang) {
             ts_lang, lang->indent_source, strlen(lang->indent_source), &error_offset, &error_type);
 
         if (!state->indents_query) {
-            char msg[254];
+            char msg[254] = {0};
             snprintf(msg, sizeof(msg),
                      "[TREE-SITTER ERROR] Failed at character index: %u, Error code: %d",
                      error_offset, error_type);

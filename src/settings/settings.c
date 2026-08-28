@@ -26,16 +26,16 @@ Settings default_settings = {
  * Fungsi untuk Load Settings
  */
 void Settings_load(void) {
-    char setting_path[128];
+    char setting_path[128] = {0};
     char *home = getenv("HOME");
     snprintf(setting_path, sizeof(setting_path), "%s/.config/txted/settings/settings.ini", home);
 
     FILE *fp = fopen(setting_path, "r");
     if (!fp) return;
 
-    char line[256];
+    char line[256] = {0};
     while (fgets(line, sizeof(line), fp)) {
-        char key[64], val[128];
+        char key[64] = {0}, val[128] = {0};
 
         if (sscanf(line, " %63[^ =] = %127s", key, val) == 2) {
             val[strcspn(val, "\r\n")] = 0;
@@ -82,7 +82,7 @@ void Settings_apply(BufManager *bufmgr, Font *font) {
     SetExitKey(KEY_NULL);
 
     // Load font
-    char font_path[512];
+    char font_path[512] = {0};
     char *home = getenv("HOME");
     snprintf(font_path, sizeof(font_path), "%s/.config/txted/settings/fonts/%s", home,
              default_settings.font);

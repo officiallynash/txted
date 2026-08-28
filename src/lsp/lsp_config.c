@@ -20,7 +20,7 @@ char *find_executable_in_path(const char *exec_name) {
     if (path_env) {
         char *path_copy = strdup(path_env);
         char *dir = strtok(path_copy, ":");
-        char full_path[1024];
+        char full_path[1024] = {0};
 
         while (dir != nullptr) {
             snprintf(full_path, sizeof(full_path), "%s/%s", dir, exec_name);
@@ -35,39 +35,38 @@ char *find_executable_in_path(const char *exec_name) {
 
     char *home = getenv("HOME");
     if (home) {
-        char cargo_bin[1024];
+        char cargo_bin[1024] = {0};
         snprintf(cargo_bin, sizeof(cargo_bin), "%s/.cargo/bin/%s", home, exec_name);
         if (access(cargo_bin, X_OK) == 0) {
             return strdup(cargo_bin);
         }
     }
 
-    return NULL;
+    return nullptr;
 }
 
 /**
  * Helper internal untuk load Syntax Query (Tree Sitter)
  */
 static char *Syntax_query(const char *lang_id, const char *scm_filename) {
-    char path[256];
+    char path[256] = {0};
     snprintf(path, sizeof(path), "%squeries/%s/%s", GetApplicationDirectory(), lang_id,
              scm_filename);
+
+    // Sebenarnya akan lebih bagus pakai Result dan FS_open
+    // Tapi casting dari unsigned char * ke char * malah bikin error
+    // Jadi, terpaksa pakai manual
     FILE *fp = fopen(path, "r");
-    if (!fp) return NULL;
+    if (!fp) return nullptr;
 
     fseek(fp, 0, SEEK_END);
-    long size = ftell(fp);
+    long fsz = ftell(fp);
     fseek(fp, 0, SEEK_SET);
 
-    if (size <= 0) {
-        fclose(fp);
-        return NULL;
-    }
-
-    char *buf = calloc(size + 1, sizeof(char));
-    fread(buf, 1, size, fp);
+    char *buf = calloc(fsz + 1, sizeof(char));
+    size_t got = fread(buf, 1, fsz, fp);
+    buf[got] = '\0';
     fclose(fp);
-    buf[size] = '\0';
 
     return buf;
 }

@@ -71,7 +71,7 @@ void draw_diagnostic_bar(BufManager *bufmgr, Font font) {
 
     Color color = (active_item->severity == 1) ? g_theme.keyword : g_theme.warning;
 
-    char msg[512];
+    char msg[512] = {0};
     snprintf(msg, sizeof(msg), "[Ln %d, Col %d] %s", active_item->start_line + 1,
              active_item->start_char + 1, active_item->message);
 
@@ -91,10 +91,10 @@ void render_lsp_completion_ui(BufManager *bufmgr, Font font) {
 
     EditorLayout Layout = get_editor_layout(bufmgr);
 
-    char current_word[256];
+    char current_word[256] = {0};
     Buffer_get_current_word(buf, current_word, sizeof(current_word));
 
-    FilteredItem filtered[256];
+    FilteredItem filtered[256] = {0};
     int total_items = 0;
 
     // FILTER DAN HITUNG SKOR
@@ -401,7 +401,7 @@ void render_hover_ui(BufManager *bufmgr, Font font) {
         const char *next = strchr(p, '\n');
         size_t len = next ? (size_t)(next - p) : strlen(p);
 
-        char raw_line[1024];
+        char raw_line[1024] = {0};
         if (len >= sizeof(raw_line)) len = sizeof(raw_line) - 1;
         strncpy(raw_line, p, len);
         raw_line[len] = '\0';
@@ -418,7 +418,7 @@ void render_hover_ui(BufManager *bufmgr, Font font) {
                 char current_wrap[512] = {0};
 
                 while (word) {
-                    char test_buf[512];
+                    char test_buf[512] = {0};
                     if (strlen(current_wrap) > 0) {
                         snprintf(test_buf, sizeof(test_buf), "%s %s", current_wrap, word);
                     } else {
@@ -505,7 +505,7 @@ void render_hover_ui(BufManager *bufmgr, Font font) {
         const char *next = strchr(p, '\n');
         size_t len = next ? (size_t)(next - p) : strlen(p);
 
-        char raw_line[1024];
+        char raw_line[1024] = {0};
         if (len >= sizeof(raw_line)) len = sizeof(raw_line) - 1;
         strncpy(raw_line, p, len);
         raw_line[len] = '\0';
@@ -527,7 +527,7 @@ void render_hover_ui(BufManager *bufmgr, Font font) {
                 char current_wrap[512] = {0};
 
                 while (word) {
-                    char test_buf[512];
+                    char test_buf[512] = {0};
                     if (strlen(current_wrap) > 0) {
                         snprintf(test_buf, sizeof(test_buf), "%s %s", current_wrap, word);
                     } else {

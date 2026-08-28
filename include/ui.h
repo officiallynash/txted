@@ -12,6 +12,7 @@
 
 #include "buffer_manager.h"
 #include "settings_txted.h"
+#include "buffer.h"
 
 // Karena float harus di deklarasikan dari awal
 // Jadi ga bisa pakai constexpr,
@@ -35,6 +36,7 @@ typedef struct {
     int editor_w, editor_h;      // ukuran editor
     int gutter_screen_x;         // X gutter di layar
     int text_screen_x;           // X awal teks di layar
+    int visible_lines;           // Visible Lines
 } EditorLayout;
 
 /**
@@ -78,6 +80,7 @@ void Draw_confirm_exit(BufManager *bufmgr, Font font);
 char *FloatPrompt_ask(FloatPrompt *fp, const char *msg, const char *default_val, int icon_id,
                       Font font, BufManager *bufmgr);
 char *SearchPrompt_ask(BufManager *bufmgr, Font font);
+void Buffer_goto_search_hit(BufManager *bufmgr, const SearchHitBuffer *hit);
 
 // Pop up dengan box suggestion
 char *FloatPrompt_ask_with_items(FloatPrompt *fp, const char *msg, const char *default_val,

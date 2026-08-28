@@ -24,7 +24,7 @@ typedef struct {
  * Fungsi helper atau internal untuk Loading Theme File [PRIVATE API]
  */
 static void Theme_loader(const char *filename) {
-    char theme_path[128];
+    char theme_path[128] = {0};
     char *home = getenv("HOME");
     snprintf(theme_path, sizeof(theme_path), "%s/.config/txted/settings/theme/%s.ini", home,
              filename);
@@ -67,9 +67,9 @@ static void Theme_loader(const char *filename) {
 
     size_t map_size = sizeof(map) / sizeof(map[0]);
 
-    char line[256];
+    char line[256] = {0};
     while (fgets(line, sizeof(line), fp)) {
-        char key[64];
+        char key[64] = {0};
         int r, g, b, a;
 
         if (sscanf(line, "%63[^ =] = %d, %d, %d, %d", key, &r, &g, &b, &a) == 5) {

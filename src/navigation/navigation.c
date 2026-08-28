@@ -22,18 +22,17 @@
 #include "ui.h"
 
 extern bool Is_active_menu(void);  // Check if active menu is open (tab.c)
-extern int visible_lines(void);    // Jumlah baris yang terlihat (render.c)
 extern int calculate_score(const char *query, const char *label);  // Extern (lsp_ui.c)
 extern void set_cursor_from_mouse(BufManager *bufmgr, Vector2 mouse, int scroll_y,
                                   Font font);        // set_cursor_from_mouse (nav_helper.c)
 extern void sync_cursor_line_from_pos(Buffer *buf);  // sync_cursor_line_from_pos (nav_helper.c)
 extern void Syntax_auto_indent(Buffer *active_buf);  // Syntax_auto_indent (nav_helper.c)
 
-extern void Nav_move_up(Buffer *buf);                          // Nav_move_up (nav_utils.c)
-extern void Nav_move_down(Buffer *buf);                        // Nav_move_down (nav_utils.c)
-extern void Nav_move_left(Buffer *buf);                        // Nav_move_left (nav_utils.c)
-extern void Nav_move_right(Buffer *buf);                       // Nav_move_right (nav_utils.c)
-extern void Nav_mouse_scroll(Buffer *buf, float wheel);        // Nav_mouse_scroll (nav_utils.c)
+extern void Nav_move_up(Buffer *buf);                           // Nav_move_up (nav_utils.c)
+extern void Nav_move_down(Buffer *buf);                         // Nav_move_down (nav_utils.c)
+extern void Nav_move_left(Buffer *buf);                         // Nav_move_left (nav_utils.c)
+extern void Nav_move_right(Buffer *buf);                        // Nav_move_right (nav_utils.c)
+extern void Nav_mouse_scroll(BufManager *bufmgr, float wheel);  // Nav_mouse_scroll (nav_utils.c)
 extern void Nav_goto_end_of_line(Buffer *buf);                 // Nav_goto_end_of_line (nav_utils.c)
 extern void Nav_jump_down(Buffer *buf);                        // Nav_jump_down (nav_utils.c)
 extern void Nav_jump_up(Buffer *buf);                          // Nav_jump_up (nav_utils.c)
@@ -97,6 +96,8 @@ static void Update_navigation_click(BufManager *bufmgr) {
 void handle_input(BufManager *bufmgr, Font font) {
     Update_navigation_click(bufmgr);
     Buffer *buf = BufManager_getactive(bufmgr);
+    EditorLayout layout = get_editor_layout(bufmgr);
+
     if (!buf) return;
 
     bool is_shift = IsKeyDown(KEY_LEFT_SHIFT) || IsKeyDown(KEY_RIGHT_SHIFT);
@@ -144,7 +145,7 @@ void handle_input(BufManager *bufmgr, Font font) {
         } else if (is_mouse_in_editor) {
             is_mouse_scroll = true;
             SIGNATURE_HIDE();  // Biar auto hide si Signature Help
-            Nav_mouse_scroll(buf, wheel);
+            Nav_mouse_scroll(bufmgr, wheel);
         }
     }
 
@@ -169,7 +170,8 @@ void handle_input(BufManager *bufmgr, Font font) {
 
             // Jika posisi kursor bergeser dari titik awal -> NYALAKAN SELECTION!
             // Tambahan jika sedang Drag scroll bar, maka Selection tidak aktif
-            if (!buf->is_dragging && buf->cursor.cursor_pos != buf->selection.start) {
+            if ((buf->buf_flags & BUF_IS_DRAGGING) == 0 &&
+                buf->cursor.cursor_pos != buf->selection.start) {
                 buf->selection.is_selected = true;
             } else {
                 buf->selection.is_selected = false;
@@ -183,7 +185,7 @@ void handle_input(BufManager *bufmgr, Font font) {
     int key = GetCharPressed();
     while (key > 0) {
         if (key >= 32) {
-            char utf8[8];
+            char utf8[8] = {0};
             int n = 0;
             /* Raylib GetCharPressed codepoint */
             if (key < 0x80) {
@@ -256,7 +258,7 @@ void handle_input(BufManager *bufmgr, Font font) {
     bool lsp_handled = false;  // Flag penanda agar input tidak diproses dua kali
 
     if (g_lsp_ui.visible && g_lsp_ui.has_completion) {
-        char current_word[256];
+        char current_word[256] = {0};
         Buffer_get_current_word(buf, current_word, sizeof(current_word));
 
         int total_items = 0;
@@ -392,7 +394,7 @@ void handle_input(BufManager *bufmgr, Font font) {
         if (IsKeyPressed(KEY_T)) BufManager_newtab(bufmgr, NULL);
 
         if (is_shift && IsKeyPressed(KEY_W)) {
-            buf->is_dirty = false;
+            buf->buf_flags &= ~BUF_IS_DIRTY;
             BufManager_closetab(bufmgr);
         } else if (!is_shift && IsKeyPressed(KEY_W)) {
             Nav_close_tab(bufmgr, font);
@@ -535,7 +537,7 @@ void handle_input(BufManager *bufmgr, Font font) {
 sync_scroll:
     if (!is_mouse_scroll) {
         if ((int)buf->cursor.y < buf->scroll_y) buf->scroll_y = (int)buf->cursor.y;
-        if ((int)buf->cursor.y >= buf->scroll_y + visible_lines())
-            buf->scroll_y = (int)buf->cursor.y - visible_lines() + 1;
+        if ((int)buf->cursor.y >= buf->scroll_y + layout.visible_lines)
+            buf->scroll_y = (int)buf->cursor.y - layout.visible_lines + 1;
     }
 }

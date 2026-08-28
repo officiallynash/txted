@@ -45,7 +45,7 @@ static pthread_cond_t pending_cond = PTHREAD_COND_INITIALIZER;
 
 // Simple pending response (hanya 1 request aktif untuk completion)
 static int pending_id = -1;
-static cJSON *pending_result = NULL;
+static cJSON *pending_result = nullptr;
 static bool response_received = false;
 
 /* ================================
@@ -56,7 +56,7 @@ static bool response_received = false;
  * Fungsi untuk mengirimkan request LSP [PRIVATE API]
  */
 static void lsp_send_raw(const char *json) {
-    char header[64];
+    char header[64] = {0};
     int len = snprintf(header, sizeof(header), "Content-Length: %zu\r\n\r\n", strlen(json));
     write(stdin_fd, header, len);
     write(stdin_fd, json, strlen(json));
@@ -1157,7 +1157,7 @@ void lsp_stop(void) {
 
     if (stdin_fd >= 0) {
         int shutdown_id = next_id();
-        char shutdown_req[128];
+        char shutdown_req[128] = {0};
         snprintf(shutdown_req, sizeof(shutdown_req),
                  "{\"jsonrpc\":\"2.0\",\"id\":%d,\"method\":\"shutdown\"}", shutdown_id);
         lsp_send_raw(shutdown_req);

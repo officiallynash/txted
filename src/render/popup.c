@@ -51,7 +51,7 @@ static void remove_last_char(char *text) {
  * Fungsi untuk memotong teks [PRIVATE API]
  */
 static const char *TruncateText(Font font, const char *text, float max_width, float font_size) {
-    static char buf[256];
+    static char buf[256] = {0};
     float width = MeasureTextEx(font, text, font_size, 1.0f).x;
     if (width <= max_width) return text;  // Aman, gak usah dipotong
 
@@ -371,6 +371,37 @@ char *FloatPrompt_ask_with_items(FloatPrompt *fp, const char *msg, const char *d
 }
 
 /**
+ * Fungsi untuk melompat ke Hasil pencarian [PUBLIC API]
+ */
+void Buffer_goto_search_hit(BufManager *bufmgr, const SearchHitBuffer *hit) {
+    // Kita taruh goto ke lines disini ya
+    // Karena untuk mengakomodasi Layout visible lines.
+    // Jika masih di search.c maka akan bentrok dengan Buffer.h
+    // Saling cross include si Header bahaya
+    Buffer *buf = BufManager_getactive(bufmgr);
+    EditorLayout layout = get_editor_layout(bufmgr);  // ambil layout
+
+    if (!buf || !hit) return;
+
+    buf->cursor.y = hit->line;
+    buf->cursor.x = hit->col;
+
+    if (hit->line < buf->lines.line_count) {
+        buf->cursor.cursor_pos = buf->lines.offset[hit->line] + hit->col;
+    } else {
+        buf->cursor.cursor_pos = String_len(buf->str);
+    }
+
+    buf->selection.is_selected = false;  // Memastikan bahwa is_selected mati!
+
+    // scroll biar kelihatan
+    int vis = layout.visible_lines;
+
+    if ((int)buf->cursor.y < buf->scroll_y) buf->scroll_y = (int)buf->cursor.y;
+    if ((int)buf->cursor.y >= buf->scroll_y + vis) buf->scroll_y = (int)buf->cursor.y - vis + 1;
+}
+
+/**
  * Fungsi untuk Fuzzy Search di Buffer [PUBLIC API]
  */
 char *SearchPrompt_ask(BufManager *bufmgr, Font font) {
@@ -420,7 +451,7 @@ char *SearchPrompt_ask(BufManager *bufmgr, Font font) {
             // FloatPrompt_update_and_render, akses ke array hits ini sekarang 100% aman dan akurat!
             if (fp->item_count > 0 && fp->selected_idx >= 0 &&
                 fp->selected_idx < (int)fp->item_count) {
-                Buffer_goto_search_hit(buf, &hits[fp->selected_idx]);
+                Buffer_goto_search_hit(bufmgr, &hits[fp->selected_idx]);
             }
             free(result);
             break;

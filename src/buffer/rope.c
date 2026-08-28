@@ -12,9 +12,8 @@
 #include <unistd.h>
 
 constexpr size_t MAX_SIZE_LEAF = 1024;  // Perubahan jadi constexpr agar aman dari overflow
-
-String *String_new();            // Register awal
-size_t String_len(String *str);  // Register Awal
+String *String_new();                   // Register awal
+size_t String_len(String *str);         // Register Awal
 
 /* ================================
  * PRIVATE API
@@ -54,7 +53,7 @@ static String *String_make_leaf(const char *text, size_t len) {
     }
 
     memcpy(new->str, text, len);
-    new->str[len] = '\0';
+    new->str[len] = '\0';  // Null terminator
     new->len = len;
     new->weight = len;
     new->ref_count = 1;
@@ -209,7 +208,7 @@ String *String_new() {
 }
 
 /**
- * Fungsi untuk reference counting [PRIVATE API]
+ * Fungsi untuk reference counting [PUBLIC API]
  */
 void String_release(String *str) {
     if (!str) return;

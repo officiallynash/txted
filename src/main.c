@@ -51,7 +51,7 @@ int main(int argc, char *argv[]) {
 
     // Inisasi Buffer Manager
     Settings_load();
-    BufManager *bufmgr = BufManager_init();
+    defer_bufmgr BufManager *bufmgr = BufManager_init();
 
     // Inisiasi Notify
     Notif_init();
@@ -116,7 +116,6 @@ int main(int argc, char *argv[]) {
         UnloadFont(font);  // Safe free font
     }
 
-    BufManager_destroy(bufmgr);  // Free semua buffer
-    CloseWindow();               // Close window dan Context openGl
+    CloseWindow();  // Close window dan Context openGl
     return 0;
 }

@@ -67,7 +67,7 @@ void GitPopup_render(BufManager *bufmgr, Font font) {
     DrawRectangleRoundedLines(box, 0.06f, 4, g_theme.border);
 
     // title
-    char title[160];
+    char title[160] = {0};
     if (git.is_repo)
         snprintf(title, sizeof(title), "Git  ·  %s%s", git.branch, git.has_changes ? "*" : "");
     else
@@ -100,7 +100,7 @@ void GitPopup_render(BufManager *bufmgr, Font font) {
                 y += item_h;
                 continue;
             }
-            char row[300];
+            char row[300] = {0};
             snprintf(row, sizeof(row), "[%s]  %s", git.files[i].mark, git.files[i].path);
             Color c = g_theme.text_normal;
             if (git.files[i].mark[0] == '~')

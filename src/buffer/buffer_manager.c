@@ -36,7 +36,8 @@ void BufManager_set_workspace(BufManager *bufmgr, const char *any_path) {
     }
 
     free(bufmgr->path_root);
-    bufmgr->path_root = root;
+    bufmgr->path_root =
+        strdup(root);  // Kita kasih strdup (Box kalau di Rust) untuk alokasi langsung
 
     if (chdir(bufmgr->path_root) != 0) {
         Notif_show("Tidak bisa ke Workspace", NOTIF_WARNING, 3.0f);
@@ -51,6 +52,7 @@ void BufManager_set_workspace(BufManager *bufmgr, const char *any_path) {
         Git_fetch_file_blame(bufmgr->path_root, active->path, active);
         Git_fetch_file_diff(bufmgr->path_root, active->path, active);
     }
+    free(root);  // Safety biar ga use after free
 }
 
 /**
@@ -59,6 +61,7 @@ void BufManager_set_workspace(BufManager *bufmgr, const char *any_path) {
 BufManager *BufManager_init(void) {
     BufManager *bufmgr = calloc(1, sizeof(BufManager));
     if (!bufmgr) return nullptr;
+
     bufmgr->active_idx = -1;
     bufmgr->num_tabs = 0;
     bufmgr->clp = Clipboard_init();
@@ -212,26 +215,26 @@ void BufManager_closetab(BufManager *bufmgr) {
 /**
  * Fungsi untuk menutup atau menghapus Buffer Manager [PUBLIC API]
  */
-void BufManager_destroy(BufManager *bufmgr) {
-    if (!bufmgr) return;
+void BufManager_destroy(BufManager **bufmgr) {
+    if (!(*bufmgr)) return;
 
-    for (size_t i = 0; i < bufmgr->num_tabs; i++) {
-        if (bufmgr->buf[i]) {
-            Buffer_free(bufmgr->buf[i]);
-            bufmgr->buf[i] = nullptr;  // Safety nullify
+    for (size_t i = 0; i < (*bufmgr)->num_tabs; i++) {
+        if ((*bufmgr)->buf[i]) {
+            Buffer_free((*bufmgr)->buf[i]);
+            (*bufmgr)->buf[i] = nullptr;  // Safety nullify
         }
     }
 
-    if (bufmgr->clp) {
-        Clipboard_free(bufmgr->clp);
-        bufmgr->clp = nullptr;
+    if ((*bufmgr)->clp) {
+        Clipboard_free((*bufmgr)->clp);
+        (*bufmgr)->clp = nullptr;
     }
 
-    if (bufmgr->path_root != nullptr) free(bufmgr->path_root);
-    bufmgr->active_idx = -1;
-    bufmgr->num_tabs = 0;
+    if ((*bufmgr)->path_root != nullptr) free((*bufmgr)->path_root);
+    (*bufmgr)->active_idx = -1;
+    (*bufmgr)->num_tabs = 0;
 
-    free(bufmgr);
+    free((*bufmgr));
 }
 
 /**
@@ -243,7 +246,7 @@ size_t BufManager_checkdirty(BufManager *bufmgr) {
     size_t num = 0;
     for (size_t i = 0; i < bufmgr->num_tabs; i++) {
         // TAMBAHKAN NULL-CHECK DULU!
-        if (bufmgr->buf[i] && bufmgr->buf[i]->is_dirty) {
+        if (bufmgr->buf[i] && (bufmgr->buf[i]->buf_flags & BUF_IS_DIRTY) != 0) {
             num++;
         }
     }

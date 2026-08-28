@@ -21,7 +21,6 @@
 #include "rope.h"
 #include "ui.h"
 
-extern int visible_lines();                         // Visible lines (render.c)
 extern char *format_pretty_path(const char *path);  // (fs.c)
 
 /**
@@ -93,9 +92,12 @@ void Nav_move_right(Buffer *buf) {
 /**
  * Fungsi untuk scroll mouse
  */
-void Nav_mouse_scroll(Buffer *buf, float wheel) {
+void Nav_mouse_scroll(BufManager *bufmgr, float wheel) {
+    Buffer *buf = BufManager_getactive(bufmgr);
     int total_lines = (int)buf->lines.line_count;
-    int max_vis = visible_lines();
+    EditorLayout layout = get_editor_layout(bufmgr);
+
+    int max_vis = layout.visible_lines;
 
     // Pastikan max_scroll tidak pernah minus
     int max_scroll = total_lines - max_vis;
@@ -192,7 +194,7 @@ void Nav_create_folder(BufManager *bufmgr, Font font) {
         char *pretty_name = format_pretty_path(cwd);  // Current directory
 
         // Pesan
-        char msg[128];
+        char msg[128] = {0};
         snprintf(msg, sizeof(msg), "Folder name (%s)", pretty_name);
         char *folder_name =
             FloatPrompt_ask(&g_prompt, (const char *)msg, "", ICON_FOLDER, font, bufmgr);
@@ -251,12 +253,12 @@ void Nav_exit(BufManager *bufmgr, Font font) {
  * Create New File
  */
 void Nav_create_new_file(BufManager *bufmgr, Font font) {
-    char *cwd = getcwd(NULL, 0);
-    if (cwd == NULL) return;
+    char *cwd = getcwd(nullptr, 0);
+    if (cwd == nullptr) return;
     char *pretty_name = format_pretty_path(cwd);  // Current directory
 
     // Pesan
-    char msg[128];
+    char msg[128] = {0};
     snprintf(msg, sizeof(msg), "Nama File baru (%s)", pretty_name);
     char *filename = FloatPrompt_ask(&g_prompt, (const char *)msg, "", ICON_FILE, font, bufmgr);
     if (filename) {
@@ -302,7 +304,7 @@ void Nav_save(BufManager *bufmgr, Font font) {
             free(filename);
         }
     } else {
-        Buffer_save(buf, NULL);
+        Buffer_save(buf, nullptr);
     }
 }
 
@@ -312,7 +314,7 @@ void Nav_save(BufManager *bufmgr, Font font) {
 void Nav_close_tab(BufManager *bufmgr, Font font) {
     (void)font;
     Buffer *buf = BufManager_getactive(bufmgr);
-    if (buf->is_dirty) {
+    if ((buf->buf_flags & BUF_IS_DIRTY) != 0) {
         Notif_show("Simpan Buffer dahulu! \nCtrl+Shift+W untuk paksa tutup!", NOTIF_INFO, 3.0f);
         return;
     }

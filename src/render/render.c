@@ -34,16 +34,6 @@ typedef struct {
 } BracketMatch;
 
 /**
- * Helper untuk menghitung baris yang muat di layar
- */
-int visible_lines(void) {
-    int win_h = GetRenderHeight();  // Pake ukuran window aktual!
-    int editor_h = win_h - TAB_H - STATUS_H - DIAG_PANEL_H;
-    // Kurangi PAD_Y * 2 (atas dan bawah) biar gak bablas
-    return (editor_h - (PAD_Y * 2)) / LINE_H;
-}
-
-/**
  * Fungsi untuk expands Tab
  */
 void expand_tabs(const char *src, char *dst, size_t dst_size, int tab_size) {
@@ -265,7 +255,7 @@ void draw_editor(BufManager *bufmgr, Font font) {
     size_t rope_len = String_len(buf->str);
     EditorLayout Layout = get_editor_layout(bufmgr);  // Ambil layout
 
-    int max_vis = visible_lines();
+    int max_vis = Layout.visible_lines;
 
     // Inisiasi Bracket matching
     BracketMatch b1;
@@ -343,7 +333,7 @@ void draw_editor(BufManager *bufmgr, Font font) {
         }
 
         /* Line Number */
-        char num_str[16];
+        char num_str[16] = {0};
         snprintf(num_str, sizeof(num_str), "%4zu", y + 1);
         Color num_color = (y == buf->cursor.y) ? g_theme.line_num : g_theme.text_muted;
         Vector2 num_pos = {(float)(Layout.editor_x + PAD_X - 8), (float)py};
@@ -356,7 +346,7 @@ void draw_editor(BufManager *bufmgr, Font font) {
             if (len > 0 && text[len - 1] == '\n') text[len - 1] = '\0';
             if (len > 0 && text[len - 1] == '\r') text[len - 1] = '\0';
 
-            char expanded_text[2048];
+            char expanded_text[2048] = {0};
             expand_tabs(text, expanded_text, sizeof(expanded_text), 4);
 
             Vector2 pos = {(float)text_x, (float)py};
@@ -440,7 +430,7 @@ void draw_editor(BufManager *bufmgr, Font font) {
 
                     // tampil kalau ada waktu (blame ATAU edit lokal)
                     if (meta.last_edited_at > 0) {
-                        char ghost_str[64];
+                        char ghost_str[64] = {0};
                         const char *who =
                             meta.author[0] ? meta.author : (git.author[0] ? git.author : "You");
 
@@ -581,13 +571,13 @@ void draw_editor(BufManager *bufmgr, Font font) {
         // Dragging & Interaction
         if (is_hovered && IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
             is_dragging_scroll = true;
-            buf->is_dragging = true;
+            buf->buf_flags |= BUF_IS_DRAGGING;
             drag_click_y = mouse_pos.y - thumb_y;
         }
 
         if (IsMouseButtonReleased(MOUSE_BUTTON_LEFT)) {
             is_dragging_scroll = false;
-            buf->is_dragging = false;
+            buf->buf_flags &= ~BUF_IS_DRAGGING;
         }
 
         if (is_dragging_scroll) {

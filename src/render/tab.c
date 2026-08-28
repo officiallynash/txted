@@ -8,6 +8,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+#include "buffer.h"
 #include "buffer_manager.h"
 #include "git_client.h"
 #include "raygui.h"
@@ -36,7 +37,6 @@ typedef struct {
 // Jadi lebih baik terpisah
 bool Is_active_menu(void) { return active_menu != -1; }
 typedef enum { DIALOG_NONE = 0, DIALOG_HELP, DIALOG_ABOUT } DialogState;
-
 static DialogState current_dialog = DIALOG_NONE;
 
 // Setter helper
@@ -131,7 +131,7 @@ static MenuItem help_items[] = {{"Help", "", Nav_show_help}, {"About", "", Nav_s
  * Render Dropdown Items
  */
 static void draw_dropdown_items(int menu_idx, float x, float y, BufManager *bufmgr, Font font) {
-    MenuItem *items = nullptr;
+    MenuItem *items = {};
     int count = 0;
 
     if (menu_idx == 0) {
@@ -277,7 +277,8 @@ void draw_tabs(BufManager *bufmgr, Font font) {
         if (!buf) continue;
 
         const char *name = buf->filename ? buf->filename : "Untitled";
-        Color text_color = buf->is_dirty ? g_theme.cursor : g_theme.text_normal;
+        Color text_color =
+            (buf->buf_flags & BUF_IS_DIRTY) != 0 ? g_theme.cursor : g_theme.text_normal;
 
         Vector2 nsize = MeasureTextEx(font, name, FONT_SIZE, 1.0f);
         int tab_w = (int)nsize.x + 48;
