@@ -10,9 +10,9 @@
 #include <stdbool.h>
 #include <stddef.h>
 
+#include "buffer.h"
 #include "buffer_manager.h"
 #include "settings_txted.h"
-#include "buffer.h"
 
 // Karena float harus di deklarasikan dari awal
 // Jadi ga bisa pakai constexpr,
@@ -52,8 +52,6 @@ typedef struct {
  * Struct untuk konfigurasi FloatPrompt
  */
 typedef struct {
-    bool is_active;
-    bool edit_mode;
     char label[64];
     char input_buf[256];
     int icon_id;
@@ -62,6 +60,8 @@ typedef struct {
     size_t item_count;
     int selected_idx;
     int scroll_offset;
+    bool is_active;
+    bool edit_mode;
 } FloatPrompt;
 
 extern FloatPrompt g_prompt;

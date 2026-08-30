@@ -6,6 +6,7 @@
 #include "buffer_manager.h"
 #include "raygui.h"
 #include "raylib.h"
+#include "result.h"
 #include "theme.h"
 #include "ui.h"
 
@@ -44,11 +45,11 @@ void Draw_confirm_exit(BufManager *bufmgr, Font font) {
     // Tombol YES & NO Raygui
     if (GuiButton(btn_yes, GuiIconText(ICON_EXIT, "Keluar"))) {
         // Set ke TXTED Exit
-        bufmgr->win_flags |= TXTED_EXIT;
+        SET_FLAG(bufmgr->win_flags, TXTED_EXIT);
     }
 
     if (GuiButton(btn_no, GuiIconText(ICON_CROSS_SMALL, "Batal"))) {
         // Set balik ke Req Exit
-        bufmgr->win_flags &= ~TXTED_REQ_EXIT;
+        CLR_FLAG(bufmgr->win_flags, TXTED_REQ_EXIT);
     }
 }

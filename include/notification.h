@@ -1,4 +1,3 @@
-#include "buffer_manager.h"
 /*
  * TxtEd - Simple Text Editor
  * Copyright (c) 2026 Nash
@@ -9,6 +8,7 @@
 
 #include <stdbool.h>
 
+#include "buffer_manager.h"
 #include "raylib.h"
 
 typedef enum { NOTIF_INFO, NOTIF_SUCCESS, NOTIF_WARNING, NOTIF_ERROR } NotifType;

@@ -44,9 +44,10 @@ static void String_retain(String *str) {
  * Fungsi internal untuk membuat new leaf [PRIVATE API]
  */
 static String *String_make_leaf(const char *text, size_t len) {
-    // Perubahan pakai calloc agar lebih aman kali ya
-    String *new = calloc(1, sizeof(String));
-    new->str = calloc(len + 1, sizeof(char));
+    // Menggunakan Malloc karena Malloc lebih efektif untuk String atau Rope logic
+    // Jika calloc lebih efektif jika hanya sekali deklarasi
+    String *new = malloc(sizeof(String));
+    new->str = malloc(len + 1);
     if (!new->str) {
         free(new);
         return nullptr;

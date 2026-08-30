@@ -99,11 +99,11 @@ int calculate_score(const char *query, const char *label) {
  * Fungsi untuk membersihkan completion
  */
 static void lsp_ui_clear_completion(void) {
-    if (g_lsp_ui.has_completion) {
+    if (HAS_FLAG(g_lsp_ui.lsp_flag, LSP_HAS_COMP)) {
         lsp_free_completion(&g_lsp_ui.completion);
         g_lsp_ui.completion.items = nullptr;
         g_lsp_ui.completion.count = 0;
-        g_lsp_ui.has_completion = false;
+        CLR_FLAG(g_lsp_ui.lsp_flag, LSP_HAS_COMP);
     }
 }
 
@@ -115,15 +115,13 @@ Result lsp_ui_init(const char *lsp_path, char **argv) {
     // Amankan dulu root uri
     char *saved_root_uri = g_lsp_ui.root_uri;
 
-    g_lsp_ui.request_pending = false;
-    g_lsp_ui.has_completion = false;
+    g_lsp_ui.lsp_flag = 0;
     g_lsp_ui.selected_index = 0;
     g_lsp_ui.root_uri = saved_root_uri;
-    g_lsp_ui.enabled = true;
-    g_lsp_ui.visible = false;
-    g_lsp_ui.signature_pending = false;
-    g_lsp_ui.has_signature = false;
     g_lsp_ui.sig_y = 0;
+
+    // Set flag LSP Enable
+    SET_FLAG(g_lsp_ui.lsp_flag, LSP_ENABLE);
 
     // Inisiasi LSP dengan Result ala Rust
     if (!lsp_start(lsp_path, argv, g_lsp_ui.root_uri)) {
@@ -181,9 +179,10 @@ void Ensure_lsp_init(LangConfig *lang, const char *filepath) {
  * Fungsi untuk shutdown LSP UI [PUBLIC API]
  */
 void lsp_ui_shutdown(void) {
-    if (g_lsp_ui.enabled) {
-        g_lsp_ui.enabled = false;
-        g_lsp_ui.visible = false;
+    if (HAS_FLAG(g_lsp_ui.lsp_flag, LSP_ENABLE)) {
+        CLR_FLAG(g_lsp_ui.lsp_flag, LSP_ENABLE);
+        CLR_FLAG(g_lsp_ui.lsp_flag, LSP_VISIBLE);
+
         lsp_ui_clear_completion();
         lsp_stop();
         if (g_lsp_ui.root_uri != nullptr) {
@@ -199,8 +198,8 @@ void lsp_ui_shutdown(void) {
  * Fungsi untuk menyembunyikan LSP UI [PUBLIC API]
  */
 void lsp_ui_hide(void) {
-    g_lsp_ui.visible = false;
-    g_lsp_ui.request_pending = false;
+    CLR_FLAG(g_lsp_ui.lsp_flag, LSP_VISIBLE);
+    CLR_FLAG(g_lsp_ui.lsp_flag, LSP_REQUEST_PENDING);
     lsp_ui_clear_completion();
 }
 
@@ -208,10 +207,11 @@ void lsp_ui_hide(void) {
  * Fungsi untuk toggle LSP UI [PUBLIC API]
  */
 void lsp_ui_toggle(void) {
-    if (!g_lsp_ui.enabled) return;
-    g_lsp_ui.visible = !g_lsp_ui.visible;
-    if (g_lsp_ui.visible) {
-        g_lsp_ui.request_pending = true;
+    if (HAS_FLAG(g_lsp_ui.lsp_flag, LSP_ENABLE)) return;
+    SET_FLAG(g_lsp_ui.lsp_flag, LSP_VISIBLE);
+
+    if (HAS_FLAG(g_lsp_ui.lsp_flag, LSP_VISIBLE)) {
+        SET_FLAG(g_lsp_ui.lsp_flag, LSP_REQUEST_PENDING);
     } else {
         lsp_ui_clear_completion();
     }
@@ -228,29 +228,30 @@ void lsp_ui_set_document(const char *uri, const char *language_id, const char *t
     snprintf(g_lsp_ui.current_text, sizeof(g_lsp_ui.current_text), "%s", text);
 
     lsp_did_open(g_lsp_ui.uri, g_lsp_ui.language_id, g_lsp_ui.current_text);
-    g_lsp_ui.request_pending = true;
+    SET_FLAG(g_lsp_ui.lsp_flag, LSP_REQUEST_PENDING);
 }
 
 /**
  * Fungsi untuk update LSP UI [PUBLIC API]
  */
 void lsp_ui_update(BufManager *bufmgr, float dt) {
-    if (!g_lsp_ui.enabled) return;
+    if (!HAS_FLAG(g_lsp_ui.lsp_flag, LSP_ENABLE)) return;
 
     // PROSES DEBOUNCE TIMER
     if (lsp_debounce_timer > 0.0f) {
         lsp_debounce_timer -= dt;
         if (lsp_debounce_timer <= 0.0f) {
             // Timer habis -> Tandai request siap dikirim!
-            g_lsp_ui.request_pending = true;
+            SET_FLAG(g_lsp_ui.lsp_flag, LSP_REQUEST_PENDING);
             lsp_debounce_timer = 0.0f;
             g_lsp_ui.selected_index = 0;  // Set selected index ke 0
         }
     }
 
     // Jika tidak visible dan tidak ada request pending, tidak perlu lakukan apa-apa
-    if (!g_lsp_ui.has_hover && !g_lsp_ui.request_pending && !g_lsp_ui.visible &&
-        !g_lsp_ui.signature_pending) {
+    if (!HAS_FLAG(g_lsp_ui.lsp_flag, LSP_HAS_HOVE) &&
+        !HAS_FLAG(g_lsp_ui.lsp_flag, LSP_REQUEST_PENDING) &&
+        !HAS_FLAG(g_lsp_ui.lsp_flag, LSP_VISIBLE) && !HAS_FLAG(g_lsp_ui.lsp_flag, LSP_HAS_SIG)) {
         return;
     }
 
@@ -268,8 +269,8 @@ void lsp_ui_update(BufManager *bufmgr, float dt) {
     size_t rope_len = String_len(buf->str);
 
     // EKSEKUSI REQUEST LSP (Saat Debounce Selesai)
-    if (g_lsp_ui.request_pending) {
-        g_lsp_ui.request_pending = false;
+    if (HAS_FLAG(g_lsp_ui.lsp_flag, LSP_REQUEST_PENDING)) {
+        CLR_FLAG(g_lsp_ui.lsp_flag, LSP_REQUEST_PENDING);
         if (buf->path) {
             char *uri = Path_to_uri((char *)buf->path);
             if (uri) {
@@ -298,7 +299,7 @@ void lsp_ui_update(BufManager *bufmgr, float dt) {
                 Bytes_free(&text);
             }
 
-            char current_word[256];
+            char current_word[256] = {0};
             Buffer_get_current_word(buf, current_word, sizeof(current_word));
 
             char trigger_char = '\0';
@@ -330,20 +331,22 @@ void lsp_ui_update(BufManager *bufmgr, float dt) {
             g_lsp_ui.completion = lsp_completion(g_lsp_ui.uri, g_lsp_ui.last_line,
                                                  g_lsp_ui.last_character, trigger_char);
 
-            g_lsp_ui.has_completion = (g_lsp_ui.completion.count > 0);
-            if (g_lsp_ui.has_completion) {
-                g_lsp_ui.visible = true;
+            // Jika completion count lebih dari 0, set flag ke has completion
+            if (g_lsp_ui.completion.count > 0) SET_FLAG(g_lsp_ui.lsp_flag, LSP_HAS_COMP);
+
+            if (HAS_FLAG(g_lsp_ui.lsp_flag, LSP_HAS_COMP)) {
+                SET_FLAG(g_lsp_ui.lsp_flag, LSP_VISIBLE);
                 g_lsp_ui.selected_index = 0;
             } else {
-                g_lsp_ui.has_completion = false;
-                g_lsp_ui.visible = false;
+                CLR_FLAG(g_lsp_ui.lsp_flag, LSP_HAS_COMP);
+                CLR_FLAG(g_lsp_ui.lsp_flag, LSP_VISIBLE);
             }
         }
     }
 
     // Siganture Help
-    if (g_lsp_ui.signature_pending) {
-        g_lsp_ui.signature_pending = false;
+    if (HAS_FLAG(g_lsp_ui.lsp_flag, LSP_SIG_PENDING)) {
+        CLR_FLAG(g_lsp_ui.lsp_flag, LSP_SIG_PENDING);
 
         if (buf && buf->path) {
             char *uri = Path_to_uri(buf->path);
@@ -356,17 +359,17 @@ void lsp_ui_update(BufManager *bufmgr, float dt) {
 
             // Set flag status agar UI siap me-render
             if (g_lsp_ui.signature_help.count > 0) {
-                g_lsp_ui.has_signature = true;
+                SET_FLAG(g_lsp_ui.lsp_flag, LSP_HAS_SIG);
             } else {
-                g_lsp_ui.has_signature = false;
+                CLR_FLAG(g_lsp_ui.lsp_flag, LSP_HAS_SIG);
             }
             free(uri);
         }
     }
 
     // Hover
-    if (g_lsp_ui.hover_pending) {
-        g_lsp_ui.hover_pending = false;
+    if (HAS_FLAG(g_lsp_ui.lsp_flag, LSP_HOV_PENDING)) {
+        CLR_FLAG(g_lsp_ui.lsp_flag, LSP_HOV_PENDING);
 
         if (buf && buf->path) {
             char *uri = Path_to_uri(buf->path);
@@ -375,9 +378,9 @@ void lsp_ui_update(BufManager *bufmgr, float dt) {
             g_lsp_ui.hover = lsp_hover(uri, (int)buf->cursor.y, (int)buf->cursor.x);
 
             if (g_lsp_ui.hover.contents && strlen(g_lsp_ui.hover.contents) > 0) {
-                g_lsp_ui.has_hover = true;
+                SET_FLAG(g_lsp_ui.lsp_flag, LSP_HAS_HOVE);
             } else {
-                g_lsp_ui.has_hover = false;
+                CLR_FLAG(g_lsp_ui.lsp_flag, LSP_HAS_HOVE);
             }
 
             free(uri);
@@ -385,7 +388,7 @@ void lsp_ui_update(BufManager *bufmgr, float dt) {
     }
 
     // AUTO-HIDE JIKA KURSOR PINDAH BARIS
-    if (g_lsp_ui.visible && g_lsp_ui.has_completion) {
+    if (HAS_FLAG(g_lsp_ui.lsp_flag, LSP_VISIBLE) && HAS_FLAG(g_lsp_ui.lsp_flag, LSP_HAS_COMP)) {
         if (buf->cursor.y != (size_t)g_lsp_ui.last_line) {
             lsp_ui_hide();
         }

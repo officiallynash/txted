@@ -9,6 +9,7 @@
 #include "buffer.h"
 #include "git_client.h"
 #include "lsp_ui.h"
+#include "result.h"
 #include "theme.h"
 #include "ui.h"
 
@@ -27,7 +28,8 @@ void draw_status(BufManager *bufmgr, Font font) {
         DrawTextEx(font, "No buffer", pos, FONT_SIZE, 1.0f, g_theme.text_normal);
         return;
     }
-    Color text_color = (buf->buf_flags & BUF_IS_DIRTY) != 0 ? g_theme.cursor : g_theme.text_normal;
+    Color text_color =
+        HAS_FLAG(buf->buf_flags, BUF_IS_DIRTY) ? g_theme.cursor : g_theme.text_normal;
 
     char left[256] = {0};
     const char *mark = Git_file_mark(buf->path);  // Git Mark
@@ -51,9 +53,9 @@ void draw_status(BufManager *bufmgr, Font font) {
     char right[128] = {0};
 
     const char *lsp_status = "Inactive";
-    if (buf->language_id != NULL) {
+    if (buf->language_id != nullptr) {
         // Jika UI popup lagi aktif -> "Active", kalau standby -> "Ready" / "Idle"
-        lsp_status = g_lsp_ui.enabled ? "Active" : "Ready";
+        lsp_status = HAS_FLAG(g_lsp_ui.lsp_flag, LSP_ENABLE) ? "Active" : "Ready";
     }
 
     snprintf(right, sizeof(right), "LSP: %s (%s) | Ln: %zu | Col: %zu", lsp_status,

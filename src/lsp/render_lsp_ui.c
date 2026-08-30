@@ -13,6 +13,7 @@
 #include "buffer_manager.h"
 #include "lsp_server.h"
 #include "lsp_ui.h"
+#include "result.h"
 #include "theme.h"
 #include "ui.h"
 
@@ -84,7 +85,11 @@ void draw_diagnostic_bar(BufManager *bufmgr, Font font) {
  * Fungsi untuk render completion [PUBLIC API]
  */
 void render_lsp_completion_ui(BufManager *bufmgr, Font font) {
-    if (!g_lsp_ui.enabled || !g_lsp_ui.visible || !g_lsp_ui.has_completion) return;
+    // Kita buat flag untuk pengecekan jika lsp disable dan tidak visible
+    bool flag =
+        !HAS_FLAG(g_lsp_ui.lsp_flag, LSP_ENABLE) || !HAS_FLAG(g_lsp_ui.lsp_flag, LSP_VISIBLE);
+
+    if (flag || !HAS_FLAG(g_lsp_ui.lsp_flag, LSP_HAS_COMP)) return;
 
     Buffer *buf = BufManager_getactive(bufmgr);
     if (!buf) return;
@@ -208,7 +213,7 @@ void render_lsp_completion_ui(BufManager *bufmgr, Font font) {
  * Fungsi Render Signature Help [PUBLIC API]
  */
 void render_signature_help(BufManager *bufmgr, Font font) {
-    if (!g_lsp_ui.has_signature || g_lsp_ui.signature_help.count == 0) return;
+    if (!HAS_FLAG(g_lsp_ui.lsp_flag, LSP_HAS_SIG) || g_lsp_ui.signature_help.count == 0) return;
 
     Buffer *buf = BufManager_getactive(bufmgr);
     if (!buf) return;
@@ -294,7 +299,7 @@ void render_signature_help(BufManager *bufmgr, Font font) {
     float box_y;
 
     // Kalau completion sedang tampil, siganture taruh di sisi lawan
-    if (g_lsp_ui.visible && g_lsp_ui.has_completion) {
+    if (HAS_FLAG(g_lsp_ui.lsp_flag, LSP_VISIBLE) && HAS_FLAG(g_lsp_ui.lsp_flag, LSP_HAS_COMP)) {
         if (g_lsp_ui.completion_side == POPUP_BELOW) {
             // Completion di bawah berarti signature di atas
             box_y = cursor_y - box_h - 4.0f;
@@ -371,7 +376,8 @@ void render_signature_help(BufManager *bufmgr, Font font) {
  * Fungsi untuk render Hovering [PUBLIC API]
  */
 void render_hover_ui(BufManager *bufmgr, Font font) {
-    if (!g_lsp_ui.has_hover || !g_lsp_ui.hover.contents || strlen(g_lsp_ui.hover.contents) == 0)
+    if (!HAS_FLAG(g_lsp_ui.lsp_flag, LSP_HAS_HOVE) || !g_lsp_ui.hover.contents ||
+        strlen(g_lsp_ui.hover.contents) == 0)
         return;
 
     Buffer *buf = BufManager_getactive(bufmgr);

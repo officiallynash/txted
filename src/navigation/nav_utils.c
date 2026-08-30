@@ -189,7 +189,7 @@ void Nav_jump_up(Buffer *buf) {
  * Fungsi untuk membuat folder
  */
 void Nav_create_folder(BufManager *bufmgr, Font font) {
-    char *cwd = getcwd(NULL, 0);
+    char *cwd = getcwd(nullptr, 0);
     if (cwd) {
         char *pretty_name = format_pretty_path(cwd);  // Current directory
 
@@ -225,7 +225,7 @@ void Nav_open_file(BufManager *bufmgr, Font font) {
     char *selected =
         FloatPrompt_ask_with_items(&g_prompt, "Open File (Search File)", "", ICON_FILE_OPEN, font,
                                    bufmgr, file_list->items, file_list->item_count);
-    if (selected != NULL) {
+    if (selected != nullptr) {
         BufManager_open(bufmgr, selected);
         free(selected);
     }
@@ -245,7 +245,7 @@ void Nav_exit(BufManager *bufmgr, Font font) {
             NOTIF_WARNING, 4.0f);
     } else {
         // Minta request Exit melalui Buffer Manager
-        bufmgr->win_flags |= TXTED_REQ_EXIT;
+        SET_FLAG(bufmgr->win_flags, TXTED_REQ_EXIT);
     }
 }
 
@@ -314,7 +314,7 @@ void Nav_save(BufManager *bufmgr, Font font) {
 void Nav_close_tab(BufManager *bufmgr, Font font) {
     (void)font;
     Buffer *buf = BufManager_getactive(bufmgr);
-    if ((buf->buf_flags & BUF_IS_DIRTY) != 0) {
+    if (HAS_FLAG(buf->buf_flags, BUF_IS_DIRTY)) {
         Notif_show("Simpan Buffer dahulu! \nCtrl+Shift+W untuk paksa tutup!", NOTIF_INFO, 3.0f);
         return;
     }
@@ -327,12 +327,12 @@ void Nav_close_tab(BufManager *bufmgr, Font font) {
 void Nav_copy(BufManager *bufmgr, Font font) {
     (void)font;
     Buffer *buf = BufManager_getactive(bufmgr);
-    if (!buf->selection.is_selected) {
+    if (!HAS_FLAG(buf->buf_flags, BUF_IS_SELECT)) {
         Notif_show("Selection belum aktif!", NOTIF_WARNING, 3.0f);
         return;
     }
     Buffer_copy(buf, bufmgr->clp);
-    buf->selection.is_selected = false;
+    CLR_FLAG(buf->buf_flags, BUF_IS_SELECT);
 }
 
 /**
@@ -341,12 +341,12 @@ void Nav_copy(BufManager *bufmgr, Font font) {
 void Nav_cut(BufManager *bufmgr, Font font) {
     (void)font;
     Buffer *buf = BufManager_getactive(bufmgr);
-    if (!buf->selection.is_selected) {
+    if (!HAS_FLAG(buf->buf_flags, BUF_IS_SELECT)) {
         Notif_show("Seleksi belum di pilih!", NOTIF_WARNING, 3.0f);
         return;
     }
     Buffer_cut(buf, bufmgr->clp);
-    buf->selection.is_selected = false;
+    CLR_FLAG(buf->buf_flags, BUF_IS_SELECT);
 }
 
 /**

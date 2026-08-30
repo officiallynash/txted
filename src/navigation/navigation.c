@@ -19,6 +19,7 @@
 #include "lsp_ui.h"
 #include "notification.h"
 #include "raygui.h"
+#include "result.h"
 #include "ui.h"
 
 extern bool Is_active_menu(void);  // Check if active menu is open (tab.c)
@@ -51,11 +52,12 @@ extern void Nav_redo(BufManager *bufmgr, Font font);       // Nav_redo (nav_util
 extern void Nav_undo(BufManager *bufmgr, Font font);       // Nav_undo (nav_utils.c)
 
 // helper untuk hide Signature Help (pakai macro aja kali ya HAHAHA)
-#define SIGNATURE_HIDE()                                   \
-    if (g_lsp_ui.sig_y != buf->cursor.y) {                 \
-        g_lsp_ui.has_signature = false;                    \
-        g_lsp_ui.sig_y = 0;                                \
-        lsp_free_signature_help(&g_lsp_ui.signature_help); \
+#define SIGNATURE_HIDE()                                                                \
+    if (g_lsp_ui.sig_y != buf->cursor.y || HAS_FLAG(g_lsp_ui.lsp_flag, LSP_HAS_HOVE)) { \
+        CLR_FLAG(g_lsp_ui.lsp_flag, LSP_HAS_SIG);                                       \
+        CLR_FLAG(g_lsp_ui.lsp_flag, LSP_HAS_HOVE);                                      \
+        g_lsp_ui.sig_y = 0;                                                             \
+        lsp_free_signature_help(&g_lsp_ui.signature_help);                              \
     }
 
 /**
@@ -63,9 +65,9 @@ extern void Nav_undo(BufManager *bufmgr, Font font);       // Nav_undo (nav_util
  */
 static void Update_navigation_click(BufManager *bufmgr) {
     // Jika bukan Show FM maka set ke Mode Write
-    if ((bufmgr->win_flags & TXTED_SHOW_FM) != TXTED_SHOW_FM) {
-        bufmgr->win_flags &= ~TXTED_FILE_MANAGER;  /// Matiin dulu File Manager
-        bufmgr->win_flags |= TXTED_WRITE;
+    if (!HAS_FLAG(bufmgr->win_flags, TXTED_SHOW_FM)) {
+        CLR_FLAG(bufmgr->win_flags, TXTED_FILE_MANAGER);  /// Matiin dulu File Manager
+        SET_FLAG(bufmgr->win_flags, TXTED_WRITE);
         return;
     }
 
@@ -78,14 +80,14 @@ static void Update_navigation_click(BufManager *bufmgr) {
 
         // Klik di area File Manager Sidebar
         if (mouse.x >= Layout.fm_x && mouse.x < (Layout.fm_x + Layout.fm_w)) {
-            bufmgr->win_flags &= ~TXTED_WRITE;        // Matiin dulu si Write
-            bufmgr->win_flags |= TXTED_FILE_MANAGER;  // set ke FM
+            CLR_FLAG(bufmgr->win_flags, TXTED_WRITE);         // Matiin dulu si Write
+            SET_FLAG(bufmgr->win_flags, TXTED_FILE_MANAGER);  // set ke FM
         }
 
         // Klik di area Write / Text Editor
         else if (mouse.x >= Layout.editor_x && mouse.x < (Layout.editor_x + Layout.editor_w)) {
-            bufmgr->win_flags &= ~TXTED_FILE_MANAGER;  // Matiin dulu si File Manager
-            bufmgr->win_flags |= TXTED_WRITE;          // Set default ke Write
+            CLR_FLAG(bufmgr->win_flags, TXTED_FILE_MANAGER);  // Matiin dulu si File Manager
+            SET_FLAG(bufmgr->win_flags, TXTED_WRITE);         // Set default ke Write
         }
     }
 }
@@ -100,17 +102,20 @@ void handle_input(BufManager *bufmgr, Font font) {
 
     if (!buf) return;
 
+    bool lsp_enable =
+        HAS_FLAG(g_lsp_ui.lsp_flag, LSP_VISIBLE) || HAS_FLAG(g_lsp_ui.lsp_flag, LSP_ENABLE);
+
     bool is_shift = IsKeyDown(KEY_LEFT_SHIFT) || IsKeyDown(KEY_RIGHT_SHIFT);
 
 // Helper macro/lambda kecil internal
-#define CHECK_SELECTION()                                  \
-    if (is_shift) {                                        \
-        if (!buf->selection.is_selected) {                 \
-            buf->selection.start = buf->cursor.cursor_pos; \
-            buf->selection.is_selected = true;             \
-        }                                                  \
-    } else {                                               \
-        buf->selection.is_selected = false;                \
+#define CHECK_SELECTION()                               \
+    if (is_shift) {                                     \
+        if (!HAS_FLAG(buf->buf_flags, BUF_IS_SELECT)) { \
+            buf->start = buf->cursor.cursor_pos;        \
+            SET_FLAG(buf->buf_flags, BUF_IS_SELECT);    \
+        }                                               \
+    } else {                                            \
+        CLR_FLAG(buf->buf_flags, BUF_IS_SELECT);        \
     }
 
     /* -------------------------------- *
@@ -128,9 +133,9 @@ void handle_input(BufManager *bufmgr, Font font) {
     float wheel = GetMouseWheelMove();
 
     // Bool untuk show help
-    bool show_help = (bufmgr->win_flags & TXTED_SHOW_HELP) != TXTED_SHOW_HELP;
-    if (wheel != 0 && show_help && !g_lsp_ui.has_hover) {  // Kalau ada hover matiin dulu
-        if (g_lsp_ui.visible && g_lsp_ui.has_completion) {
+    if (wheel != 0 && !HAS_FLAG(bufmgr->win_flags, TXTED_SHOW_HELP) &&
+        !HAS_FLAG(g_lsp_ui.lsp_flag, LSP_HAS_HOVE)) {  // Kalau ada hover matiin dulu
+        if (lsp_enable && HAS_FLAG(g_lsp_ui.lsp_flag, LSP_HAS_COMP)) {
             // Scroll pilihan popup via mouse wheel!
             if (wheel > 0)
                 g_lsp_ui.selected_index--;
@@ -160,8 +165,8 @@ void handle_input(BufManager *bufmgr, Font font) {
             SIGNATURE_HIDE();  // Auto hide Signature Help
 
             // Kunci titik anchor awal seleksi
-            buf->selection.start = buf->cursor.cursor_pos;
-            buf->selection.is_selected = false;  // Belum ter-select sebelum digeser
+            buf->start = buf->cursor.cursor_pos;
+            CLR_FLAG(buf->buf_flags, BUF_IS_SELECT);  // Belum ter-select sebelum digeser
         }
         // KLIK KIRI DITAHAN DAN DIGESER / DRAG
         else if (IsMouseButtonDown(MOUSE_BUTTON_LEFT)) {
@@ -170,11 +175,11 @@ void handle_input(BufManager *bufmgr, Font font) {
 
             // Jika posisi kursor bergeser dari titik awal -> NYALAKAN SELECTION!
             // Tambahan jika sedang Drag scroll bar, maka Selection tidak aktif
-            if ((buf->buf_flags & BUF_IS_DRAGGING) == 0 &&
-                buf->cursor.cursor_pos != buf->selection.start) {
-                buf->selection.is_selected = true;
+            if (!HAS_FLAG(buf->buf_flags, BUF_IS_DRAGGING) &&
+                buf->cursor.cursor_pos != buf->start) {
+                SET_FLAG(buf->buf_flags, BUF_IS_SELECT);
             } else {
-                buf->selection.is_selected = false;
+                CLR_FLAG(buf->buf_flags, BUF_IS_SELECT);
             }
         }
     }
@@ -216,7 +221,7 @@ void handle_input(BufManager *bufmgr, Font font) {
                 buf->cursor.cursor_pos--;
             } else if (key == '(') {
                 Buffer_insert(buf, buf->cursor.cursor_pos, "()");
-                g_lsp_ui.signature_pending = true;
+                SET_FLAG(g_lsp_ui.lsp_flag, LSP_SIG_PENDING);
                 buf->cursor.cursor_pos--;
             } else if (key == '"') {
                 Buffer_insert(buf, buf->cursor.cursor_pos, "\"\"");
@@ -240,11 +245,11 @@ void handle_input(BufManager *bufmgr, Font font) {
 
             // Signature Help
             else if (key == '(' || key == ',') {
-                g_lsp_ui.signature_pending = true;
+                SET_FLAG(g_lsp_ui.lsp_flag, LSP_SIG_PENDING);
                 g_lsp_ui.sig_y = buf->cursor.y;  // Simpan Y untuk auto close
             } else if (key == ')' || key == ';') {
-                g_lsp_ui.signature_pending = false;
-                g_lsp_ui.has_signature = false;
+                CLR_FLAG(g_lsp_ui.lsp_flag, LSP_SIG_PENDING);
+                CLR_FLAG(g_lsp_ui.lsp_flag, LSP_HAS_SIG);
                 g_lsp_ui.sig_y = 0;
                 lsp_free_signature_help(&g_lsp_ui.signature_help);
             }
@@ -257,7 +262,7 @@ void handle_input(BufManager *bufmgr, Font font) {
      * -------------------- */
     bool lsp_handled = false;  // Flag penanda agar input tidak diproses dua kali
 
-    if (g_lsp_ui.visible && g_lsp_ui.has_completion) {
+    if (lsp_enable && HAS_FLAG(g_lsp_ui.lsp_flag, LSP_HAS_COMP)) {
         char current_word[256] = {0};
         Buffer_get_current_word(buf, current_word, sizeof(current_word));
 
@@ -308,17 +313,19 @@ void handle_input(BufManager *bufmgr, Font font) {
     // Matiin signature help dan Hover
     if (IsKeyPressed(KEY_ESCAPE)) {
         // Escape untuk menutup Hover
-        if (g_lsp_ui.hover_pending || g_lsp_ui.has_hover) {
-            g_lsp_ui.has_hover = false;
-            g_lsp_ui.hover_pending = false;
+        if (HAS_FLAG(g_lsp_ui.lsp_flag, LSP_HOV_PENDING) ||
+            HAS_FLAG(g_lsp_ui.lsp_flag, LSP_HAS_HOVE)) {
+            CLR_FLAG(g_lsp_ui.lsp_flag, LSP_HAS_HOVE);
+            CLR_FLAG(g_lsp_ui.lsp_flag, LSP_HOV_PENDING);
             lsp_free_hover(&g_lsp_ui.hover);
         }
         // Escape untuk batalkan Selection
-        if (buf->selection.is_selected) buf->selection.is_selected = false;
+        if (HAS_FLAG(buf->buf_flags, BUF_IS_SELECT)) CLR_FLAG(buf->buf_flags, BUF_IS_SELECT);
         // Escape untuk menutup Signature
-        if (g_lsp_ui.has_signature || g_lsp_ui.signature_pending) {
-            g_lsp_ui.has_signature = false;
-            g_lsp_ui.signature_pending = false;
+        if (HAS_FLAG(g_lsp_ui.lsp_flag, LSP_HAS_SIG) ||
+            HAS_FLAG(g_lsp_ui.lsp_flag, LSP_SIG_PENDING)) {
+            HAS_FLAG(g_lsp_ui.lsp_flag, LSP_HAS_SIG);
+            HAS_FLAG(g_lsp_ui.lsp_flag, LSP_SIG_PENDING);
             lsp_free_signature_help(&g_lsp_ui.signature_help);
         }
     }
@@ -341,7 +348,7 @@ void handle_input(BufManager *bufmgr, Font font) {
      * Handling Backspace
      * -------------------- */
     if (IsKeyPressed(KEY_BACKSPACE)) {
-        if (buf->selection.is_selected || buf->cursor.cursor_pos > 0) {
+        if (HAS_FLAG(buf->buf_flags, BUF_IS_SELECT) || buf->cursor.cursor_pos > 0) {
             Buffer_delete(buf, buf->cursor.cursor_pos);
             lsp_ui_hide();
         }
@@ -391,10 +398,10 @@ void handle_input(BufManager *bufmgr, Font font) {
          * Close Tab (CTRL + W)
          * Switch Tab (CTRL + TAB)
          * --------------------- */
-        if (IsKeyPressed(KEY_T)) BufManager_newtab(bufmgr, NULL);
+        if (IsKeyPressed(KEY_T)) BufManager_newtab(bufmgr, nullptr);
 
         if (is_shift && IsKeyPressed(KEY_W)) {
-            buf->buf_flags &= ~BUF_IS_DIRTY;
+            CLR_FLAG(buf->buf_flags, BUF_IS_DIRTY);
             BufManager_closetab(bufmgr);
         } else if (!is_shift && IsKeyPressed(KEY_W)) {
             Nav_close_tab(bufmgr, font);
@@ -417,9 +424,9 @@ void handle_input(BufManager *bufmgr, Font font) {
         /* -------------------- *
          * CTRL + K (Render Hover LSP)
          * -------------------- */
-        if (g_lsp_ui.enabled && IsKeyPressed(KEY_K)) {
-            g_lsp_ui.hover_pending = true;
-            g_lsp_ui.has_hover = true;
+        if (lsp_enable && IsKeyPressed(KEY_K)) {
+            SET_FLAG(g_lsp_ui.lsp_flag, LSP_HOV_PENDING);
+            SET_FLAG(g_lsp_ui.lsp_flag, LSP_HAS_HOVE);
             g_lsp_ui.hover_scroll = 0.0f;
         }
 
@@ -453,7 +460,7 @@ void handle_input(BufManager *bufmgr, Font font) {
          * -------------------- */
         if (is_shift && IsKeyPressed(KEY_Q)) {
             Notif_show("File yang belum disimpan akan diabaikan!", NOTIF_INFO, 3.0f);
-            bufmgr->win_flags |= TXTED_REQ_EXIT;
+            SET_FLAG(bufmgr->win_flags, TXTED_REQ_EXIT);
         } else if (!is_shift && IsKeyPressed(KEY_Q)) {
             Nav_exit(bufmgr, font);
         }
@@ -462,10 +469,10 @@ void handle_input(BufManager *bufmgr, Font font) {
          * FILE MANAGER (Ctrl + f)
          * -------------------- */
         if (IsKeyPressed(KEY_F)) {
-            if ((bufmgr->win_flags & TXTED_SHOW_FM) != TXTED_SHOW_FM) {
-                bufmgr->win_flags |= TXTED_SHOW_FM;
+            if (!HAS_FLAG(bufmgr->win_flags, TXTED_SHOW_FM)) {
+                SET_FLAG(bufmgr->win_flags, TXTED_SHOW_FM);
             } else {
-                bufmgr->win_flags &= ~TXTED_SHOW_FM;
+                CLR_FLAG(bufmgr->win_flags, TXTED_SHOW_FM);
             }
         }
 

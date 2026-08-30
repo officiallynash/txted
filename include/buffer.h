@@ -19,6 +19,7 @@
 // Flag untuk penanda Buf Flag
 constexpr uint8_t BUF_IS_DIRTY = (1 << 0);
 constexpr uint8_t BUF_IS_DRAGGING = (1 << 1);
+constexpr uint8_t BUF_IS_SELECT = (1 << 2);
 
 /**
  * Enum untuk Gutter Git
@@ -59,34 +60,26 @@ typedef struct {
 } LineIndex;
 
 /**
- * Struct untuk membungkus Selection,
- * Menyimpan is_selected dan start.
- */
-typedef struct {
-    bool is_selected;
-    union {
-        size_t start;
-    };
-} Selection;
-
-/**
  * Struct pembungkus untuk Buffer Editor, Struct ini tier ke 2 setelah String (Rope)
  */
 typedef struct {
+    char *path;
+    char *filename;
+    char *language_id;
     String *str;
     SyntaxState *state;  // Tree-sitter
-    char *language_id;
     int lsp_version;
     UndoStack undo;
 
     LineIndex lines;
     Position cursor;
-    Selection selection;
 
+    // Pengganti struct Selection
+    union {
+        size_t start;
+    };
     int scroll_y;       // Ui State
     uint8_t buf_flags;  // Buffer flag penanda
-    char *path;
-    char *filename;
 
     DiagnosticList *diagnostic;  // Diagnostic
 
@@ -99,9 +92,9 @@ typedef struct {
  * Struct untuk menampung Search
  */
 typedef struct {
+    char label[256];
     size_t line;
     size_t col;
-    char label[256];
 } SearchHitBuffer;
 
 Buffer *Buffer_new();

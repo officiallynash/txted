@@ -1,4 +1,3 @@
-#include "buffer_manager.h"
 /*
  * TxtEd - Simple Text Editor
  * Copyright (c) 2026 Nash
@@ -13,6 +12,9 @@
 #include <string.h>
 #include <sys/stat.h>
 
+#include "buffer.h"
+#include "buffer_manager.h"
+#include "result.h"
 #include "theme.h"
 #include "ui.h"
 
@@ -392,7 +394,7 @@ void Buffer_goto_search_hit(BufManager *bufmgr, const SearchHitBuffer *hit) {
         buf->cursor.cursor_pos = String_len(buf->str);
     }
 
-    buf->selection.is_selected = false;  // Memastikan bahwa is_selected mati!
+    CLR_FLAG(buf->buf_flags, BUF_IS_SELECT);  // Memastikan bahwa is_selected mati!
 
     // scroll biar kelihatan
     int vis = layout.visible_lines;

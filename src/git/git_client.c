@@ -155,7 +155,7 @@ void GitPopup_push_async(const char *repo) {
 
     pthread_t thread;
     char *repo_copy = strdup(repo);
-    pthread_create(&thread, NULL, git_push_worker, repo_copy);
+    pthread_create(&thread, nullptr, git_push_worker, repo_copy);
     pthread_detach(thread);  // Detach agar memori thread otomatis bersih saat selesai
 }
 

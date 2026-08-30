@@ -21,9 +21,9 @@ typedef struct {
 
 // Signature Help / Parameter Hints
 typedef struct {
+    char *documentation;
     int start;
     int end;
-    char *documentation;
 } ParameterInfo;
 
 // Signature Help
@@ -51,13 +51,13 @@ typedef enum {
 } DiagnosticSeverity;
 
 typedef struct {
+    char *message;
+    char *source;
     int start_line;
     int start_char;
     int end_line;
     int end_char;
     int severity;
-    char *message;
-    char *source;
 } DiagnosticItem;
 
 typedef struct {
@@ -81,11 +81,11 @@ typedef struct {
 
 // Auto Format
 typedef struct {
+    char *new_text;
     int start_line;
     int start_char;
     int end_line;
     int end_char;
-    char *new_text;
 } TextEdit;
 
 typedef struct {

@@ -3,9 +3,10 @@
  * Copyright (c) 2026 Nash
  * SPDX-License-Identifier: MIT
  */
-#include <stddef.h>
 #ifndef TXTED_LSP_UI_H
 #define TXTED_LSP_UI_H
+#include <stddef.h>
+#include <stdint.h>
 
 #include "buffer_manager.h"
 #include "lsp_config.h"
@@ -16,6 +17,14 @@
 // Boilerplate atau ketidak keterbacaan kodenya
 // Selain itu penulisan dan untuk pengecekean setiap flag
 // akan semakin ribet jika memakai bitwise
+constexpr uint8_t LSP_ENABLE = 1 << 0;
+constexpr uint8_t LSP_VISIBLE = 1 << 1;
+constexpr uint8_t LSP_REQUEST_PENDING = 1 << 2;
+constexpr uint8_t LSP_HAS_COMP = 1 << 3;
+constexpr uint8_t LSP_HAS_SIG = 1 << 4;
+constexpr uint8_t LSP_SIG_PENDING = 1 << 5;
+constexpr uint8_t LSP_HAS_HOVE = 1 << 6;
+constexpr uint8_t LSP_HOV_PENDING = 1 << 7;
 
 /**
  * Struct penampung hasil dari Completion yang sudah di filter
@@ -36,29 +45,7 @@ typedef enum { POPUP_BELOW, POPUP_ABOVE } PopupSide;
  * Struct utama untuk mengatur LSP state
  */
 typedef struct {
-    bool enabled;
-    bool visible;
-    bool request_pending;
     char *root_uri;
-
-    // Completion
-    CompletionList completion;
-    bool has_completion;
-    PopupSide completion_side;
-    PopupSide signature_side;
-
-    // Signature
-    SignatureHelp signature_help;
-    bool has_signature;
-    bool signature_pending;
-    size_t sig_y;
-
-    // Hover
-    HoverInfo hover;
-    bool has_hover;
-    bool hover_pending;
-    float hover_scroll;
-
     char uri[512];
     char language_id[32];
     char current_text[8192];
@@ -66,6 +53,21 @@ typedef struct {
     int selected_index;
     int last_line;
     int last_character;
+    uint8_t lsp_flag;
+
+    // Completion
+    CompletionList completion;
+    PopupSide completion_side;
+    PopupSide signature_side;
+
+    // Signature
+    SignatureHelp signature_help;
+    size_t sig_y;
+
+    // Hover
+    HoverInfo hover;
+    float hover_scroll;
+
 } LspUiState;
 
 extern LspUiState g_lsp_ui;

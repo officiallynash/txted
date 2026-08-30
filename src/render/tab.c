@@ -12,6 +12,7 @@
 #include "buffer_manager.h"
 #include "git_client.h"
 #include "raygui.h"
+#include "result.h"
 #include "theme.h"
 #include "ui.h"
 
@@ -43,7 +44,7 @@ static DialogState current_dialog = DIALOG_NONE;
 static void UI_open_dialog(BufManager *bufmgr, DialogState state) {
     current_dialog = state;
     dialog_scroll_y = 0.0f;
-    bufmgr->win_flags |= TXTED_SHOW_HELP;
+    SET_FLAG(bufmgr->win_flags, TXTED_SHOW_HELP);
 }
 
 /* ------------------------------- *
@@ -98,10 +99,10 @@ void Nav_show_fm(BufManager *bufmgr, Font font) {
 
     // Pakai Flag Bitwise
     // Cek apakah bernilai TXTED_SHOW_FM
-    if ((bufmgr->win_flags & TXTED_SHOW_FM) != TXTED_SHOW_FM) {
-        bufmgr->win_flags |= TXTED_SHOW_FM;
+    if (!HAS_FLAG(bufmgr->win_flags, TXTED_SHOW_FM)) {
+        SET_FLAG(bufmgr->win_flags, TXTED_SHOW_FM);
     } else {
-        bufmgr->win_flags &= ~TXTED_SHOW_FM;
+        CLR_FLAG(bufmgr->win_flags, TXTED_SHOW_FM);
     }
 }
 
@@ -278,7 +279,7 @@ void draw_tabs(BufManager *bufmgr, Font font) {
 
         const char *name = buf->filename ? buf->filename : "Untitled";
         Color text_color =
-            (buf->buf_flags & BUF_IS_DIRTY) != 0 ? g_theme.cursor : g_theme.text_normal;
+            HAS_FLAG(buf->buf_flags, BUF_IS_DIRTY) ? g_theme.cursor : g_theme.text_normal;
 
         Vector2 nsize = MeasureTextEx(font, name, FONT_SIZE, 1.0f);
         int tab_w = (int)nsize.x + 48;
@@ -495,11 +496,11 @@ void draw_dialog_modal(BufManager *bufmgr, Font font) {
 
         // Buat hapus flags show help
         // Bukan hapus sih lebih ke mematikan
-        bufmgr->win_flags &= ~TXTED_SHOW_HELP;
+        CLR_FLAG(bufmgr->win_flags, TXTED_SHOW_HELP);
 
         // Pastikan untuk buf tidak is_selected HAHAHA
         // Kadang bug klasik HAHAHA
         Buffer *buf = BufManager_getactive(bufmgr);
-        buf->selection.is_selected = false;
+        CLR_FLAG(buf->buf_flags, BUF_IS_SELECT);
     }
 }

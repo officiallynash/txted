@@ -25,8 +25,9 @@ typedef struct {
  * Struct untuk menampung Git
  */
 typedef struct {
-    bool is_repo;
+    char author[64];
     char branch[128];
+    bool is_repo;
     bool has_changes;
     int modified;
     int untracked;
@@ -34,19 +35,18 @@ typedef struct {
     // File status
     GitFileStatus files[MAX_FILE_GIT];
     int file_count;
-    char author[64];
 } GitStatus;
 
 /**
  * Struct untuk GitPopup
  */
 typedef struct {
-    bool open;
     char message[256];
-    bool edit_message;
-    int selected;
     char last_error[256];
+    int selected;
     float list_scroll;
+    bool open;
+    bool edit_message;
 } GitPopup;
 
 // Extern Git Status, GitPopup dan Timer

@@ -5,6 +5,7 @@
  */
 #include "lsp_server.h"
 #include "lsp_ui.h"
+#include "result.h"
 
 extern int calculate_score(const char *query, const char *label);  // calculate_score (lsp_client.c)
 
@@ -49,7 +50,8 @@ void filter_and_sort_completion(CompletionList *list, const char *query) {
  * Mengambil item completion aktif sesuai urutan hasil Filter & Sort [PUBLIC API]
  */
 CompletionItem *lsp_get_selected_item(const char *current_word) {
-    if (!g_lsp_ui.has_completion || g_lsp_ui.completion.count == 0) return nullptr;
+    if (!HAS_FLAG(g_lsp_ui.lsp_flag, LSP_HAS_COMP) || g_lsp_ui.completion.count == 0)
+        return nullptr;
 
     FilteredItem filtered[256] = {};
     int total_items = 0;

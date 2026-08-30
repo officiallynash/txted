@@ -39,7 +39,9 @@ extern void lsp_clear_all_diagnostics(void);         // Clear Diagnostic [lsp_cl
 LineIndex LineIndex_init() {
     LineIndex li;
     li.capacity = 32;
-    // Ganti pakai calloc biar lebih aman
+
+    // Ganti pakai calloc biar lebih aman karena memang hanya
+    // dipanggil sekali ketika init aplikasi
     li.offset = calloc(li.capacity, sizeof(size_t));
     li.line_count = 1;
     li.offset[0] = 0;
@@ -105,7 +107,7 @@ void LineIndex_insert_newline(LineIndex *li, size_t line_idx, size_t newline_pos
  * Fungsi untuk mengambil start dan panjang teks di seleksi [PRIVATE API]
  */
 void Get_selected_position(Buffer *buf, size_t *start, size_t *len) {
-    size_t sel_start = buf->selection.start;
+    size_t sel_start = buf->start;
     size_t current = buf->cursor.cursor_pos;
 
     // Logika min dan max
@@ -117,7 +119,7 @@ void Get_selected_position(Buffer *buf, size_t *start, size_t *len) {
     *start = sel_min;
 
     if (*len == 0) {
-        buf->selection.is_selected = false;
+        CLR_FLAG(buf->buf_flags, BUF_IS_SELECT);
         return;
     }
 }
@@ -135,7 +137,7 @@ void sync_syntax_tree(Buffer *buf) {
             ts_tree_delete(buf->state->tree);
         }
 
-        buf->state->tree = ts_parser_parse_string(buf->state->parser, NULL,
+        buf->state->tree = ts_parser_parse_string(buf->state->parser, nullptr,
                                                   (const char *)full_text.data, (uint32_t)rope_len);
         Bytes_free(&full_text);
     }
@@ -223,7 +225,7 @@ bool lsp_apply_text_edits(Buffer *buf, TextEditList *edits) {
         if (buf->cursor.cursor_pos > rope_len) buf->cursor.cursor_pos = rope_len;
 
         // Sync syntax + dirty
-        buf->buf_flags |= BUF_IS_DIRTY;
+        SET_FLAG(buf->buf_flags, BUF_IS_DIRTY);
         sync_syntax_tree(buf);
     }
 
@@ -331,7 +333,6 @@ Buffer *Buffer_new() {
     new_buffer->lines = LineIndex_init();
     new_buffer->path = nullptr;
     new_buffer->filename = strdup("Untilted");
-    new_buffer->selection.is_selected = false;
     new_buffer->buf_flags = 0;
     new_buffer->state = nullptr;
     new_buffer->language_id = nullptr;
@@ -384,8 +385,6 @@ Buffer *Buffer_open(const char *filename) {
     new->filename = strdup(get_display_name(new->path));
     new->buf_flags = 0;
 
-    // Setting default untuk new selection (Default is false)
-    new->selection.is_selected = false;
     new->scroll_y = 0;  // UI State
 
     // Git
@@ -449,7 +448,7 @@ Buffer *Buffer_open(const char *filename) {
 void Buffer_insert(Buffer *buf, size_t pos_idx, const char *ch) {
     if (!buf || !ch) return;
 
-    buf->buf_flags |= BUF_IS_DIRTY;  // Set flag ke dirty
+    SET_FLAG(buf->buf_flags, BUF_IS_DIRTY);  // Set flag ke dirty
     size_t text_len = strlen(ch);
     if (text_len == 0) return;
 
@@ -459,7 +458,7 @@ void Buffer_insert(Buffer *buf, size_t pos_idx, const char *ch) {
 
     Undo_push(&buf->undo, UNDO_INSERT, pos_idx, ch, text_len);  // UndoStack
     // Jika ada seleksi, hapus dulu baru nulis
-    if (buf->selection.is_selected) {
+    if (HAS_FLAG(buf->buf_flags, BUF_IS_SELECT)) {
         Buffer_delete(buf, buf->cursor.cursor_pos);
         pos_idx = buf->cursor.cursor_pos;
     }
@@ -485,9 +484,8 @@ void Buffer_insert(Buffer *buf, size_t pos_idx, const char *ch) {
         }
         buf->cursor.x += text_len;
         buf->cursor.cursor_pos += text_len;
-    }
-    // Jika ADA newline (pencet Enter / Paste multi-line) -> Rebuild LineIndex biar sinkron
-    else {
+    } else {
+        // Jika ADA newline (pencet Enter / Paste multi-line) -> Rebuild LineIndex biar sinkron
         buf->cursor.cursor_pos += text_len;
 
         free(buf->lines.offset);
@@ -528,7 +526,7 @@ void Buffer_insert(Buffer *buf, size_t pos_idx, const char *ch) {
         // Tandai baris-baris baru hasil pecahan/insert sebagai MODIFIED/ADDED
         for (size_t i = orig_y; i <= orig_y + added_lines; i++) {
             buf->line_git[i].status = GUTTER_MODIFIED;
-            buf->line_git[i].last_edited_at = (double)time(NULL);
+            buf->line_git[i].last_edited_at = (double)time(nullptr);
             strncpy(buf->line_git[i].author, git.author[0] ? git.author : "You",
                     sizeof(buf->line_git[i].author) - 1);
         }
@@ -536,7 +534,7 @@ void Buffer_insert(Buffer *buf, size_t pos_idx, const char *ch) {
         // Edit biasa (1 baris)
         size_t y = buf->cursor.y;
         buf->line_git[y].status = GUTTER_MODIFIED;
-        buf->line_git[y].last_edited_at = (double)time(NULL);
+        buf->line_git[y].last_edited_at = (double)time(nullptr);
         strncpy(buf->line_git[y].author, git.author[0] ? git.author : "You",
                 sizeof(buf->line_git[y].author) - 1);
     }
@@ -565,11 +563,11 @@ void Buffer_delete(Buffer *buf, size_t pos_idx) {
 
     size_t len = 0;
     size_t start_del = 0;
-    buf->buf_flags |= BUF_IS_DIRTY;
+    SET_FLAG(buf->buf_flags, BUF_IS_DIRTY);
 
-    if (buf->selection.is_selected) {
+    if (HAS_FLAG(buf->buf_flags, BUF_IS_SELECT)) {
         Get_selected_position(buf, &start_del, &len);
-        buf->selection.is_selected = false;
+        CLR_FLAG(buf->buf_flags, BUF_IS_SELECT);
     } else {
         if (pos_idx == 0) return;
         len = 1;
@@ -742,7 +740,7 @@ void Buffer_save(Buffer *buf, const char *filename) {
     if (data.data) {
         Result result = Fs_savefile(buf->path, (const char *)data.data, data.len);
         if (result.type == RESULT_OK) {
-            buf->buf_flags &= ~BUF_IS_DIRTY;
+            CLR_FLAG(buf->buf_flags, BUF_IS_DIRTY);
             Notif_show(result.data, NOTIF_SUCCESS, 3.0f);
         } else {
             Notif_show(result.data, NOTIF_ERROR, 3.0f);
@@ -757,7 +755,7 @@ void Buffer_save(Buffer *buf, const char *filename) {
  * Fungsi untuk copy dari buffer ke Clipboard [PUBLIC API]
  */
 void Buffer_copy(Buffer *buf, Clipboard *clp) {
-    if (!buf || !buf->selection.is_selected) return;
+    if (!buf || !HAS_FLAG(buf->buf_flags, BUF_IS_SELECT)) return;
 
     size_t start, len;
     Get_selected_position(buf, &start, &len);
@@ -771,7 +769,7 @@ void Buffer_copy(Buffer *buf, Clipboard *clp) {
  * Fungsi untuk Copy dan Delete teks dari Buffer (CUT) [PUBLIC API]
  */
 void Buffer_cut(Buffer *buf, Clipboard *clp) {
-    if (!buf || !buf->selection.is_selected) return;
+    if (!buf || !HAS_FLAG(buf->buf_flags, BUF_IS_SELECT)) return;
 
     Buffer_copy(buf, clp);
     Buffer_delete(buf, buf->cursor.cursor_pos);
@@ -788,7 +786,7 @@ void Buffer_paste(Buffer *buf, Clipboard *clp) {
     if (!text || strlen(text) == 0) return;
 
     // Jika sedang ada seleksi, hapus dulu area yang di-select
-    if (buf->selection.is_selected) {
+    if (HAS_FLAG(buf->buf_flags, BUF_IS_SELECT)) {
         Buffer_delete(buf, buf->cursor.cursor_pos);
     }
 
@@ -806,7 +804,7 @@ void Buffer_undo(Buffer *buf) {
     if (!Undo_pop(&buf->undo, &a)) return;
 
     buf->undo.is_undoing = true;
-    buf->selection.is_selected = false;  // Matikan seleksi agar tidak ngerusak delete
+    CLR_FLAG(buf->buf_flags, BUF_IS_SELECT);  // Matikan seleksi agar tidak ngerusak delete
 
     if (a.type == UNDO_INSERT) {
         // Undo dari INSERT adalah DELETE teks tersebut
@@ -837,7 +835,7 @@ void Buffer_redo(Buffer *buf) {
     if (!Redo_pop(&buf->undo, &a)) return;
 
     buf->undo.is_undoing = true;
-    buf->selection.is_selected = false;  // Matikan seleksi
+    CLR_FLAG(buf->buf_flags, BUF_IS_SELECT);  // Matikan seleksi
 
     if (a.type == UNDO_INSERT) {
         // Redo INSERT = Insert ulang teks di offset asal
@@ -874,7 +872,7 @@ char *Buffer_get_line_text(Buffer *buf, size_t y) {
     size_t length = end - start;  // Panjang teks
 
     Bytes data = String_get(buf->str, start, length);  // Ambil data dari buffer
-    if (!data.data) return NULL;
+    if (!data.data) return nullptr;
 
     char *result = calloc(length + 1, sizeof(char));
     if (result) {
@@ -1059,7 +1057,7 @@ void Buffer_mark_line_edited(Buffer *buf, size_t line_idx) {
     }
 
     buf->line_git[line_idx].status = GUTTER_MODIFIED;
-    buf->line_git[line_idx].last_edited_at = (double)time(NULL);  // Gunakan time(NULL)
+    buf->line_git[line_idx].last_edited_at = (double)time(nullptr);  // Gunakan time(NULL)
     strncpy(buf->line_git[line_idx].author, git.author[0] ? git.author : "You",
             sizeof(buf->line_git[line_idx].author));
 }

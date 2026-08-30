@@ -18,18 +18,18 @@
 typedef struct {
     TSParser *parser;
     TSTree *tree;
-    bool is_enabled;
     TSQuery *query;
     TSQuery *indents_query;
+    bool is_enabled;
 } SyntaxState;
 
 /**
  * Struct untuk menampung HighlightToken
  */
 typedef struct {
+    const char *capture_name;  // "keyword", "string", "function", dll.
     uint32_t start_byte;
     uint32_t end_byte;
-    const char *capture_name;  // "keyword", "string", "function", dll.
 } HighlightToken;
 
 SyntaxState *Syntax_init(LangConfig *lang);

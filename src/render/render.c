@@ -15,6 +15,7 @@
 #include "git_client.h"
 #include "lsp_ui.h"
 #include "raylib.h"
+#include "result.h"
 #include "rope.h"
 #include "syntax.h"
 #include "theme.h"
@@ -354,7 +355,7 @@ void draw_editor(BufManager *bufmgr, Font font) {
             /* ---------------- *
              * Highlight Selection
              * ---------------- */
-            if (buf->selection.is_selected) {
+            if (HAS_FLAG(buf->buf_flags, BUF_IS_SELECT)) {
                 size_t sel_start, sel_len;
                 Get_selected_position(buf, &sel_start, &sel_len);
                 size_t sel_end = sel_start + sel_len;
@@ -447,7 +448,7 @@ void draw_editor(BufManager *bufmgr, Font font) {
             /* ------------------------------------------------------------- *
              * Render Squiggly / Underline Diagnostics
              * ------------------------------------------------------------- */
-            if (g_lsp_ui.enabled &&
+            if (HAS_FLAG(g_lsp_ui.lsp_flag, LSP_ENABLE) &&
                 buf->path) {  // Diagnostic aktif ketika lsp aktif dan ada path-nya
                 char *uri = Path_to_uri(buf->path);  // Path to Uri
                 buf->diagnostic = lsp_get_diagnostics(uri);
@@ -481,12 +482,12 @@ void draw_editor(BufManager *bufmgr, Font font) {
                             }
 
                             // Gambar garis bawah tipis tepat di bawah teks
-                            int line_y = py + FONT_SIZE + 2;
+                            int line_y = py + FONT_SIZE + 1;  // + 1 aja kali ya biar ga ada jarak
                             int line_w = (int)(x2 - x1);
                             if (line_w <= 0)
                                 line_w = (int)MeasureTextEx(font, " ", FONT_SIZE, 1.0f).x;
 
-                            DrawRectangle((int)x1, line_y, line_w, 2, diag_color);
+                            DrawRectangle((int)x1, line_y, line_w, 1, diag_color);
                         }
                     }
                 }
@@ -571,13 +572,13 @@ void draw_editor(BufManager *bufmgr, Font font) {
         // Dragging & Interaction
         if (is_hovered && IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
             is_dragging_scroll = true;
-            buf->buf_flags |= BUF_IS_DRAGGING;
+            SET_FLAG(buf->buf_flags, BUF_IS_DRAGGING);
             drag_click_y = mouse_pos.y - thumb_y;
         }
 
         if (IsMouseButtonReleased(MOUSE_BUTTON_LEFT)) {
             is_dragging_scroll = false;
-            buf->buf_flags &= ~BUF_IS_DRAGGING;
+            CLR_FLAG(buf->buf_flags, BUF_IS_DRAGGING);
         }
 
         if (is_dragging_scroll) {

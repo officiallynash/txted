@@ -17,6 +17,7 @@
 #include "lsp_ui.h"
 #include "notification.h"
 #include "raylib.h"
+#include "result.h"
 #include "settings_txted.h"
 #include "theme.h"
 #include "ui.h"
@@ -34,7 +35,7 @@ void render_all_ui(BufManager *bufmgr, Font font) {
     GitPopup_render(bufmgr, font);
 
     // Jika LSP aktif, Kita tampilkan lsp
-    if (g_lsp_ui.enabled) {
+    if (HAS_FLAG(g_lsp_ui.lsp_flag, LSP_ENABLE)) {
         render_lsp_completion_ui(bufmgr, font);
         render_signature_help(bufmgr, font);
         render_hover_ui(bufmgr, font);
@@ -72,13 +73,13 @@ int main(int argc, char *argv[]) {
     Settings_apply(bufmgr, &font);  // Passing font ke Apply pakai &
 
     // Loop utama Aplikasi
-    while ((bufmgr->win_flags & TXTED_EXIT) != TXTED_EXIT && !WindowShouldClose()) {
+    while (!HAS_FLAG(bufmgr->win_flags, TXTED_EXIT) && !WindowShouldClose()) {
         float dt = GetFrameTime();
         Notif_update(dt);
         GitStatus_update(bufmgr, dt);
 
         // Handle Input biasa hanya jika TIDAK sedang minta exit
-        if ((bufmgr->win_flags & TXTED_REQ_EXIT) != TXTED_REQ_EXIT) {
+        if (!HAS_FLAG(bufmgr->win_flags, TXTED_REQ_EXIT)) {
             lsp_ui_update(bufmgr, dt);
 
             if (IsKeyPressed(KEY_SPACE) && IsKeyDown(KEY_LEFT_CONTROL)) {
@@ -90,9 +91,10 @@ int main(int argc, char *argv[]) {
         } else {
             lsp_ui_hide();
             // Hotkey shortcut keyboard saat modal exit aktif
-            if (IsKeyPressed(KEY_Y) || IsKeyPressed(KEY_ENTER)) bufmgr->win_flags |= TXTED_EXIT;
+            if (IsKeyPressed(KEY_Y) || IsKeyPressed(KEY_ENTER))
+                SET_FLAG(bufmgr->win_flags, TXTED_EXIT);
             if (IsKeyPressed(KEY_N) || IsKeyPressed(KEY_ESCAPE))
-                bufmgr->win_flags &= ~TXTED_REQ_EXIT;
+                CLR_FLAG(bufmgr->win_flags, TXTED_REQ_EXIT);
         }
 
         // Gambar UI
@@ -103,7 +105,7 @@ int main(int argc, char *argv[]) {
         render_all_ui(bufmgr, font);
 
         // Render Modal Confirm Exit di LAYER PALING ATAS
-        if ((bufmgr->win_flags & TXTED_REQ_EXIT) == TXTED_REQ_EXIT) {
+        if (HAS_FLAG(bufmgr->win_flags, TXTED_REQ_EXIT)) {
             Draw_confirm_exit(bufmgr, font);
         }
 

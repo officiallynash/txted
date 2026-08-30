@@ -17,6 +17,7 @@
 #include "fs.h"
 #include "git_client.h"
 #include "notification.h"
+#include "result.h"
 
 /**
  * Fungsi internal untuk Pindah Folder ke Workspace [PRIVATE API]
@@ -24,11 +25,13 @@
 void BufManager_set_workspace(BufManager *bufmgr, const char *any_path) {
     if (!bufmgr || !any_path) return;
 
+    // Cari root dari project workspace
     char *root = Fs_find_project_root(any_path);
     if (!root) {
         root = Fs_dirname(any_path);
     }
-    if (!root) return;
+
+    if (!root) return;  // Double guard
 
     if (bufmgr->path_root && strcmp(bufmgr->path_root, root) == 0) {
         free(root);
@@ -70,7 +73,7 @@ BufManager *BufManager_init(void) {
     bufmgr->win_flags = 0;
 
     // Pasang default ke Write
-    bufmgr->win_flags |= TXTED_WRITE;
+    SET_FLAG(bufmgr->win_flags, TXTED_WRITE);
 
     for (size_t i = 0; i < MAX_TABS; i++) {
         bufmgr->buf[i] = nullptr;
@@ -246,7 +249,7 @@ size_t BufManager_checkdirty(BufManager *bufmgr) {
     size_t num = 0;
     for (size_t i = 0; i < bufmgr->num_tabs; i++) {
         // TAMBAHKAN NULL-CHECK DULU!
-        if (bufmgr->buf[i] && (bufmgr->buf[i]->buf_flags & BUF_IS_DIRTY) != 0) {
+        if (bufmgr->buf[i] && HAS_FLAG(bufmgr->buf[i]->buf_flags, BUF_IS_DIRTY)) {
             num++;
         }
     }

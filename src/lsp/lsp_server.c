@@ -159,7 +159,7 @@ static void store_diagnostics(const char *uri, cJSON *diagnostics_array) {
 
     int n = cJSON_GetArraySize(diagnostics_array);
     if (n <= 0) {
-        dl->items = NULL;
+        dl->items = nullptr;
         dl->count = 0;
         pthread_mutex_unlock(&diag_mutex);
         return;
@@ -199,7 +199,7 @@ static void store_diagnostics(const char *uri, cJSON *diagnostics_array) {
         item->message = (msg && cJSON_IsString(msg)) ? strdup(msg->valuestring) : strdup("");
 
         cJSON *src = cJSON_GetObjectItem(d, "source");
-        item->source = (src && cJSON_IsString(src)) ? strdup(src->valuestring) : NULL;
+        item->source = (src && cJSON_IsString(src)) ? strdup(src->valuestring) : nullptr;
     }
 
     pthread_mutex_unlock(&diag_mutex);
@@ -869,7 +869,7 @@ static void *reader_func(void *arg) {
         }
     }
     free(buf);
-    return NULL;
+    return nullptr;
 }
 
 /**
@@ -889,7 +889,7 @@ bool lsp_start(const char *lsp_path, char **argv, const char *workspace_root) {
     posix_spawn_file_actions_addclose(&actions, out_pipe[0]);
 
     // argv handling
-    char *default_argv[] = {(char *)lsp_path, NULL};
+    char *default_argv[] = {(char *)lsp_path, nullptr};
     char **final_argv = argv ? argv : default_argv;
 
     // Pastikan argv[0] = full path
@@ -897,7 +897,7 @@ bool lsp_start(const char *lsp_path, char **argv, const char *workspace_root) {
         final_argv[0] = (char *)lsp_path;
     }
 
-    if (posix_spawn(&lsp_pid, lsp_path, &actions, NULL, final_argv, environ) != 0) {
+    if (posix_spawn(&lsp_pid, lsp_path, &actions, nullptr, final_argv, environ) != 0) {
         posix_spawn_file_actions_destroy(&actions);
         return false;
     }
@@ -1163,7 +1163,7 @@ void lsp_stop(void) {
         lsp_send_raw(shutdown_req);
 
         struct timespec req = {.tv_sec = 0, .tv_nsec = 50000000L};
-        nanosleep(&req, NULL);
+        nanosleep(&req, nullptr);
 
         const char *exit_notif = "{\"jsonrpc\":\"2.0\",\"method\":\"exit\"}";
         lsp_send_raw(exit_notif);
@@ -1179,7 +1179,7 @@ void lsp_stop(void) {
     }
 
     if (lsp_pid > 0) {
-        waitpid(lsp_pid, NULL, 0);
+        waitpid(lsp_pid, nullptr, 0);
         lsp_pid = -1;
     }
 
