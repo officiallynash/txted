@@ -218,26 +218,26 @@ void BufManager_closetab(BufManager *bufmgr) {
 /**
  * Fungsi untuk menutup atau menghapus Buffer Manager [PUBLIC API]
  */
-void BufManager_destroy(BufManager **bufmgr) {
-    if (!(*bufmgr)) return;
+void BufManager_destroy(BufManager *bufmgr) {
+    if (!bufmgr) return;
 
-    for (size_t i = 0; i < (*bufmgr)->num_tabs; i++) {
-        if ((*bufmgr)->buf[i]) {
-            Buffer_free((*bufmgr)->buf[i]);
-            (*bufmgr)->buf[i] = nullptr;  // Safety nullify
+    for (size_t i = 0; i < bufmgr->num_tabs; i++) {
+        if (bufmgr->buf[i]) {
+            Buffer_free(bufmgr->buf[i]);
+            bufmgr->buf[i] = nullptr;  // Safety nullify
         }
     }
 
-    if ((*bufmgr)->clp) {
-        Clipboard_free((*bufmgr)->clp);
-        (*bufmgr)->clp = nullptr;
+    if (bufmgr->clp) {
+        Clipboard_free(bufmgr->clp);
+        bufmgr->clp = nullptr;
     }
 
-    if ((*bufmgr)->path_root != nullptr) free((*bufmgr)->path_root);
-    (*bufmgr)->active_idx = -1;
-    (*bufmgr)->num_tabs = 0;
+    if (bufmgr->path_root != nullptr) free(bufmgr->path_root);
+    bufmgr->active_idx = -1;
+    bufmgr->num_tabs = 0;
 
-    free((*bufmgr));
+    free(bufmgr);
 }
 
 /**

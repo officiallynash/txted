@@ -353,13 +353,9 @@ char *Fs_find_project_root(const char *filepath) {
     free(full_path);  // Free memory temporary full_path
 
     // Marker penanda root project
-    const char *markers[] = {"Makefile",
-                             "makefile",
-                             ".git",
-                             "CMakeLists.txt",
-                             "Cargo.toml",
-                             "package.json",
-                             "compile_commands.json"};
+    const char *markers[] = {"Makefile",   ".git",         "CMakeLists.txt",
+                             "Cargo.toml", "package.json", "compile_commands.json",
+                             "build.zig",  "build.zig.zon"};
     size_t num_markers = sizeof(markers) / sizeof(markers[0]);
 
     char check_path[1024] = {0};

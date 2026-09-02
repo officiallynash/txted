@@ -48,8 +48,7 @@ void BufManager_open(BufManager *bufmgr, const char *filename);
 Buffer *BufManager_getactive(BufManager *bufmgr);
 void BufManager_switchtab(BufManager *bufmgr, SwitchTab direction);
 void BufManager_closetab(BufManager *bufmgr);
-void BufManager_destroy(BufManager **bufmgr);
+void BufManager_destroy(BufManager *bufmgr);
 size_t BufManager_checkdirty(BufManager *bufmgr);
 
-#define defer_bufmgr __attribute__((cleanup(BufManager_destroy)))
 #endif

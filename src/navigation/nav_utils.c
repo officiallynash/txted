@@ -94,6 +94,9 @@ void Nav_move_right(Buffer *buf) {
  */
 void Nav_mouse_scroll(BufManager *bufmgr, float wheel) {
     Buffer *buf = BufManager_getactive(bufmgr);
+    if (!buf) return;
+
+    // Ambil total lines
     int total_lines = (int)buf->lines.line_count;
     EditorLayout layout = get_editor_layout(bufmgr);
 
@@ -131,6 +134,7 @@ void Nav_mouse_scroll(BufManager *bufmgr, float wheel) {
 void Nav_goto_end_of_line(Buffer *buf) {
     size_t end;
     size_t rope_len = String_len(buf->str);
+
     if (buf->cursor.y + 1 < buf->lines.line_count) {
         end = buf->lines.offset[buf->cursor.y + 1] - 1;
     } else {
@@ -355,6 +359,7 @@ void Nav_cut(BufManager *bufmgr, Font font) {
 void Nav_paste(BufManager *bufmgr, Font font) {
     (void)font;
     Buffer *buf = BufManager_getactive(bufmgr);
+
     if (!buf) return;
     Buffer_paste(buf, bufmgr->clp);
 }

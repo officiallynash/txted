@@ -471,7 +471,7 @@ void draw_dialog_modal(BufManager *bufmgr, Font font) {
         }
 
     } else if (current_dialog == DIALOG_ABOUT) {
-        const char *help_msg = "TxtEd created and Maintanined by Nash.";
+        const char *help_msg = "TxtEd created and Maintainned by Nash.";
 
         DrawTextEx(font, "TxtEd v1.0 - Simple Text Editor",
                    (Vector2){content_area.x + 8, content_area.y + 20}, FONT_SIZE, 1.0f,

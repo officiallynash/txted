@@ -16,6 +16,7 @@
 #include "buffer_manager.h"
 #include "fs.h"
 #include "git_client.h"
+#include "result.h"
 #include "theme.h"
 #include "ui.h"
 
@@ -120,7 +121,7 @@ static bool is_directory_native(const char *path) {
  * Fungsi untuk Membuat File list
  */
 FileNode *FileNode_create(const char *path, const char *name, bool is_dir) {
-    FileNode *node = (FileNode *)calloc(1, sizeof(FileNode));
+    FileNode *node = calloc(1, sizeof(FileNode));
     if (node) {
         strncpy(node->name, name, sizeof(node->name) - 1);
         strncpy(node->path, path, sizeof(node->path) - 1);
@@ -233,7 +234,7 @@ static void draw_file_node_recursive(FileNode *node, Font font, EditorLayout L, 
                     strncpy(g_active_file_path, node->path, sizeof(g_active_file_path));
                     Buffer *buf = BufManager_getactive(bufmgr);
 
-                    if (buf && (buf->buf_flags & BUF_IS_DIRTY) != 0) {
+                    if (buf && HAS_FLAG(buf->buf_flags, BUF_IS_DIRTY)) {
                         BufManager_newtab(bufmgr, node->path);
                     } else {
                         BufManager_open(bufmgr, node->path);
@@ -289,7 +290,7 @@ static void draw_file_node_recursive(FileNode *node, Font font, EditorLayout L, 
  * Fungsi untuk Draw atau Render utama [PUBLIC API]
  */
 void draw_file_manager(BufManager *bufmgr, Font font) {
-    if (!bufmgr || (bufmgr->win_flags & TXTED_SHOW_FM) != TXTED_SHOW_FM) return;
+    if (!bufmgr || !HAS_FLAG(bufmgr->win_flags, TXTED_SHOW_FM)) return;
 
     const char *wanted = bufmgr->path_root;
     if (wanted && wanted[0] && strcmp(g_loaded_root_path, wanted) != 0) {

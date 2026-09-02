@@ -13,6 +13,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
+#include <tree_sitter/api.h>
 #include <unistd.h>
 
 #include "fs.h"
@@ -64,43 +65,14 @@ void LineIndex_insert(LineIndex *li, const char *data, size_t len) {
         if (data[i] != '\n') continue;  // Jika bukan '\n' lanjut
 
         if (li->line_count >= li->capacity) {
-            size_t new_cap = li->capacity ? li->capacity * 2 : 32;
-            size_t *new_offset = realloc(li->offset, sizeof(size_t) * new_cap);
+            li->capacity *= 2;
+            size_t *new_offset = realloc(li->offset, sizeof(size_t) * li->capacity);
             if (!new_offset) return;  // Guard jika realloc gagal
 
             li->offset = new_offset;
-            li->capacity = new_cap;
         }
         li->offset[li->line_count++] = i + 1;
     }
-}
-
-/**
- * Line Index insert (\n) [PRIVATE API]
- */
-void LineIndex_insert_newline(LineIndex *li, size_t line_idx, size_t newline_pos) {
-    if (!li || !li->offset) return;
-
-    // Alokasi ulang memori jika kapasitas penuh
-    if (li->line_count >= li->capacity) {
-        size_t new_cap = li->capacity ? li->capacity * 2 : 32;
-        size_t *new_offset = realloc(li->offset, sizeof(size_t) * new_cap);
-        if (!new_offset) return;  // Guard alokasi memori
-
-        li->offset = new_offset;
-        li->capacity = new_cap;
-    }
-
-    // Geser offset elemen di belakangnya jika baris disisipkan di tengah-tengah
-    if (line_idx + 1 < li->line_count) {
-        size_t line_to_move = li->line_count - (line_idx + 1);
-        memmove(&li->offset[line_idx + 2], &li->offset[line_idx + 1],
-                line_to_move * sizeof(size_t));
-    }
-
-    // Isikan posisi offset baris baru
-    li->offset[line_idx + 1] = newline_pos + 1;
-    li->line_count++;
 }
 
 /**
@@ -468,6 +440,7 @@ void Buffer_insert(Buffer *buf, size_t pos_idx, const char *ch) {
 
     // Cek apakah karakter yang di-insert mengandung newline '\n'
     bool contains_newline = false;
+
     for (size_t i = 0; i < text_len; i++) {
         if (ch[i] == '\n') {
             contains_newline = true;
@@ -563,7 +536,7 @@ void Buffer_delete(Buffer *buf, size_t pos_idx) {
 
     size_t len = 0;
     size_t start_del = 0;
-    SET_FLAG(buf->buf_flags, BUF_IS_DIRTY);
+    SET_FLAG(buf->buf_flags, BUF_IS_DIRTY);  // Set ke Dirty dulu
 
     if (HAS_FLAG(buf->buf_flags, BUF_IS_SELECT)) {
         Get_selected_position(buf, &start_del, &len);
@@ -1060,4 +1033,70 @@ void Buffer_mark_line_edited(Buffer *buf, size_t line_idx) {
     buf->line_git[line_idx].last_edited_at = (double)time(nullptr);  // Gunakan time(NULL)
     strncpy(buf->line_git[line_idx].author, git.author[0] ? git.author : "You",
             sizeof(buf->line_git[line_idx].author));
+}
+
+/**
+ * Helper internal untuk cek apakah Comment [PRIVATE API]
+ */
+bool is_node_comment(TSNode node) {
+    while (!ts_node_is_null(node)) {
+        const char *type = ts_node_type(node);
+
+        if (strstr(type, "comment")) {
+            return true;
+        }
+        node = ts_node_parent(node);
+    }
+    return false;
+}
+
+/**
+ * Helper internal untuk mencari Posisi di Tree-sitter [PRIVATE API]
+ */
+bool is_position_in_comment(TSTree *tree, uint32_t start_byte, uint32_t end_byte) {
+    if (!tree) return false;
+
+    TSNode root = ts_tree_root_node(tree);
+    TSNode node = ts_node_named_descendant_for_byte_range(root, start_byte, end_byte);
+    return is_node_comment(node);
+}
+
+/**
+ * Fungsi untuk akomodasi Search [PUBLIC API]
+ */
+int Buffer_search(Buffer *buf, const char *query, SearchHitBuffer *out, int max_hits) {
+    if (!buf || !query || !query[0] || !out || max_hits <= 0) return 0;
+
+    int count = 0;
+    size_t q_len = strlen(query);
+
+    for (size_t y = 0; y < buf->lines.line_count && count < max_hits; y++) {
+        char *line = Buffer_get_line_text(buf, y);
+        if (!line) continue;
+
+        const char *p = line;
+        size_t line_start_byte = buf->lines.offset[y];
+        while ((p = strcasestr(p, query)) != nullptr) {
+            size_t col = (size_t)(p - line);
+            uint32_t match_start_byte = (uint32_t)(line_start_byte + col);
+            uint32_t match_end_byte = match_start_byte + (uint32_t)q_len;
+
+            if (buf->state &&
+                is_position_in_comment(buf->state->tree, match_start_byte, match_end_byte)) {
+                p += (q_len > 0 ? q_len : 1);
+                continue;  // Lanjut cari kata kunci berikutnya tanpa dimasukkan ke results
+            }
+
+            SearchHitBuffer *h = &out[count++];
+            h->line = y;
+            h->col = col;
+
+            snprintf(h->label, sizeof(h->label), "[%zu:%zu] %.20s...", y + 1, col + 1, p);
+
+            p += (q_len > 0 ? q_len : 1);
+            if (count >= max_hits) break;
+        }
+        free(line);
+    }
+    return count;
 }

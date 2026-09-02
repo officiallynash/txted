@@ -444,7 +444,7 @@ void render_hover_ui(BufManager *bufmgr, Font font) {
                     } else {
                         snprintf(current_wrap, sizeof(current_wrap), "%s", test_buf);
                     }
-                    word = strtok(NULL, " ");
+                    word = strtok(nullptr, " ");
                 }
 
                 free(temp_line);  // Free clone string
@@ -559,7 +559,7 @@ void render_hover_ui(BufManager *bufmgr, Font font) {
                     } else {
                         snprintf(current_wrap, sizeof(current_wrap), "%s", test_buf);
                     }
-                    word = strtok(NULL, " ");
+                    word = strtok(nullptr, " ");
                 }
 
                 // Free temporary clone string

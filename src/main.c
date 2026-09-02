@@ -52,7 +52,7 @@ int main(int argc, char *argv[]) {
 
     // Inisasi Buffer Manager
     Settings_load();
-    defer_bufmgr BufManager *bufmgr = BufManager_init();
+    BufManager *bufmgr = BufManager_init();
 
     // Inisiasi Notify
     Notif_init();
@@ -73,10 +73,15 @@ int main(int argc, char *argv[]) {
     Settings_apply(bufmgr, &font);  // Passing font ke Apply pakai &
 
     // Loop utama Aplikasi
-    while (!HAS_FLAG(bufmgr->win_flags, TXTED_EXIT) && !WindowShouldClose()) {
+    while (!HAS_FLAG(bufmgr->win_flags, TXTED_EXIT)) {
         float dt = GetFrameTime();
         Notif_update(dt);
         GitStatus_update(bufmgr, dt);
+
+        // Jika dipencet si X
+        // Aku assume bahwa Semua buffer telah di save
+        // Jadi user secara sadar sudah simpan dan pencet ini tombol
+        if (WindowShouldClose()) SET_FLAG(bufmgr->win_flags, TXTED_EXIT);
 
         // Handle Input biasa hanya jika TIDAK sedang minta exit
         if (!HAS_FLAG(bufmgr->win_flags, TXTED_REQ_EXIT)) {
@@ -85,6 +90,7 @@ int main(int argc, char *argv[]) {
             if (IsKeyPressed(KEY_SPACE) && IsKeyDown(KEY_LEFT_CONTROL)) {
                 lsp_ui_toggle();
             }
+
             if (!git_popup.open) {
                 handle_input(bufmgr, font);
             }
@@ -113,6 +119,7 @@ int main(int argc, char *argv[]) {
     }
 
     lsp_ui_shutdown();
+    BufManager_destroy(bufmgr);  // Destroy si Buf Manager
 
     if (IsWindowReady()) {
         UnloadFont(font);  // Safe free font
