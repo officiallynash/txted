@@ -1,4 +1,4 @@
-CC = zig cc
+CC = clang
 CFLAGS = -Wall -Wextra -Iinclude -O2 -fsanitize=leak -std=gnu23
 LDFLAGS = -lraylib -lGL -lm -lpthread -ldl -lrt -lX11 -ltree-sitter -ltree-sitter-c
 

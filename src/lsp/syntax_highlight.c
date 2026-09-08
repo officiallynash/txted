@@ -7,11 +7,12 @@
 #include <stdlib.h>
 #include <string.h>
 #include <tree_sitter/api.h>
-#include <tree_sitter/tree-sitter-c.h>
 
 #include "lsp_config.h"
 #include "notification.h"
 #include "syntax.h"
+
+extern const TSLanguage *tree_sitter_c(void);  // Extern tree-sitter-c
 
 /**
  * Fungsi untuk inisialisasi state syntax highlighting [PUBLIC API]

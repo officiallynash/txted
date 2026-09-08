@@ -80,6 +80,7 @@ bool GitPopup_stage(const char *repo) {
                  err[0] ? err : "Stage failed!");
         return false;
     }
+
     git_popup.last_error[0] = '\0';
     GitStatus_force();
     return true;
@@ -374,7 +375,7 @@ void GitStatus_update(BufManager *bufmgr, float dt) {
  * Helper untuk format waktu (Yang lalu)
  */
 void format_time_ago(const char *author, double last_edited, char *out_str, size_t max_len) {
-    double diff = difftime(time(NULL), (time_t)last_edited);
+    double diff = difftime(time(nullptr), (time_t)last_edited);
     if (diff < 0) diff = 0;
 
     // Hirarki nama: Param -> Environment OS -> "You"
@@ -454,7 +455,7 @@ void Git_fetch_file_diff(const char *repo_path, const char *file_path, Buffer *b
                             buf->line_git[target_line].status = status;
 
                             if (buf->line_git[target_line].last_edited_at == 0) {
-                                buf->line_git[target_line].last_edited_at = (double)time(NULL);
+                                buf->line_git[target_line].last_edited_at = (double)time(nullptr);
                             }
                         }
                     }
@@ -470,7 +471,7 @@ void Git_fetch_file_diff(const char *repo_path, const char *file_path, Buffer *b
                         }
 
                         if (buf->line_git[target_line].last_edited_at == 0) {
-                            buf->line_git[target_line].last_edited_at = (double)time(NULL);
+                            buf->line_git[target_line].last_edited_at = (double)time(nullptr);
                         }
                     }
                 }

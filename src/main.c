@@ -91,6 +91,7 @@ int main(int argc, char *argv[]) {
                 lsp_ui_toggle();
             }
 
+            // Default git_popup keyboard handling
             if (!git_popup.open) {
                 handle_input(bufmgr, font);
             }

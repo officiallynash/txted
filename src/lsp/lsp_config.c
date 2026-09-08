@@ -79,7 +79,7 @@ LangConfig *LspConfig_detail(const char *filepath) {
 
     static char *clangd_args[] = {
         "clangd",       "--background-index",          "--header-insertion=iwyu",
-        "--clang-tidy", "--completion-style=detailed", NULL};
+        "--clang-tidy", "--completion-style=detailed", nullptr};
 
     // Cari titik '.' paling akhir
     const char *dot = strrchr(filepath, '.');

@@ -3,13 +3,15 @@
  * Copyright (c) 2026 Nash
  * SPDX-License-Identifier: MIT
  */
+#include "lsp_server.h"
+
 #include <asm-generic/errno.h>
-#include <stdbool.h>
-#include <stddef.h>
-#define _POSIX_C_SOURCE 200809L
 #include <fcntl.h>
+#include <limits.h>
 #include <pthread.h>
 #include <spawn.h>
+#include <stdbool.h>
+#include <stddef.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -17,7 +19,6 @@
 #include <unistd.h>
 
 #include "cJSON.h"
-#include "lsp_server.h"
 
 constexpr size_t MAX_DIAG_DOCS = 16;
 
@@ -345,8 +346,7 @@ CompletionList lsp_completion(const char *uri, int line, int character, char tri
  * Fungsi untuk SignatureHelp
  */
 SignatureHelp lsp_signature_help(const char *uri, int line, int character) {
-    SignatureHelp help = {0};
-
+    SignatureHelp help = {};
     int id = next_id();
 
     cJSON *params = cJSON_CreateObject();
@@ -399,7 +399,7 @@ SignatureHelp lsp_signature_help(const char *uri, int line, int character) {
     pthread_mutex_unlock(&pending_mutex);
 
     if (!result || !cJSON_IsObject(result)) {
-        if (result) cJSON_Delete(result);
+        cJSON_Delete(result);
         return help;
     }
 
@@ -524,7 +524,7 @@ void lsp_free_signature_help(SignatureHelp *help) {
  * Fungsi untuk inisiasi Hover
  */
 HoverInfo lsp_hover(const char *uri, int line, int character) {
-    HoverInfo hover = {0};
+    HoverInfo hover = {};
     if (!uri) return hover;
 
     int id = next_id();
@@ -573,7 +573,7 @@ HoverInfo lsp_hover(const char *uri, int line, int character) {
     pthread_mutex_unlock(&pending_mutex);
 
     if (!result || cJSON_IsNull(result)) {
-        if (result) cJSON_Delete(result);
+        cJSON_Delete(result);
         return hover;
     }
 
@@ -601,20 +601,39 @@ HoverInfo lsp_hover(const char *uri, int line, int character) {
                     if (cJSON_IsString(v)) total += strlen(v->valuestring) + 2;
                 }
             }
-            hover.contents = calloc(total + 1, sizeof(char));
-            hover.contents[0] = '\0';
-            for (int i = 0; i < n; i++) {
-                cJSON *item = cJSON_GetArrayItem(contents, i);
-                const char *s = nullptr;
-                if (cJSON_IsString(item))
-                    s = item->valuestring;
-                else if (cJSON_IsObject(item)) {
-                    cJSON *v = cJSON_GetObjectItem(item, "value");
-                    if (cJSON_IsString(v)) s = v->valuestring;
+
+            // Safety check
+            if (total == 0) {
+                hover.contents = nullptr;
+            } else {
+                // Jika lebih dari nol hajar
+                hover.contents = calloc(total + 1, sizeof(char));
+
+                // Safety check
+                if (!hover.contents) {
+                    cJSON_Delete(result);
+                    return hover;
                 }
-                if (s) {
-                    if (hover.contents[0]) strcat(hover.contents, "\n");
-                    strcat(hover.contents, s);
+
+                hover.contents[0] = '\0';
+                for (int i = 0; i < n; i++) {
+                    cJSON *item = cJSON_GetArrayItem(contents, i);
+                    const char *s = nullptr;
+
+                    if (cJSON_IsString(item))
+                        s = item->valuestring;
+                    else if (cJSON_IsObject(item)) {
+                        cJSON *v = cJSON_GetObjectItem(item, "value");
+                        if (cJSON_IsString(v)) s = v->valuestring;
+                    }
+                    if (s) {
+                        size_t remaining = total - strlen(hover.contents) - 1;
+                        if (hover.contents[0]) {
+                            strncat(hover.contents, "\n", remaining);
+                            remaining = total - strlen(hover.contents) - 1;
+                        }
+                        strncat(hover.contents, s, remaining);
+                    }
                 }
             }
         }
@@ -627,10 +646,17 @@ HoverInfo lsp_hover(const char *uri, int line, int character) {
         cJSON *end = cJSON_GetObjectItem(range, "end");
         if (start && end) {
             hover.has_range = true;
-            hover.start_line = cJSON_GetObjectItem(start, "line")->valueint;
-            hover.start_char = cJSON_GetObjectItem(start, "character")->valueint;
-            hover.end_line = cJSON_GetObjectItem(end, "line")->valueint;
-            hover.end_char = cJSON_GetObjectItem(end, "character")->valueint;
+            cJSON *line_obj = cJSON_GetObjectItem(start, "line");
+            if (line_obj) hover.start_line = line_obj->valueint;
+
+            cJSON *start_char = cJSON_GetObjectItem(start, "character");
+            if (start_char) hover.start_char = start_char->valueint;
+
+            cJSON *end_line = cJSON_GetObjectItem(end, "line");
+            if (end_line) hover.end_line = end_line->valueint;
+
+            cJSON *end_char = cJSON_GetObjectItem(end, "character");
+            if (end_char) hover.end_char = end_char->valueint;
         }
     }
 
@@ -656,7 +682,7 @@ void lsp_free_hover(HoverInfo *hover) {
  * Fungsi untuk Auto Format
  */
 TextEditList lsp_format(const char *uri, int tab_size, bool insert_spaces) {
-    TextEditList list = {0};
+    TextEditList list = {};
     if (!uri) return list;
 
     int id = next_id();
@@ -734,10 +760,18 @@ TextEditList lsp_format(const char *uri, int tab_size, bool insert_spaces) {
         if (!start || !end) continue;
 
         TextEdit *te = &list.edits[list.count++];
-        te->start_line = cJSON_GetObjectItem(start, "line")->valueint;
-        te->start_char = cJSON_GetObjectItem(start, "character")->valueint;
-        te->end_line = cJSON_GetObjectItem(end, "line")->valueint;
-        te->end_char = cJSON_GetObjectItem(end, "character")->valueint;
+        cJSON *start_line = cJSON_GetObjectItem(start, "line");
+        if (start_line) te->start_line = start_line->valueint;
+
+        cJSON *start_char = cJSON_GetObjectItem(start, "character");
+        if (start_char) te->start_char = start_char->valueint;
+
+        cJSON *end_line = cJSON_GetObjectItem(end, "line");
+        if (end_line) te->end_line = end_line->valueint;
+
+        cJSON *end_char = cJSON_GetObjectItem(end, "character");
+        if (end_char) te->end_char = end_char->valueint;
+
         te->new_text = strdup(new_text->valuestring);
     }
 
@@ -770,6 +804,8 @@ static void *reader_func(void *arg) {
 
     size_t capacity = 16384;
     char *buf = calloc(capacity, sizeof(char));
+    if (!buf) return nullptr;
+
     size_t buf_len = 0;
 
     while (running) {
@@ -780,6 +816,11 @@ static void *reader_func(void *arg) {
 
         ssize_t n = read(stdout_fd, buf + buf_len, capacity - buf_len - 1);
         if (n <= 0) break;
+
+        if (buf_len > capacity - 1) {
+            fprintf(stderr, "[LSP] Buffer overflow!\n");
+            break;
+        }
 
         buf_len += n;
         buf[buf_len] = '\0';
@@ -792,9 +833,12 @@ static void *reader_func(void *arg) {
             char *line = buf;
             while (line < header_end) {
                 if (strncmp(line, "Content-Length:", 15) == 0) {
-                    content_length = atoi(line + 15);
+                    char *endptr = nullptr;
+                    long len = strtol(line + 15, &endptr, 10);
+                    if (len > 0 && len < INT_MAX) content_length = (int)len;
                     break;
                 }
+
                 char *next = strstr(line, "\r\n");
                 if (!next) break;
                 line = next + 2;
@@ -899,6 +943,10 @@ bool lsp_start(const char *lsp_path, char **argv, const char *workspace_root) {
 
     if (posix_spawn(&lsp_pid, lsp_path, &actions, nullptr, final_argv, environ) != 0) {
         posix_spawn_file_actions_destroy(&actions);
+        close(in_pipe[0]);
+        close(in_pipe[1]);
+        close(out_pipe[0]);
+        close(out_pipe[1]);
         return false;
     }
     posix_spawn_file_actions_destroy(&actions);
