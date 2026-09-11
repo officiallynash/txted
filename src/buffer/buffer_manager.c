@@ -15,7 +15,6 @@
 #include "buffer.h"
 #include "clipboard.h"
 #include "fs.h"
-#include "git_client.h"
 #include "notification.h"
 #include "result.h"
 
@@ -25,13 +24,11 @@
 static void BufManager_set_workspace(BufManager *bufmgr, const char *any_path) {
     if (!bufmgr || !any_path) return;
 
-    // Cari root dari project workspace
     char *root = Fs_find_project_root(any_path);
     if (!root) {
-        root = Fs_dirname(any_path);
+        root = Fs_dirname(any_path);  // Pastikan Fs_dirname mengembalikan string malloc
     }
-
-    if (!root) return;  // Double guard
+    if (!root) return;
 
     if (bufmgr->path_root && strcmp(bufmgr->path_root, root) == 0) {
         free(root);
@@ -39,23 +36,13 @@ static void BufManager_set_workspace(BufManager *bufmgr, const char *any_path) {
     }
 
     free(bufmgr->path_root);
-    bufmgr->path_root =
-        strdup(root);  // Kita kasih strdup (Box kalau di Rust) untuk alokasi langsung
+    bufmgr->path_root = strdup(root);  // Langsung gunakan pointer 'root' tanpa strdup ulang!
 
     if (chdir(bufmgr->path_root) != 0) {
         Notif_show("Tidak bisa ke Workspace", NOTIF_WARNING, 3.0f);
     }
 
-    GitStatus_refresh(bufmgr->path_root, &git);
-
-    // Ambil active buffer & validasi path sebelum memanggil git fetch
-    // Jika Path adalah Repo
-    Buffer *active = BufManager_getactive(bufmgr);
-    if (git.is_repo && active && active->path) {
-        Git_fetch_file_blame(bufmgr->path_root, active->path, active);
-        Git_fetch_file_diff(bufmgr->path_root, active->path, active);
-    }
-    free(root);  // Safety biar ga use after free
+    free(root);  // Free agar tidak terjadi use after free
 }
 
 /**
@@ -113,12 +100,6 @@ void BufManager_newtab(BufManager *bufmgr, const char *filename) {
     if (!bufmgr->path_root && filename) {
         BufManager_set_workspace(bufmgr, filename);
     }
-
-    // Sinkronasi dengan Git Blame dan Diff, jika Path itu Repo
-    if (git.is_repo && buf && buf->path) {
-        Git_fetch_file_blame(bufmgr->path_root, buf->path, buf);
-        Git_fetch_file_diff(bufmgr->path_root, buf->path, buf);
-    }
 }
 
 /**
@@ -143,13 +124,6 @@ void BufManager_open(BufManager *bufmgr, const char *filename) {
     bufmgr->buf[idx] = Buffer_open(filename);
     if (!bufmgr->path_root && filename) {
         BufManager_set_workspace(bufmgr, filename);
-    }
-
-    Buffer *active = BufManager_getactive(bufmgr);
-    // Hanya ambil Blame dan Diff bila Path adalah Repo
-    if (git.is_repo && active && active->path) {
-        Git_fetch_file_blame(bufmgr->path_root, active->path, active);
-        Git_fetch_file_diff(bufmgr->path_root, active->path, active);
     }
 }
 

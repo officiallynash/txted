@@ -22,25 +22,6 @@ constexpr uint8_t BUF_IS_DRAGGING = (1 << 1);
 constexpr uint8_t BUF_IS_SELECT = (1 << 2);
 
 /**
- * Enum untuk Gutter Git
- */
-typedef enum {
-    GUTTER_NONE = 0,
-    GUTTER_ADDED,     // Hijau (+)
-    GUTTER_MODIFIED,  // Kuning (~)
-    GUTTER_DELETED    // Merah (-)
-} GutterStatus;
-
-/**
- * Struct untuk menyimpan Line
- */
-typedef struct {
-    GutterStatus status;    // GUTTER_ADDED, GUTTER_MODIFIED
-    double last_edited_at;  // Timestamp dari GetTime() Raylib saat baris di-edit
-    char author[64];
-} LineGitMeta;
-
-/**
  * Struct untuk membungkus Position
  */
 typedef struct {
@@ -83,9 +64,6 @@ typedef struct {
 
     DiagnosticList *diagnostic;  // Diagnostic
 
-    // Git
-    LineGitMeta *line_git;
-    size_t meta_capacity;
 } Buffer;
 
 /**

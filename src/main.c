@@ -3,17 +3,15 @@
  * Copyright (c) 2026 Nash
  * SPDX-License-Identifier: MIT
  */
-#include <stdbool.h>
-#include <unistd.h>
-
 #define RAY_IMPLEMENTATION
 #define RAY_STATIC
 
 #include <raygui.h>
+#include <stdbool.h>
+#include <unistd.h>
 
 #include "buffer_manager.h"
 #include "fs.h"
-#include "git_client.h"
 #include "lsp_ui.h"
 #include "notification.h"
 #include "raylib.h"
@@ -32,7 +30,6 @@ void render_all_ui(BufManager *bufmgr, Font font) {
     draw_diagnostic_bar(bufmgr, font);
     draw_status(bufmgr, font);
     draw_dialog_modal(bufmgr, font);
-    GitPopup_render(bufmgr, font);
 
     // Jika LSP aktif, Kita tampilkan lsp
     if (HAS_FLAG(g_lsp_ui.lsp_flag, LSP_ENABLE)) {
@@ -77,7 +74,6 @@ int main(int argc, char *argv[]) {
     while (!HAS_FLAG(bufmgr->win_flags, TXTED_EXIT)) {
         float dt = GetFrameTime();
         Notif_update(dt);
-        GitStatus_update(bufmgr, dt);
 
         // Jika dipencet si X
         // Aku assume bahwa Semua buffer telah di save
@@ -92,10 +88,7 @@ int main(int argc, char *argv[]) {
                 lsp_ui_toggle();
             }
 
-            // Default git_popup keyboard handling
-            if (!git_popup.open) {
-                handle_input(bufmgr, font);
-            }
+            handle_input(bufmgr, font);
         } else {
             lsp_ui_hide();
             // Hotkey shortcut keyboard saat modal exit aktif
@@ -116,12 +109,11 @@ int main(int argc, char *argv[]) {
         if (HAS_FLAG(bufmgr->win_flags, TXTED_REQ_EXIT)) {
             Draw_confirm_exit(bufmgr, font);
         }
-
         EndDrawing();
     }
 
+    BufManager_destroy(bufmgr);  // safety free
     lsp_ui_shutdown();
-    BufManager_destroy(bufmgr);  // Destroy si Buf Manager
 
     if (IsWindowReady()) {
         UnloadFont(font);  // Safe free font

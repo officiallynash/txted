@@ -69,7 +69,7 @@ static char *os_clipboard_get(size_t *out_len) {
     size_t len = 0;
     char *buffer = calloc(capacity, sizeof(char));
     if (!buffer) {
-        pclose(pipe);
+        fclose(pipe);
         return nullptr;
     }
 
@@ -81,7 +81,7 @@ static char *os_clipboard_get(size_t *out_len) {
             char *new_buf = realloc(buffer, capacity);
             if (!new_buf) {
                 free(buffer);
-                pclose(pipe);
+                fclose(pipe);
                 return nullptr;
             }
             buffer = new_buf;
@@ -90,8 +90,8 @@ static char *os_clipboard_get(size_t *out_len) {
         len += chunk_len;
     }
     buffer[len] = '\0';
-    pclose(pipe);
 
+    fclose(pipe);
     if (out_len) *out_len = len;
     return buffer;
 }

@@ -15,7 +15,6 @@
 #include "buffer.h"
 #include "buffer_manager.h"
 #include "fs.h"
-#include "git_client.h"
 #include "result.h"
 #include "theme.h"
 #include "ui.h"
@@ -252,29 +251,8 @@ static void draw_file_node_recursive(FileNode *node, Font font, EditorLayout L, 
                                ? g_theme.keyword
                                : (is_selected ? g_theme.cursor : g_theme.text_normal);
 
-        // Git Mark (Untuk tracking Changes dan lain2)
-        const char *mark = "";
-        if (node->is_directory) {
-            mark = Git_folder_mark(node->path);
-        } else {
-            mark = Git_file_mark(node->path);
-        }
-
         char label[300] = {0};
-        if (mark[0]) {
-            snprintf(label, sizeof(label), "%s%s [%s]", prefix, node->name, mark);
-        } else {
-            snprintf(label, sizeof(label), "%s%s", prefix, node->name);
-        }
-
-        if (mark[0] == '~')
-            text_color = g_theme.warning;
-        else if (mark[0] == '-')
-            text_color = g_theme.error;
-        else if (mark[0] == '+' || mark[0] == '?')
-            text_color = g_theme.cursor;
-        else if (mark[0] == 'x')
-            text_color = g_theme.text_muted;
+        snprintf(label, sizeof(label), "%s%s", prefix, node->name);
 
         // Posisi Y diselaraskan secara vertikal tepat di tengah baris item
         float text_y = item_y + (item_h - current_font_size) / 2.0f;

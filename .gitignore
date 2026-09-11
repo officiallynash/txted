@@ -1,6 +1,6 @@
+.zig-cache/
 txted
 build/
 .cache/
 test.c
 zig-out/
-.zig-cache/

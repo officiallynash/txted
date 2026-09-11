@@ -10,13 +10,10 @@
 
 #include "buffer.h"
 #include "buffer_manager.h"
-#include "git_client.h"
 #include "raygui.h"
 #include "result.h"
 #include "theme.h"
 #include "ui.h"
-
-#define ARRAY_SIZE(arr) (sizeof(arr) / sizeof((arr)[0]))
 
 static float dialog_scroll_y = 0.0f;  // Menyimpan offset scroll dialog
 
@@ -71,12 +68,6 @@ void Nav_show_about(BufManager *bufmgr, Font font) {
     UI_open_dialog(bufmgr, DIALOG_ABOUT);
 }
 
-void Nav_open_git(BufManager *bufmgr, Font font) {
-    (void)bufmgr;
-    (void)font;
-    GitPopup_open();
-}
-
 void Nav_show_fm(BufManager *bufmgr, Font font) {
     (void)font;
     if (!HAS_FLAG(bufmgr->win_flags, TXTED_SHOW_FM)) {
@@ -96,7 +87,6 @@ static MenuItem file_items[] = {
     {"Save As", "Ctrl+Shift+S", Nav_save_as},
     {"Create Folder", "Ctrl+P", Nav_create_folder},
     {"File Manager", "Ctrl + F", Nav_show_fm},
-    {"Git Panel", "Ctrl + G", Nav_open_git},
     {"Exit", "Ctrl+Q", Nav_exit},
 };
 
@@ -113,19 +103,19 @@ static MenuItem help_items[] = {{"Help", "", Nav_show_help}, {"About", "", Nav_s
  * Disesuaikan agar item height dan positioning shortcut responsif terhadap font.baseSize.
  */
 static void draw_dropdown_items(int menu_idx, float x, float y, BufManager *bufmgr, Font font) {
-    MenuItem *items = NULL;
+    MenuItem *items = nullptr;
     int count = 0;
     float current_font_size = (float)font.baseSize;
 
     if (menu_idx == 0) {
         items = file_items;
-        count = ARRAY_SIZE(file_items);
+        count = sizeof(file_items) / sizeof(file_items[0]);
     } else if (menu_idx == 1) {
         items = edit_items;
-        count = ARRAY_SIZE(edit_items);
+        count = sizeof(edit_items) / sizeof(edit_items[0]);
     } else if (menu_idx == 2) {
         items = help_items;
-        count = ARRAY_SIZE(help_items);
+        count = sizeof(help_items) / sizeof(help_items[0]);
     }
 
     if (!items || count == 0) return;
@@ -154,7 +144,7 @@ static void draw_dropdown_items(int menu_idx, float x, float y, BufManager *bufm
                 active_menu = -1;
                 item_clicked = true;
 
-                if (act != NULL) {
+                if (act != nullptr) {
                     act(bufmgr, font);
                 }
                 break;
@@ -303,7 +293,7 @@ void draw_tabs(BufManager *bufmgr, Font font) {
     }
 
     if (bufmgr->num_tabs == 0) {
-        BufManager_newtab(bufmgr, NULL);
+        BufManager_newtab(bufmgr, nullptr);
     }
 
     /* Tombol '+' New Tab */
@@ -317,7 +307,7 @@ void draw_tabs(BufManager *bufmgr, Font font) {
         DrawTextEx(font, "+", plus_pos, current_font_size, 1.0f, g_theme.text_normal);
 
         if (CheckCollisionPointRec(mouse_pos, plus) && IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
-            BufManager_newtab(bufmgr, NULL);
+            BufManager_newtab(bufmgr, nullptr);
         }
     }
 }
@@ -378,7 +368,6 @@ void draw_dialog_modal(BufManager *bufmgr, Font font) {
                                    "Ctrl + Shift + S : Save As",
                                    "Ctrl + P : Create Folder",
                                    "Ctrl + F : File Manager",
-                                   "CTRL + G : Git Panel",
                                    "",
                                    "--- Tab Management ---",
                                    "Ctrl + T : New Tab",
@@ -408,6 +397,7 @@ void draw_dialog_modal(BufManager *bufmgr, Font font) {
                                    "--- Application ---",
                                    "Ctrl + Q : Exit",
                                    "Ctrl + Shift + Q : Force Close"};
+
         int num_items = sizeof(shortcuts) / sizeof(shortcuts[0]);
         // Line height dinamis mengikuti ukuran font
         float line_height = current_font_size + 6.0f;

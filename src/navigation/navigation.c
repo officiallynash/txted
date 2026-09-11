@@ -14,7 +14,6 @@
 
 #include "buffer.h"
 #include "buffer_manager.h"
-#include "git_client.h"
 #include "lsp_server.h"
 #include "lsp_ui.h"
 #include "notification.h"
@@ -415,12 +414,6 @@ void handle_input(BufManager *bufmgr, Font font) {
             }
         }
 
-        /* -------------------- *
-         * CTRL + G (Git Panel)
-         * -------------------- */
-        if (IsKeyPressed(KEY_G)) {
-            if (!git_popup.open) GitPopup_open();
-        }
         /* -------------------- *
          * CTRL + K (Render Hover LSP)
          * -------------------- */

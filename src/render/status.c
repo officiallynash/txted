@@ -7,7 +7,6 @@
 #include <stdio.h>
 
 #include "buffer.h"
-#include "git_client.h"
 #include "lsp_ui.h"
 #include "result.h"
 #include "theme.h"
@@ -34,29 +33,15 @@ void draw_status(BufManager *bufmgr, Font font) {
         return;
     }
 
-    Color text_color =
-        HAS_FLAG(buf->buf_flags, BUF_IS_DIRTY) ? g_theme.cursor : g_theme.text_normal;
+    const char *text = HAS_FLAG(buf->buf_flags, BUF_IS_DIRTY) ? "[*]" : "";
 
     // Format Teks Kiri
     char left[256] = {0};
-    const char *mark = Git_file_mark(buf->path);
-    if (git.is_repo) {
-        if (mark[0]) {
-            snprintf(left, sizeof(left), "File: %s [%s] | Branch: %s%s ",
-                     buf->filename ? buf->filename : "Untitled", mark, git.branch,
-                     git.has_changes ? "*" : "");
-        } else {
-            snprintf(left, sizeof(left), "File: %s | Branch: %s%s ",
-                     buf->filename ? buf->filename : "Untitled", git.branch,
-                     git.has_changes ? "*" : "");
-        }
-    } else {
-        snprintf(left, sizeof(left), "File: %s ", buf->filename ? buf->filename : "Untitled");
-    }
+    snprintf(left, sizeof(left), "File: %s %s ", buf->filename ? buf->filename : "Untitled", text);
 
     // Render Teks Kiri (Posisi Y Dinamis)
     Vector2 left_pos = {(float)PAD_X, text_y};
-    DrawTextEx(font, left, left_pos, current_font_size, 1.0f, text_color);
+    DrawTextEx(font, left, left_pos, current_font_size, 1.0f, g_theme.text_normal);
 
     // Format Teks Kanan
     char right[128] = {0};
