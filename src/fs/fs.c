@@ -20,14 +20,10 @@
 
 #include "result.h"
 
-/* ===============================
- * PRIVATE API
- * =============================== */
-
 /**
  * Fungsi untuk membuat Folder Recursive [PRIVATE API]
  */
-int Ensure_dir_exists(const char *file_path) {
+static int Ensure_dir_exists(const char *file_path) {
     char path_copy[1024] = {0};
     snprintf(path_copy, sizeof(path_copy), "%s", file_path);
 
@@ -104,10 +100,6 @@ static bool file_exists(const char *path) {
     struct stat st;
     return (stat(path, &st) == 0);
 }
-
-/* ===============================
- * PUBLIC API
- * =============================== */
 
 /**
  * Fungsi untuk mengambil Directory name

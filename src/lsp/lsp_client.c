@@ -28,10 +28,6 @@ float lsp_debounce_timer = 0.0f;  // Debounce
 LspUiState g_lsp_ui = {};
 extern int compare_scores(const void *a, const void *b);  // compare_scores (completion.c)
 
-/* ================================
- * PRIVATE API
- * ================================ */
-
 /**
  * Fungsi Scoring Pintar (Exact Case Bonus + Fuzzy)
  */
@@ -130,9 +126,6 @@ Result lsp_ui_init(const char *lsp_path, char **argv) {
         return Ok("LSP Berhasil di Inisiasi!");
     }
 }
-/* ====================================
- * PUBLIC API
- * ==================================== */
 
 /**
  * Fungsi untuk Ensure Root URI [PUBLIC API]

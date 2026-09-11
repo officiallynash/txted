@@ -199,18 +199,22 @@ FileNode *FileNode_build(const char *rootpath, const char *name) {
 
 /**
  * Fungsi untuk Draw File List recursive
+ * Disesuaikan agar tinggi item, indentasi, dan posisi vertikal fleksibel terhadap ukuran font
+ * dinamis.
  */
 static void draw_file_node_recursive(FileNode *node, Font font, EditorLayout L, int depth,
                                      float *current_y, Vector2 mouse_pos, BufManager *bufmgr) {
     if (!node) return;
 
-    float item_h = 22.0f;
+    float current_font_size = (float)font.baseSize;
+    // Item height disesuaikan dengan tinggi font ditambah vertical padding
+    float item_h = current_font_size + 6.0f;
     float item_y = *current_y - g_fm_scroll_y;
     float indent = depth * 14.0f + 12.0f;
 
-    Rectangle item_bounds = {(float)L.fm_x + 4, item_y, (float)L.fm_w - 8, item_h};
+    Rectangle item_bounds = {(float)L.fm_x + 4.0f, item_y, (float)L.fm_w - 8.0f, item_h};
 
-    float visible_top = L.fm_y + 32.0f;
+    float visible_top = L.fm_y + current_font_size + 16.0f;
     float visible_bottom = L.fm_y + L.fm_h;
 
     if (item_y + item_h > visible_top && item_y < visible_bottom) {
@@ -272,8 +276,10 @@ static void draw_file_node_recursive(FileNode *node, Font font, EditorLayout L, 
         else if (mark[0] == 'x')
             text_color = g_theme.text_muted;
 
-        Vector2 text_pos = {(float)L.fm_x + indent, item_y + 2.0f};
-        DrawTextEx(font, label, text_pos, FONT_SIZE, 1.0f, text_color);
+        // Posisi Y diselaraskan secara vertikal tepat di tengah baris item
+        float text_y = item_y + (item_h - current_font_size) / 2.0f;
+        Vector2 text_pos = {(float)L.fm_x + indent, text_y};
+        DrawTextEx(font, label, text_pos, current_font_size, 1.0f, text_color);
     }
 
     *current_y += item_h;
@@ -288,9 +294,12 @@ static void draw_file_node_recursive(FileNode *node, Font font, EditorLayout L, 
 
 /**
  * Fungsi untuk Draw atau Render utama [PUBLIC API]
+ * Layout header, scissor height, dan scroll calculation disinkronkan dengan font dinamis.
  */
 void draw_file_manager(BufManager *bufmgr, Font font) {
     if (!bufmgr || !HAS_FLAG(bufmgr->win_flags, TXTED_SHOW_FM)) return;
+
+    float current_font_size = (float)font.baseSize;
 
     const char *wanted = bufmgr->path_root;
     if (wanted && wanted[0] && strcmp(g_loaded_root_path, wanted) != 0) {
@@ -302,11 +311,9 @@ void draw_file_manager(BufManager *bufmgr, Font font) {
         strncpy(g_loaded_root_path, wanted, sizeof(g_loaded_root_path) - 1);
         g_loaded_root_path[sizeof(g_loaded_root_path) - 1] = '\0';
 
-        // Ambil nama folder terakhir untuk display
         const char *folder_name = strrchr(wanted, '/');
         folder_name = folder_name ? folder_name + 1 : wanted;
 
-        // PENTING: path absolut, bukan "."
         g_fm_root = FileNode_build(wanted, folder_name);
         g_fm_scroll_y = 0.0f;
     }
@@ -317,7 +324,7 @@ void draw_file_manager(BufManager *bufmgr, Font font) {
             strncpy(g_loaded_root_path, cwd, sizeof(g_loaded_root_path) - 1);
             const char *folder_name = strrchr(cwd, '/');
             folder_name = folder_name ? folder_name + 1 : cwd;
-            g_fm_root = FileNode_build(cwd, folder_name);  // absolut
+            g_fm_root = FileNode_build(cwd, folder_name);
         }
     }
 
@@ -327,16 +334,19 @@ void draw_file_manager(BufManager *bufmgr, Font font) {
     DrawRectangle(L.fm_x, L.fm_y, L.fm_w, L.fm_h, g_theme.bg_sidebar);
     DrawLine(L.fm_x + L.fm_w - 1, L.fm_y, L.fm_x + L.fm_w - 1, L.fm_y + L.fm_h, g_theme.border);
 
-    DrawTextEx(font, "FILE EXPLORER", (Vector2){(float)(L.fm_x + 12), (float)(L.fm_y + 8)},
-               FONT_SIZE, 1.0f, g_theme.cursor);
+    // Header "FILE EXPLORER" menyesuaikan ukuran font
+    float header_h = current_font_size + 16.0f;
+    float header_text_y = L.fm_y + (header_h - current_font_size) / 2.0f;
+    DrawTextEx(font, "FILE EXPLORER", (Vector2){(float)(L.fm_x + 12), header_text_y},
+               current_font_size, 1.0f, g_theme.cursor);
 
     Rectangle fm_rect = {(float)L.fm_x, (float)L.fm_y, (float)L.fm_w,
                          (float)(L.fm_h - DIAG_PANEL_H)};
 
-    // Batasi ScissorMode agar tree view tidak menimpa panel workspace info di bawah
-    float content_start_y = L.fm_y + 32.0f;
+    // Scissor offset dan height menyesuaikan tinggi header secara dinamis
+    float content_start_y = L.fm_y + header_h;
     float current_y = content_start_y;
-    int scissor_h = L.fm_h - 32 - DIAG_PANEL_H;
+    int scissor_h = L.fm_h - (int)header_h - DIAG_PANEL_H;
 
     if (scissor_h > 0) {
         BeginScissorMode(L.fm_x, (int)content_start_y, L.fm_w - 1, scissor_h);
@@ -363,7 +373,8 @@ void draw_file_manager(BufManager *bufmgr, Font font) {
     if (CheckCollisionPointRec(mouse_pos, fm_rect) && !Is_active_menu()) {
         float wheel = GetMouseWheelMove();
         if (wheel != 0) {
-            g_fm_scroll_y -= wheel * 22.0f;
+            // Kecepatan scroll fleksibel mengikuti tinggi font
+            g_fm_scroll_y -= wheel * (current_font_size * 1.5f);
             if (g_fm_scroll_y < 0.0f) g_fm_scroll_y = 0.0f;
         }
     }
@@ -371,7 +382,7 @@ void draw_file_manager(BufManager *bufmgr, Font font) {
     // Render Custom Scrollbar Indicator (Visual Bar Samping Kanan Sidebar)
     if (max_scroll > 0) {
         float thumb_h = (view_h / total_content_h) * view_h;
-        if (thumb_h < 14.0f) thumb_h = 14.0f;  // Batas tinggi minimum scrollbar
+        if (thumb_h < 14.0f) thumb_h = 14.0f;
 
         float thumb_y = content_start_y + (g_fm_scroll_y / max_scroll) * (view_h - thumb_h);
         Rectangle scrollbar_rect = {(float)(L.fm_x + L.fm_w - 6), thumb_y, 4.0f, thumb_h};

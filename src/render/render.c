@@ -21,10 +21,6 @@
 #include "theme.h"
 #include "ui.h"
 
-/* ===================================
- * PRIVATE API
- * =================================== */
-
 /**
  * Struct untuk bracket matching
  */
@@ -37,7 +33,7 @@ typedef struct {
 /**
  * Fungsi untuk expands Tab
  */
-void expand_tabs(const char *src, char *dst, size_t dst_size, int tab_size) {
+static void expand_tabs(const char *src, char *dst, size_t dst_size, int tab_size) {
     size_t j = 0;
     for (size_t i = 0; src[i] != '\0' && j < dst_size - 1; i++) {
         if (src[i] == '\t') {
@@ -76,11 +72,12 @@ static Color Get_token_color(const char *capture_name) {
 /**
  * Fungsi utama untuk menggambar baris dengan highlight
  */
-void Draw_line_highlighted(Font font, const char *line_text, Vector2 pos, HighlightToken *tokens,
-                           int token_count, size_t line_start_byte) {
+static void Draw_line_highlighted(Font font, const char *line_text, Vector2 pos,
+                                  HighlightToken *tokens, int token_count, size_t line_start_byte) {
     size_t len = strlen(line_text);
     float current_x = pos.x;
-    float space_w = MeasureTextEx(font, " ", FONT_SIZE, 1.0f).x;
+    float current_font_size = (float)font.baseSize;
+    float space_w = MeasureTextEx(font, " ", current_font_size, 1.0f).x;
     int col_visual = 0;
 
     for (size_t i = 0; i < len; i++) {
@@ -102,8 +99,8 @@ void Draw_line_highlighted(Font font, const char *line_text, Vector2 pos, Highli
             col_visual += spaces;
         } else {
             char chunk[2] = {line_text[i], '\0'};
-            DrawTextEx(font, chunk, (Vector2){current_x, pos.y}, FONT_SIZE, 1.0f, color);
-            current_x += MeasureTextEx(font, chunk, FONT_SIZE, 1.0f).x;
+            DrawTextEx(font, chunk, (Vector2){current_x, pos.y}, current_font_size, 1.0f, color);
+            current_x += MeasureTextEx(font, chunk, current_font_size, 1.0f).x;
             col_visual++;
         }
     }
@@ -112,7 +109,7 @@ void Draw_line_highlighted(Font font, const char *line_text, Vector2 pos, Highli
 /**
  * Fungsi untuk mencari Bracket
  */
-void find_matching_brackets(Buffer *buf, BracketMatch *b1, BracketMatch *b2) {
+static void find_matching_brackets(Buffer *buf, BracketMatch *b1, BracketMatch *b2) {
     b1->found = false;
     b2->found = false;
 
@@ -224,7 +221,8 @@ static float get_text_column_x(Font font, const char *text, size_t target_col, f
     if (target_col > len) target_col = len;
 
     float current_x = start_x;
-    float space_w = MeasureTextEx(font, " ", FONT_SIZE, 1.0f).x;
+    float current_font_x = (float)font.baseSize;  // <-- Gunakan ini
+    float space_w = MeasureTextEx(font, " ", current_font_x, 1.0f).x;
     int col_visual = 0;
 
     for (size_t i = 0; i < target_col; i++) {
@@ -234,18 +232,14 @@ static float get_text_column_x(Font font, const char *text, size_t target_col, f
             col_visual += spaces;
         } else {
             char ch[2] = {text[i], '\0'};
-            current_x += MeasureTextEx(font, ch, FONT_SIZE, 1.0f).x;
+            // PERBAIKAN: Gunakan current_font_x
+            current_x += MeasureTextEx(font, ch, current_font_x, 1.0f).x;
             col_visual++;
         }
     }
 
     return current_x;
 }
-
-/* ===============================
- * PUBLIC API
- * =============================== */
-
 /**
  * Fungsi untuk Draw main Editor
  */
@@ -253,6 +247,7 @@ void draw_editor(BufManager *bufmgr, Font font) {
     Buffer *buf = BufManager_getactive(bufmgr);  // Active buffer
     if (!buf) return;
 
+    float current_font_x = (float)font.baseSize;
     size_t rope_len = String_len(buf->str);
     EditorLayout Layout = get_editor_layout(bufmgr);  // Ambil layout
 
@@ -309,8 +304,8 @@ void draw_editor(BufManager *bufmgr, Font font) {
 
         // Active line
         if (y == buf->cursor.y) {
-            DrawRectangle(Layout.editor_x + GUTTER_W, py - 4, Layout.editor_w - GUTTER_W, LINE_H,
-                          g_theme.active_line);
+            DrawRectangle(Layout.editor_x + GUTTER_W, py, Layout.editor_w - GUTTER_W,
+                          current_font_x + 2, g_theme.active_line);
         }
 
         /* ------------------------------------------------------------- *
@@ -338,7 +333,7 @@ void draw_editor(BufManager *bufmgr, Font font) {
         snprintf(num_str, sizeof(num_str), "%4zu", y + 1);
         Color num_color = (y == buf->cursor.y) ? g_theme.line_num : g_theme.text_muted;
         Vector2 num_pos = {(float)(Layout.editor_x + PAD_X - 8), (float)py};
-        DrawTextEx(font, num_str, num_pos, FONT_SIZE, 1.0f, num_color);
+        DrawTextEx(font, num_str, num_pos, current_font_x, 1.0f, num_color);
 
         /* Teks Editor */
         char *text = Buffer_get_line_text(buf, y);
@@ -384,12 +379,13 @@ void draw_editor(BufManager *bufmgr, Font font) {
 
                     // Tambah ekstra lebar 8px jika seleksi mencakup newline (pindah baris)
                     if (sel_end >= line_end && y + 1 < buf->lines.line_count) {
-                        float space_w = MeasureTextEx(font, " ", FONT_SIZE, 1.0f).x;
+                        float space_w = MeasureTextEx(font, " ", current_font_x, 1.0f).x;
                         x2 += space_w;
                     }
 
                     if (x2 > x1) {
-                        DrawRectangle((int)x1, py - 4, (int)(x2 - x1), LINE_H, g_theme.selection);
+                        DrawRectangle((int)x1, py - 4, (int)(x2 - x1), (int)current_font_x + 2,
+                                      g_theme.selection);
                     }
                 }
             }
@@ -399,12 +395,12 @@ void draw_editor(BufManager *bufmgr, Font font) {
              * ----------------------------- */
             if (b1.found && b2.found) {
                 Color match_bg = (Color){255, 255, 255, 35};
-                float space_w = MeasureTextEx(font, " ", FONT_SIZE, 1.0f).x;
+                float space_w = MeasureTextEx(font, " ", current_font_x, 1.0f).x;
 
                 // Cek Kurung Pertama (b1)
                 if (y == b1.y) {
                     float x1 = get_text_column_x(font, text, b1.x, (float)text_x);
-                    Rectangle r1 = {x1, (float)py - 2, space_w, (float)LINE_H};
+                    Rectangle r1 = {x1, (float)py, space_w, (float)LINE_H};
                     DrawRectangleRounded(r1, 0.2f, 4, match_bg);
                     DrawRectangleRoundedLines(r1, 0.2f, 4, g_theme.keyword);
                 }
@@ -413,7 +409,7 @@ void draw_editor(BufManager *bufmgr, Font font) {
                 // dua-duanya
                 if (y == b2.y) {
                     float x2 = get_text_column_x(font, text, b2.x, (float)text_x);
-                    Rectangle r2 = {x2, (float)py - 2, space_w, (float)LINE_H};
+                    Rectangle r2 = {x2, (float)py, space_w, (float)LINE_H};
                     DrawRectangleRounded(r2, 0.2f, 4, match_bg);
                     DrawRectangleRoundedLines(r2, 0.2f, 4, g_theme.keyword);
                 }
@@ -439,8 +435,8 @@ void draw_editor(BufManager *bufmgr, Font font) {
 
                         float line_w = get_text_column_x(font, expanded_text, strlen(expanded_text),
                                                          (float)text_x);
-                        DrawTextEx(font, ghost_str, (Vector2){line_w + 32.0f, (float)py}, FONT_SIZE,
-                                   1.0f, g_theme.text_muted);
+                        DrawTextEx(font, ghost_str, (Vector2){line_w + 32.0f, (float)py},
+                                   current_font_x, 1.0f, g_theme.text_muted);
                     }
                 }
             }
@@ -482,10 +478,11 @@ void draw_editor(BufManager *bufmgr, Font font) {
                             }
 
                             // Gambar garis bawah tipis tepat di bawah teks
-                            int line_y = py + FONT_SIZE + 1;  // + 1 aja kali ya biar ga ada jarak
+                            int line_y =
+                                py + (int)current_font_x + 1;  // + 1 aja kali ya biar ga ada jarak
                             int line_w = (int)(x2 - x1);
                             if (line_w <= 0)
-                                line_w = (int)MeasureTextEx(font, " ", FONT_SIZE, 1.0f).x;
+                                line_w = (int)MeasureTextEx(font, " ", current_font_x, 1.0f).x;
 
                             DrawRectangle((int)x1, line_y, line_w, 1, diag_color);
                         }
@@ -513,7 +510,7 @@ void draw_editor(BufManager *bufmgr, Font font) {
             if (target_x > clen) target_x = clen;
 
             // Hitung koordinat X kursor secara presisi per-byte
-            float space_w = MeasureTextEx(font, " ", FONT_SIZE, 1.0f).x;
+            float space_w = MeasureTextEx(font, " ", current_font_x, 1.0f).x;
             int col_visual = 0;
 
             for (size_t i = 0; i < target_x; i++) {
@@ -523,7 +520,7 @@ void draw_editor(BufManager *bufmgr, Font font) {
                     col_visual += spaces;
                 } else {
                     char ch[2] = {cur[i], '\0'};
-                    cx_float += MeasureTextEx(font, ch, FONT_SIZE, 1.0f).x;
+                    cx_float += MeasureTextEx(font, ch, current_font_x, 1.0f).x;
                     col_visual++;
                 }
             }
@@ -534,10 +531,10 @@ void draw_editor(BufManager *bufmgr, Font font) {
         int cy = Layout.editor_y + PAD_Y + (int)(buf->cursor.y - first) * LINE_H;
 
         int cursor_w = 2;
-        int cursor_h = FONT_SIZE + 2;
+        int cursor_h = (int)current_font_x + 2;
 
         if (((int)(GetTime() * 1.5f) % 2) == 0) {
-            DrawRectangle(cx, cy - 4, cursor_w, cursor_h, g_theme.cursor);
+            DrawRectangle(cx, cy, cursor_w, cursor_h, g_theme.cursor);
         }
     }
 

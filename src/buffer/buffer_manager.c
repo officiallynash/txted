@@ -22,7 +22,7 @@
 /**
  * Fungsi internal untuk Pindah Folder ke Workspace [PRIVATE API]
  */
-void BufManager_set_workspace(BufManager *bufmgr, const char *any_path) {
+static void BufManager_set_workspace(BufManager *bufmgr, const char *any_path) {
     if (!bufmgr || !any_path) return;
 
     // Cari root dari project workspace

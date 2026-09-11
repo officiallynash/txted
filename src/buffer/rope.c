@@ -15,10 +15,6 @@ constexpr size_t MAX_SIZE_LEAF = 1024;  // Perubahan jadi constexpr agar aman da
 String *String_new();                   // Register awal
 size_t String_len(String *str);         // Register Awal
 
-/* ================================
- * PRIVATE API
- * ================================ */
-
 /**
  * Struct pembungkus untuk Rope (String)
  * Sengaja di Private karena ini inti dari Manipulasi teks di Buffer
@@ -189,10 +185,6 @@ static void String_collect(String *str, size_t start, size_t len, unsigned char 
         String_collect(str->right, start - str->weight, len, buffer, offset);
     }
 }
-
-/* ==========================
- * PUBLIC API
- * ========================== */
 
 /**
  * Fungsi untuk mengetahui panjang String [PUBLIC API]

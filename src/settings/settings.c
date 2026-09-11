@@ -86,7 +86,7 @@ void Settings_apply(BufManager *bufmgr, Font *font) {
     char *home = getenv("HOME");
     snprintf(font_path, sizeof(font_path), "%s/.config/txted/settings/fonts/%s", home,
              default_settings.font);
-    *font = LoadFontEx(font_path, FONT_SIZE, NULL, 0);
+    *font = LoadFontEx(font_path, FONT_SIZE, nullptr, 0);
 
     Theme_init(default_settings.theme);  // Init Theme
     SetTextureFilter(font->texture, TEXTURE_FILTER_POINT);

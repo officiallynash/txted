@@ -43,6 +43,7 @@ void render_all_ui(BufManager *bufmgr, Font font) {
     Notif_draw(bufmgr, font);
 }
 
+// Pintu masuk aplikasi
 int main(int argc, char *argv[]) {
     // State agar auto keluar ketika launch dari terminal
 #if defined(__linux__)

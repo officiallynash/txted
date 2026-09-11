@@ -22,12 +22,43 @@ extern int compare_scores(const void *a,
                           const void *b);     // Menghitung compare_scores (completion.c)
 extern void lsp_clear_all_diagnostics(void);  // Clear Diagnostic [lsp_client.c]
 
+// Helper internal
+static float get_lsp_cursor_x(Font font, Buffer *buf, float text_x) {
+    if (!buf) return text_x;
+    char *line_text = Buffer_get_line_text(buf, buf->cursor.y);
+    if (!line_text) return text_x;
+
+    float current_x = text_x;
+    float current_font_x = (float)font.baseSize;  // Dinamis mengikuti font
+    float space_w = MeasureTextEx(font, " ", current_font_x, 1.0f).x;
+    size_t target_col = buf->cursor.x;
+    size_t len = strlen(line_text);
+    if (target_col > len) target_col = len;
+
+    int col_visual = 0;
+    for (size_t i = 0; i < target_col; i++) {
+        if (line_text[i] == '\t') {
+            int spaces = 4 - (col_visual % 4);
+            current_x += space_w * spaces;
+            col_visual += spaces;
+        } else {
+            char ch[2] = {line_text[i], '\0'};
+            current_x += MeasureTextEx(font, ch, current_font_x, 1.0f).x;
+            col_visual++;
+        }
+    }
+
+    free(line_text);
+    return current_x;
+}
+
 /**
  * Fungsi untuk draw atau render Diagnostic [PUBLIC API]
  */
 void draw_diagnostic_bar(BufManager *bufmgr, Font font) {
     EditorLayout Layout = get_editor_layout(bufmgr);
     int panel_y = Layout.win_h - STATUS_H - DIAG_PANEL_H;
+    float current_font_x = (float)font.baseSize;
 
     // Geser X ke Layout.editor_x dan gunakan lebar Layout.editor_w
     DrawRectangle(Layout.editor_x, panel_y, Layout.editor_w, DIAG_PANEL_H, g_theme.bg_sidebar);
@@ -37,7 +68,7 @@ void draw_diagnostic_bar(BufManager *bufmgr, Font font) {
     Buffer *buf = BufManager_getactive(bufmgr);
     if (!buf) {
         Vector2 pos = {(float)(Layout.editor_x + PAD_X), (float)(panel_y + 4)};
-        DrawTextEx(font, "No diagnostics", pos, FONT_SIZE, 1.0f, g_theme.comment);
+        DrawTextEx(font, "No diagnostics", pos, current_font_x, 1.0f, g_theme.comment);
         return;
     }
 
@@ -56,7 +87,7 @@ void draw_diagnostic_bar(BufManager *bufmgr, Font font) {
         }
 
         Vector2 pos = {(float)(Layout.editor_x + PAD_X), (float)(panel_y + 4)};
-        DrawTextEx(font, "No diagnostics", pos, FONT_SIZE, 1.0f, g_theme.comment);
+        DrawTextEx(font, "No diagnostics", pos, current_font_x, 1.0f, g_theme.comment);
         return;
     }
 
@@ -78,7 +109,7 @@ void draw_diagnostic_bar(BufManager *bufmgr, Font font) {
 
     Vector2 pos = {(float)(Layout.editor_x + PAD_X), (float)(panel_y + 4)};
 
-    DrawTextEx(font, msg, pos, FONT_SIZE, 1.0f, color);
+    DrawTextEx(font, msg, pos, current_font_x, 1.0f, color);
 }
 
 /**
@@ -123,13 +154,13 @@ void render_lsp_completion_ui(BufManager *bufmgr, Font font) {
     }
 
     // HITUNG LEBAR DINAMIS (BACA DARI FILTERED)
-    float char_w = MeasureTextEx(font, "A", FONT_SIZE, 1.0f).x;
+    float current_font_x = (float)font.baseSize;
     float max_label_width = 150.0f;
 
     for (int i = 0; i < total_items; i++) {
         const char *label = filtered[i].item->label;
         if (label) {
-            float text_w = MeasureTextEx(font, label, FONT_SIZE, 1.0f).x;
+            float text_w = MeasureTextEx(font, label, current_font_x, 1.0f).x;
             if (text_w > max_label_width) {
                 max_label_width = text_w;
             }
@@ -141,10 +172,10 @@ void render_lsp_completion_ui(BufManager *bufmgr, Font font) {
     if (box_w > max_box_w) box_w = max_box_w;
 
     // HITUNG POSISI KURSOR & KOTAK
-    float cursor_screen_x = Layout.text_screen_x + (buf->cursor.x * char_w);
+    float cursor_screen_x = get_lsp_cursor_x(font, buf, (float)Layout.text_screen_x);
     float cursor_screen_y = Layout.editor_y + PAD_Y + ((int)buf->cursor.y - buf->scroll_y) * LINE_H;
 
-    float item_h = 24.0f;
+    float item_h = current_font_x + 8.0f;
     int max_visible = 7;
     int display_count = total_items > max_visible ? max_visible : total_items;
     float box_h = (display_count * item_h) + 12.0f;
@@ -196,14 +227,19 @@ void render_lsp_completion_ui(BufManager *bufmgr, Font font) {
         const CompletionItem *it = filtered[item_idx].item;
         const char *label = it->label ? it->label : "(null)";
 
+        // Hitung Y dasar tiap item slot
         float item_y = box.y + 6.0f + (i * item_h);
 
+        // Render Background Active Item (Full height item_h biar inline & rapi)
         if (item_idx == g_lsp_ui.selected_index) {
             Rectangle item_bg = {box.x + 4, item_y, box.width - 8, item_h};
-            DrawRectangleRounded(item_bg, 0.1f, 4, g_theme.border);
+            DrawRectangleRounded(item_bg, 0.15f, 4, g_theme.border);
         }
 
-        DrawTextEx(font, label, (Vector2){box.x + 10, item_y + 3}, FONT_SIZE, 1.0f, WHITE);
+        // Hitung posisi Y teks agar terpusat secara vertikal tepat di tengah background item_bg
+        float text_y = item_y + (item_h - current_font_x) / 2.0f;
+
+        DrawTextEx(font, label, (Vector2){box.x + 10, text_y}, current_font_x, 1.0f, WHITE);
     }
 
     EndScissorMode();
@@ -239,8 +275,6 @@ void render_signature_help(BufManager *bufmgr, Font font) {
             int start_idx = p->start;
             int end_idx = p->end;
 
-            // Jika LSP mengirim end_idx yang invalid/di luar batas, cari koma atau kurung
-            // berikutnya
             if (end_idx <= start_idx || end_idx > label_len) {
                 const char *comma = strchr(sig->label + start_idx, ',');
                 const char *close_paren = strchr(sig->label + start_idx, ')');
@@ -276,42 +310,40 @@ void render_signature_help(BufManager *bufmgr, Font font) {
         }
     }
 
-    // Jika tidak ada active param yang valid, anggap seluruh label adalah prefix
     if (!has_active_param) {
         snprintf(prefix_str, sizeof(prefix_str), "%s", sig->label);
     }
 
+    float current_font_x = (float)font.baseSize;
+
     // HITUNG LEBAR PRESISI DARI 3 POTONGAN TEKS
-    float prefix_w = MeasureTextEx(font, prefix_str, FONT_SIZE, 1.0f).x;
-    float param_w = has_active_param ? MeasureTextEx(font, param_str, FONT_SIZE, 1.0f).x : 0.0f;
-    float suffix_w = has_active_param ? MeasureTextEx(font, suffix_str, FONT_SIZE, 1.0f).x : 0.0f;
+    float prefix_w = MeasureTextEx(font, prefix_str, current_font_x, 1.0f).x;
+    float param_w =
+        has_active_param ? MeasureTextEx(font, param_str, current_font_x, 1.0f).x : 0.0f;
+    float suffix_w =
+        has_active_param ? MeasureTextEx(font, suffix_str, current_font_x, 1.0f).x : 0.0f;
 
-    // Total lebar kotak dihitung dari akumulasi aktual + Padding
+    // TOTAL LEBAR & TINGGI DINAMIS KOTAK
     float total_text_w = prefix_w + param_w + suffix_w;
-    float box_w = total_text_w + 20.0f;  // 10px padding kiri & kanan
-    float box_h = 26.0f;
+    float box_w = total_text_w + 20.0f;    // 10px padding kanan-kiri
+    float box_h = current_font_x + 12.0f;  // Skala tinggi dinamis mengikuti font
 
-    //  KOREKSI POSISI POPUP (X & Y)
-    float char_w = MeasureTextEx(font, "A", FONT_SIZE, 1.0f).x;
-    float cursor_x = Layout.text_screen_x + (buf->cursor.x * char_w);
+    // KOREKSI POSISI POPUP (X & Y)
+    float cursor_x = get_lsp_cursor_x(font, buf, (float)Layout.text_screen_x);
     float cursor_y = Layout.editor_y + PAD_Y + ((int)buf->cursor.y - buf->scroll_y) * LINE_H;
 
     float box_y;
 
-    // Kalau completion sedang tampil, siganture taruh di sisi lawan
     if (HAS_FLAG(g_lsp_ui.lsp_flag, LSP_VISIBLE) && HAS_FLAG(g_lsp_ui.lsp_flag, LSP_HAS_COMP)) {
         if (g_lsp_ui.completion_side == POPUP_BELOW) {
-            // Completion di bawah berarti signature di atas
             box_y = cursor_y - box_h - 4.0f;
             g_lsp_ui.signature_side = POPUP_ABOVE;
 
-            // Kalau tidak muat di atas, Ya ikut di bawah HAHAHAHA
             if (box_y < TAB_H + 4.0f) {
                 box_y = cursor_y + LINE_H + 4.0f;
                 g_lsp_ui.signature_side = POPUP_BELOW;
             }
         } else {
-            // Completion di atas berarti signature di bawah
             box_y = cursor_y + LINE_H + 4.0f;
             g_lsp_ui.signature_side = POPUP_BELOW;
 
@@ -321,7 +353,6 @@ void render_signature_help(BufManager *bufmgr, Font font) {
             }
         }
     } else {
-        // Tidak ada completion, signature prefer atas (seperti VS Code)
         box_y = cursor_y - box_h - 4.0f;
         g_lsp_ui.signature_side = POPUP_ABOVE;
 
@@ -348,26 +379,30 @@ void render_signature_help(BufManager *bufmgr, Font font) {
     DrawRectangleRounded(box, 0.15f, 4, g_theme.bg_card);
     DrawRectangleRoundedLines(box, 0.15f, 4, g_theme.border);
 
-    // RENDER TEKS & HIGHLIGHT BACKGROUND PARAMETER
+    // KALKULASI VERTICAL CENTER UNTUK TEKS
     float start_text_x = box_x + 10.0f;
-    float text_y = box_y + 4.0f;
+    float text_y = box_y + (box_h - current_font_x) / 2.0f;  // Center vertikal presisi
 
-    // Render Prefix (Warna Muted/Normal)
-    DrawTextEx(font, prefix_str, (Vector2){start_text_x, text_y}, FONT_SIZE, 1.0f,
+    // Render Prefix
+    DrawTextEx(font, prefix_str, (Vector2){start_text_x, text_y}, current_font_x, 1.0f,
                g_theme.text_normal);
 
     if (has_active_param) {
         float active_x = start_text_x + prefix_w;
 
-        // Draw Pill/Highlight Box di belakang active parameter (Bikin makin Kelihatan!)
-        Rectangle param_bg = {active_x - 2.0f, text_y - 1.0f, param_w + 4.0f, FONT_SIZE + 2.0f};
+        // Pill background active parameter di-center terhadap text_y
+        float pill_h = current_font_x + 2.0f;
+        float pill_y = text_y - 1.0f;
+        Rectangle param_bg = {active_x - 2.0f, pill_y, param_w + 4.0f, pill_h};
         DrawRectangleRounded(param_bg, 0.2f, 4, g_theme.active_line);
 
-        // Draw Active Parameter Text (Warna Terang/Highlight)
-        DrawTextEx(font, param_str, (Vector2){active_x, text_y}, FONT_SIZE, 1.0f, g_theme.cursor);
+        // Render Active Parameter Text
+        DrawTextEx(font, param_str, (Vector2){active_x, text_y}, current_font_x, 1.0f,
+                   g_theme.cursor);
 
+        // Render Suffix
         float suffix_x = active_x + param_w;
-        DrawTextEx(font, suffix_str, (Vector2){suffix_x, text_y}, FONT_SIZE, 1.0f,
+        DrawTextEx(font, suffix_str, (Vector2){suffix_x, text_y}, current_font_x, 1.0f,
                    g_theme.text_normal);
     }
 }
@@ -386,10 +421,10 @@ void render_hover_ui(BufManager *bufmgr, Font font) {
     EditorLayout Layout = get_editor_layout(bufmgr);
 
     const char *text = g_lsp_ui.hover.contents;
-    float char_w = MeasureTextEx(font, "A", FONT_SIZE, 1.0f).x;
+    float current_font_x = (float)font.baseSize;
 
     // Posisi kursor di layar
-    float cursor_x = Layout.text_screen_x + (buf->cursor.x * char_w);
+    float cursor_x = get_lsp_cursor_x(font, buf, (float)Layout.text_screen_x);
     float cursor_y = Layout.editor_y + PAD_Y + ((int)buf->cursor.y - buf->scroll_y) * LINE_H;
 
     float max_box_w = Layout.win_w * 0.5f;
@@ -413,7 +448,7 @@ void render_hover_ui(BufManager *bufmgr, Font font) {
         raw_line[len] = '\0';
 
         if (strncmp(raw_line, "```", 3) != 0) {
-            float line_w = MeasureTextEx(font, raw_line, FONT_SIZE, 1.0f).x;
+            float line_w = MeasureTextEx(font, raw_line, current_font_x, 1.0f).x;
             if (line_w <= usable_w) {
                 if (line_w > max_measured_w) max_measured_w = line_w;
                 total_visual_lines++;
@@ -431,9 +466,9 @@ void render_hover_ui(BufManager *bufmgr, Font font) {
                         snprintf(test_buf, sizeof(test_buf), "%s", word);
                     }
 
-                    if (MeasureTextEx(font, test_buf, FONT_SIZE, 1.0f).x > usable_w) {
+                    if (MeasureTextEx(font, test_buf, current_font_x, 1.0f).x > usable_w) {
                         if (strlen(current_wrap) > 0) {
-                            float w = MeasureTextEx(font, current_wrap, FONT_SIZE, 1.0f).x;
+                            float w = MeasureTextEx(font, current_wrap, current_font_x, 1.0f).x;
                             if (w > max_measured_w) max_measured_w = w;
                             total_visual_lines++;
                             snprintf(current_wrap, sizeof(current_wrap), "%s", word);
@@ -449,7 +484,7 @@ void render_hover_ui(BufManager *bufmgr, Font font) {
 
                 free(temp_line);  // Free clone string
                 if (strlen(current_wrap) > 0) {
-                    float w = MeasureTextEx(font, current_wrap, FONT_SIZE, 1.0f).x;
+                    float w = MeasureTextEx(font, current_wrap, current_font_x, 1.0f).x;
                     if (w > max_measured_w) max_measured_w = w;
                     total_visual_lines++;
                 }
@@ -467,7 +502,7 @@ void render_hover_ui(BufManager *bufmgr, Font font) {
     if (box_w > max_box_w) box_w = max_box_w;
     if (box_w < 160.0f) box_w = 160.0f;
 
-    float line_h = FONT_SIZE + 4.0f;
+    float line_h = current_font_x + 4.0f;
     float content_h = (total_visual_lines * line_h) + 16.0f;
     float max_box_h = Layout.win_h * 0.35f;
     float box_h = content_h > max_box_h ? max_box_h : content_h;
@@ -517,12 +552,12 @@ void render_hover_ui(BufManager *bufmgr, Font font) {
         raw_line[len] = '\0';
 
         if (strncmp(raw_line, "```", 3) != 0) {
-            float line_w = MeasureTextEx(font, raw_line, FONT_SIZE, 1.0f).x;
+            float line_w = MeasureTextEx(font, raw_line, current_font_x, 1.0f).x;
             float draw_usable = box_w - (padding_x * 2.0f) - 6.0f;
 
             if (line_w <= draw_usable) {
                 if (ty + line_h >= y && ty <= y + box_h) {
-                    DrawTextEx(font, raw_line, (Vector2){x + padding_x, ty}, FONT_SIZE, 1.0f,
+                    DrawTextEx(font, raw_line, (Vector2){x + padding_x, ty}, current_font_x, 1.0f,
                                g_theme.text_normal);
                 }
                 ty += line_h;
@@ -540,17 +575,17 @@ void render_hover_ui(BufManager *bufmgr, Font font) {
                         snprintf(test_buf, sizeof(test_buf), "%s", word);
                     }
 
-                    if (MeasureTextEx(font, test_buf, FONT_SIZE, 1.0f).x > draw_usable) {
+                    if (MeasureTextEx(font, test_buf, current_font_x, 1.0f).x > draw_usable) {
                         if (strlen(current_wrap) > 0) {
                             if (ty + line_h >= y && ty <= y + box_h) {
                                 DrawTextEx(font, current_wrap, (Vector2){x + padding_x, ty},
-                                           FONT_SIZE, 1.0f, g_theme.text_normal);
+                                           current_font_x, 1.0f, g_theme.text_normal);
                             }
                             ty += line_h;
                             snprintf(current_wrap, sizeof(current_wrap), "%s", word);
                         } else {
                             if (ty + line_h >= y && ty <= y + box_h) {
-                                DrawTextEx(font, word, (Vector2){x + padding_x, ty}, FONT_SIZE,
+                                DrawTextEx(font, word, (Vector2){x + padding_x, ty}, current_font_x,
                                            1.0f, g_theme.text_normal);
                             }
                             ty += line_h;
@@ -567,7 +602,7 @@ void render_hover_ui(BufManager *bufmgr, Font font) {
 
                 if (strlen(current_wrap) > 0) {
                     if (ty + line_h >= y && ty <= y + box_h) {
-                        DrawTextEx(font, current_wrap, (Vector2){x + padding_x, ty}, FONT_SIZE,
+                        DrawTextEx(font, current_wrap, (Vector2){x + padding_x, ty}, current_font_x,
                                    1.0f, g_theme.text_normal);
                     }
                     ty += line_h;

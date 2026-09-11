@@ -6,13 +6,23 @@ pub fn build(b: *std.Build) !void {
     const gpa = b.allocator;
     const io = b.graph.io;
 
-    const exe = b.addExecutable(.{ .name = "txted", .root_module = b.createModule(.{ .link_libc = true, .target = target, .optimize = optimize }) });
+    const exe = b.addExecutable(.{
+        .name = "txted",
+        .root_module = b.createModule(.{
+            .link_libc = true,
+            .target = target,
+            .optimize = optimize,
+        }),
+    });
 
     // Scan otomatis semua file .c di folder "src"
     var c_files = try std.ArrayList([]const u8).initCapacity(gpa, 128);
     defer c_files.deinit(gpa);
 
-    var dir = std.Io.Dir.cwd().openDir(io, "src", .{ .iterate = true }) catch unreachable;
+    var dir = std.Io.Dir.cwd().openDir(io, "src", .{
+        .iterate = true,
+    }) catch unreachable;
+
     var walker = dir.walk(b.allocator) catch unreachable;
     defer walker.deinit();
 
@@ -39,6 +49,9 @@ pub fn build(b: *std.Build) !void {
     exe.root_module.linkSystemLibrary("X11", .{});
     exe.root_module.linkSystemLibrary("tree-sitter", .{});
 
+    if (optimize != .Debug) {
+        exe.root_module.strip = true;
+    }
     b.installArtifact(exe);
 
     const run_cmd = b.addRunArtifact(exe);

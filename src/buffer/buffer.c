@@ -30,10 +30,6 @@
 extern void sync_cursor_line_from_pos(Buffer *buf);  // didefinisikan di navigation.c
 extern void lsp_clear_all_diagnostics(void);         // Clear Diagnostic [lsp_client.c]
 
-/* =============================
- * PRIVATE API
- * ============================= */
-
 /**
  * Line Index Init [PRIVATE API]
  */
@@ -53,7 +49,7 @@ LineIndex LineIndex_init() {
 /**
  * Line Index Insert [PRIVATE API]
  */
-void LineIndex_insert(LineIndex *li, const char *data, size_t len) {
+static void LineIndex_insert(LineIndex *li, const char *data, size_t len) {
     if (!li || !li->offset || !data) return;
 
     // Set internal dulu, pastikan kosong
@@ -99,7 +95,7 @@ void Get_selected_position(Buffer *buf, size_t *start, size_t *len) {
 /**
  * Fungsi untuk sinkronisasi tree sitter [PRIVATE API]
  */
-void sync_syntax_tree(Buffer *buf) {
+static void sync_syntax_tree(Buffer *buf) {
     if (!buf || !buf->state) return;
 
     size_t rope_len = String_len(buf->str);
@@ -118,7 +114,7 @@ void sync_syntax_tree(Buffer *buf) {
 /**
  * Helper untuk mengambil Nama file dari Path [PRIVATE API]
  */
-char *get_display_name(const char *filepath) {
+static char *get_display_name(const char *filepath) {
     if (!filepath) return "Untilted";
     const char *slash = strrchr(filepath, '/');
 
@@ -150,7 +146,7 @@ static size_t position_to_offset(Buffer *buf, int line, int character) {
 /**
  * Fungsi untuk Apply Auto Format [PRIVATE API]
  */
-bool lsp_apply_text_edits(Buffer *buf, TextEditList *edits) {
+static bool lsp_apply_text_edits(Buffer *buf, TextEditList *edits) {
     if (!buf || !edits || edits->count == 0) return false;
 
     // Apply dari belakang biar offset tidak bergeser
@@ -240,10 +236,6 @@ static void sync_cursor_coords(Buffer *buf) {
     buf->cursor.y = y;
     buf->cursor.x = buf->cursor.cursor_pos - buf->lines.offset[y];
 }
-
-/* =============================
- * PUBLIC API
- * ============================= */
 
 /**
  * Fungsi untuk mengkonversi path ke URI [PUBLIC API]

@@ -68,7 +68,8 @@ static const char *TruncateText(Font font, const char *text, float max_width, fl
 /**
  * Helper functions untuk open FloatPrompt [PRIVATE API]
  */
-void FloatPrompt_open(FloatPrompt *fp, const char *msg, const char *default_val, int icon_id) {
+static void FloatPrompt_open(FloatPrompt *fp, const char *msg, const char *default_val,
+                             int icon_id) {
     GetKeyPressed();
 
     fp->is_active = true;
@@ -86,12 +87,14 @@ void FloatPrompt_open(FloatPrompt *fp, const char *msg, const char *default_val,
 
 /**
  * Custom input box dengan icon dan clear button [PRIVATE API]
+ * Disesuaikan agar caret & kalkulasi vertikal fleksibel terhadap ukuran font.
  */
 bool GuiCustomInputBox(Rectangle bounds, char *text, int textSize, bool *editMode, int iconId,
                        Font font) {
     float iconSize = 20.0f;
     float padding = 8.0f;
     float clearBtnW = 28.0f;
+    float current_font_size = (float)font.baseSize;
 
     Rectangle textBounds = {bounds.x + iconSize + padding * 2, bounds.y,
                             bounds.width - iconSize - clearBtnW - padding * 3, bounds.height};
@@ -104,7 +107,7 @@ bool GuiCustomInputBox(Rectangle bounds, char *text, int textSize, bool *editMod
 
     if (iconId >= 0) {
         GuiDrawIcon(iconId, (int)(bounds.x + padding),
-                    (int)(bounds.y + (bounds.height - iconSize) / 2), 1, g_theme.text_normal);
+                    (int)(bounds.y + (bounds.height - iconSize) / 2.0f), 1, g_theme.text_normal);
     }
 
     bool enterPressed = false;
@@ -127,14 +130,19 @@ bool GuiCustomInputBox(Rectangle bounds, char *text, int textSize, bool *editMod
         }
     }
 
-    DrawTextEx(font, text,
-               (Vector2){textBounds.x + 2, bounds.y + (bounds.height - FONT_SIZE) / 2.0f},
-               FONT_SIZE, 1.0f, g_theme.text_normal);
+    // Y offset dan Caret disesuaikan menggunakan font.baseSize dinamis
+    float text_y = bounds.y + (bounds.height - current_font_size) / 2.0f;
+
+    DrawTextEx(font, text, (Vector2){textBounds.x + 2.0f, text_y}, current_font_size, 1.0f,
+               g_theme.text_normal);
 
     if (*editMode && ((int)(GetTime() * 1.5f) % 2) == 0) {
-        float caret_x = textBounds.x + 2 + MeasureTextEx(font, text, FONT_SIZE, 1.0f).x;
-        DrawRectangleRec((Rectangle){caret_x, bounds.y + 8.0f, 2.0f, bounds.height - 16.0f},
-                         g_theme.cursor);
+        float text_width = MeasureTextEx(font, text, current_font_size, 1.0f).x;
+        float caret_x = textBounds.x + 2.0f + text_width;
+        float caret_h = current_font_size;
+        float caret_y = bounds.y + (bounds.height - caret_h) / 2.0f;
+
+        DrawRectangleRec((Rectangle){caret_x, caret_y, 2.0f, caret_h}, g_theme.cursor);
     }
 
     if (text[0] != '\0') {
@@ -149,11 +157,16 @@ bool GuiCustomInputBox(Rectangle bounds, char *text, int textSize, bool *editMod
 
 /**
  * Render dan update FloatPrompt [PRIVATE API]
+ * Layout modal, tinggi item suggestion, dan clipping text disinkronkan penuh dengan ukuran font
+ * dinamis.
  */
 char *FloatPrompt_update_and_render(BufManager *bufmgr, FloatPrompt *fp, Font font) {
     if (!fp->is_active) return nullptr;
+
+    float current_font_size = (float)font.baseSize;
+
     GuiSetFont(font);
-    GuiSetStyle(DEFAULT, TEXT_SIZE, FONT_SIZE);
+    GuiSetStyle(DEFAULT, TEXT_SIZE, (int)current_font_size);
 
     if (IsKeyPressed(KEY_ESCAPE)) {
         fp->is_active = false;
@@ -163,7 +176,6 @@ char *FloatPrompt_update_and_render(BufManager *bufmgr, FloatPrompt *fp, Font fo
 
     // HITUNG FUZZY MATCHING (Jika ada items)
     const int MAX_MATCHES = 100;
-
     int matches[MAX_MATCHES];
     size_t match_count = 0;
 
@@ -218,14 +230,15 @@ char *FloatPrompt_update_and_render(BufManager *bufmgr, FloatPrompt *fp, Font fo
 
     EditorLayout layout = get_editor_layout(bufmgr);
 
-    // DIMENSI DINAMIS (Membesar ke bawah jika ada Suggestion)
-    float box_w = 420.0f;
-    float base_h = 90.0f;
-    float item_h = 30.0f;
+    // DIMENSI DINAMIS: Input box & suggestion item menyesuaikan ukuran font
+    float input_h = current_font_size + 16.0f;  // Dynamic height untuk input box
+    float item_h = current_font_size + 12.0f;   // Dynamic height untuk item list
+    float base_h = input_h + current_font_size + 36.0f;
+
+    float box_w = 460.0f;
     int visible_items = (match_count > (size_t)max_visible) ? max_visible : (int)match_count;
     float suggestions_h = visible_items * item_h;
 
-    // Tambah tinggi modal jika ada suggestion
     float box_h = base_h + (match_count > 0 ? suggestions_h + 10.0f : 0.0f);
     Rectangle modal_rect = {(layout.win_w - box_w) / 2.0f, (layout.win_h - box_h) / 3.0f, box_w,
                             box_h};
@@ -242,10 +255,11 @@ char *FloatPrompt_update_and_render(BufManager *bufmgr, FloatPrompt *fp, Font fo
     DrawRectangleRounded(modal_rect, 0.1f, 4, g_theme.bg_card);
     DrawRectangleRoundedLines(modal_rect, 0.1f, 4, g_theme.border);
 
-    Vector2 label_pos = {modal_rect.x + 12, modal_rect.y + 10};
-    DrawTextEx(font, fp->label, label_pos, FONT_SIZE, 1.0f, g_theme.text_normal);
+    Vector2 label_pos = {modal_rect.x + 12.0f, modal_rect.y + 10.0f};
+    DrawTextEx(font, fp->label, label_pos, current_font_size, 1.0f, g_theme.text_normal);
 
-    Rectangle input_rect = {modal_rect.x + 12, modal_rect.y + 36, modal_rect.width - 24, 38.0f};
+    Rectangle input_rect = {modal_rect.x + 12.0f, modal_rect.y + 14.0f + current_font_size,
+                            modal_rect.width - 24.0f, input_h};
 
     bool enter_key_pressed = IsKeyPressed(KEY_ENTER) || IsKeyPressed(KEY_KP_ENTER);
     bool enter_pressed = GuiCustomInputBox(input_rect, fp->input_buf, sizeof(fp->input_buf),
@@ -259,8 +273,8 @@ char *FloatPrompt_update_and_render(BufManager *bufmgr, FloatPrompt *fp, Font fo
             int item_idx = fp->scroll_offset + i;
             if (item_idx >= (int)match_count) break;
 
-            Rectangle item_rect = {modal_rect.x + 12, start_y + (i * item_h), modal_rect.width - 24,
-                                   item_h - 4.0f};
+            Rectangle item_rect = {modal_rect.x + 12.0f, start_y + (i * item_h),
+                                   modal_rect.width - 24.0f, item_h - 2.0f};
             PromptItem *item = &fp->items[matches[item_idx]];
 
             // Check Hover Mouse
@@ -276,19 +290,21 @@ char *FloatPrompt_update_and_render(BufManager *bufmgr, FloatPrompt *fp, Font fo
 
             // Icon Item
             int item_icon = (item->icon_id >= 0) ? item->icon_id : ICON_FILETYPE_TEXT;
-            GuiDrawIcon(item_icon, (int)(item_rect.x + 6), (int)(item_rect.y + 4), 1,
+            GuiDrawIcon(item_icon, (int)(item_rect.x + 6.0f),
+                        (int)(item_rect.y + (item_rect.height - 20.0f) / 2.0f), 1,
                         g_theme.text_normal);
 
-            // Draw Suggestion text
-            float text_x = item_rect.x + 28.0f;
-            float text_y = item_rect.y + 5.0f;
-            // Hitung lebar maksimal teks (dikurangi padding kanan 10px)
-            float max_text_width = item_rect.width - 34.0f;
+            // Draw Suggestion text dengan posisi Y tersinkronisasi
+            float text_x = item_rect.x + 30.0f;
+            float text_y = item_rect.y + (item_rect.height - current_font_size) / 2.0f;
+            float max_text_width = item_rect.width - 36.0f;
 
-            BeginScissorMode((int)text_x, (int)text_y, (int)max_text_width, (int)item_rect.height);
-            const char *display_text = TruncateText(font, item->label, max_text_width, FONT_SIZE);
+            BeginScissorMode((int)text_x, (int)item_rect.y, (int)max_text_width,
+                             (int)item_rect.height);
+            const char *display_text =
+                TruncateText(font, item->label, max_text_width, current_font_size);
 
-            DrawTextEx(font, display_text, (Vector2){text_x, text_y}, FONT_SIZE, 1.0f,
+            DrawTextEx(font, display_text, (Vector2){text_x, text_y}, current_font_size, 1.0f,
                        g_theme.text_normal);
             EndScissorMode();
         }
@@ -299,7 +315,6 @@ char *FloatPrompt_update_and_render(BufManager *bufmgr, FloatPrompt *fp, Font fo
         fp->is_active = false;
         fp->edit_mode = false;
 
-        // Jika user memilih item dari suggestion box:
         if (match_count > 0 && fp->selected_idx < (int)match_count) {
             int original_idx = matches[fp->selected_idx];
             fp->selected_idx = original_idx;
@@ -307,7 +322,6 @@ char *FloatPrompt_update_and_render(BufManager *bufmgr, FloatPrompt *fp, Font fo
             return strdup(fp->items[original_idx].label);
         }
 
-        // Jika prompt biasa tanpa suggestion:
         if (strlen(fp->input_buf) > 0) {
             return strdup(fp->input_buf);
         }
@@ -315,10 +329,6 @@ char *FloatPrompt_update_and_render(BufManager *bufmgr, FloatPrompt *fp, Font fo
 
     return nullptr;
 }
-
-/* ================================
- * PUBLIC API
- * ================================ */
 
 /**
  * Fungsi untuk meminta input dari pengguna [PUBLIC API]

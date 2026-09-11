@@ -9,10 +9,6 @@
 
 extern int calculate_score(const char *query, const char *label);  // calculate_score (lsp_client.c)
 
-/* =================================
- * PRIVATE API
- * ================================= */
-
 /**
  * Fungsi untuk membandingkan score untuk qsort [PRIVATE API]
  */
@@ -41,10 +37,6 @@ void filter_and_sort_completion(CompletionList *list, const char *query) {
     // Sort daftar pilihan berdasarkan score tertinggi!
     qsort(filtered, filtered_count, sizeof(FilteredItem), compare_scores);
 }
-
-/* =========================================
- * PUBLIC API
- * ========================================= */
 
 /**
  * Mengambil item completion aktif sesuai urutan hasil Filter & Sort [PUBLIC API]

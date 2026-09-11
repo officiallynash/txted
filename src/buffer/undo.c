@@ -11,10 +11,6 @@
 #include <string.h>
 #include <time.h>
 
-/* ============================
- * PRIVATE API
- * ============================ */
-
 /**
  * Fungsi untuk mendapatkan waktu dalam milidetik [PRIVATE API]
  */
@@ -50,10 +46,6 @@ static void Undo_discard_redo(UndoStack *us) {
 
     us->count = us->current;
 }
-
-/* ==========================
- * PUBLIC API
- * ========================== */
 
 /**
  * Fungsi untuk menginisialisasi stack undo [PUBLIC API]

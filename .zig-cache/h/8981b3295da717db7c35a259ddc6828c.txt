@@ -84,7 +84,7 @@
 2764 3832142 1788052353894686566 fb2dd621790487d075356038f3d4105a 0 /home/nash/Project/txted/include/lsp_server.h
 1008 3825927 1788086745063296609 3f11fb411bcec9778072b320ffc2a33d 0 /home/nash/Project/txted/include/syntax.h
 226 3216311 1768608000000000000 c51c71cde11e5d59d46a30aa5a656289 0 /usr/include/tree_sitter/tree-sitter-c.h
-547 3926947 1788175169203129257 69a55501b4a32050a79eae85e906766b 0 /home/nash/Project/txted/include/lsp_config.h
+520 3926947 1788926884184406236 fa7bd8b2ee3f484ff585029281c160a9 0 /home/nash/Project/txted/include/lsp_config.h
 989 3858486 1787705686420547063 a6dd2f6492cf5c9b139c2f80aba49c94 0 /home/nash/Project/txted/include/undo.h
 1701 3770808 1788315444154935567 beb2e5be25ac597241c50bf62654bcfd 0 /home/nash/Project/txted/include/buffer_manager.h
 1567 4008345 1788053035480649240 d6aaa2a7a22cf645ca7bfc007c5d5986 0 /home/nash/Project/txted/include/git_client.h

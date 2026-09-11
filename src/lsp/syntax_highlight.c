@@ -12,8 +12,6 @@
 #include "notification.h"
 #include "syntax.h"
 
-extern const TSLanguage *tree_sitter_c(void);  // Extern tree-sitter-c
-
 /**
  * Fungsi untuk inisialisasi state syntax highlighting [PUBLIC API]
  */
@@ -28,15 +26,7 @@ SyntaxState *Syntax_init(LangConfig *lang) {
     uint32_t error_offset;
     TSQueryError error_type;
 
-    const TSLanguage *ts_lang = nullptr;
-    switch (lang->lang) {
-        case C:
-            ts_lang = tree_sitter_c();
-            break;
-        case GENERAL:
-            ts_lang = nullptr;
-            break;
-    }
+    const TSLanguage *ts_lang = lang->lang ? lang->lang : nullptr;
 
     if (state->parser) {
         ts_parser_set_language(state->parser, ts_lang);

@@ -15,6 +15,7 @@
  */
 void Draw_confirm_exit(BufManager *bufmgr, Font font) {
     EditorLayout layout = get_editor_layout(bufmgr);
+    float current_font_x = (float)font.baseSize;
 
     // Backdrop Gelap Transparan
     DrawRectangle(0, 0, layout.win_w, layout.win_h, g_theme.backdrop);
@@ -31,7 +32,7 @@ void Draw_confirm_exit(BufManager *bufmgr, Font font) {
 
     // Text Pesan Konfirmasi
     const char *msg = "Yakin ingin keluar dari TxtEd?";
-    DrawTextEx(font, msg, (Vector2){modal_rect.x + 20, modal_rect.y + 18}, FONT_SIZE, 1.0f,
+    DrawTextEx(font, msg, (Vector2){modal_rect.x + 20, modal_rect.y + 18}, current_font_x, 1.0f,
                g_theme.text_normal);
 
     // Dimensi Tombol

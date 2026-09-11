@@ -12,6 +12,8 @@
 #include <string.h>
 #include <unistd.h>
 
+extern const TSLanguage *tree_sitter_c(void);  // Extern tree-sitter-c
+
 /* *
  * Fungsi mencari executable dalam PATH [PRIVATE API]
  */
@@ -49,6 +51,7 @@ char *find_executable_in_path(const char *exec_name) {
  * Helper internal untuk load Syntax Query (Tree Sitter)
  */
 static char *Syntax_query(const char *lang_id, const char *scm_filename) {
+    FILE *fp;
     char path[256] = {0};
     snprintf(path, sizeof(path), "%squeries/%s/%s", GetApplicationDirectory(), lang_id,
              scm_filename);
@@ -56,7 +59,7 @@ static char *Syntax_query(const char *lang_id, const char *scm_filename) {
     // Sebenarnya akan lebih bagus pakai Result dan FS_open
     // Tapi casting dari unsigned char * ke char * malah bikin error
     // Jadi, terpaksa pakai manual
-    FILE *fp = fopen(path, "r");
+    fp = fopen(path, "r");
     if (!fp) return nullptr;
 
     fseek(fp, 0, SEEK_END);
@@ -88,7 +91,7 @@ LangConfig *LspConfig_detail(const char *filepath) {
     LangConfig *config = calloc(1, sizeof(LangConfig));
 
     if (strcmp(dot + 1, "c") == 0 || strcmp(dot + 1, "h") == 0) {
-        config->lang = C;
+        config->lang = tree_sitter_c();
         config->language_id = "c";
         config->path_lsp = find_executable_in_path("clangd");
         config->lsp_args = clangd_args;

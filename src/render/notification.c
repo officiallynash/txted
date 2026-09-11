@@ -66,7 +66,7 @@ void Notif_draw(BufManager *bufmgr, Font font) {
     if (!notif.active) return;
 
     EditorLayout layout = get_editor_layout(bufmgr);
-
+    float current_font_x = (float)font.baseSize;
     // Menentukan Warna berdasarkan Tipe
     Color bg_color;
     Color border_color = g_theme.border;
@@ -100,7 +100,7 @@ void Notif_draw(BufManager *bufmgr, Font font) {
     text_color.a = (unsigned char)(255 * alpha);
 
     // Menghitung Ukuran Teks
-    Vector2 text_size = MeasureTextEx(font, notif.message, FONT_SIZE, 1.0f);
+    Vector2 text_size = MeasureTextEx(font, notif.message, current_font_x, 1.0f);
 
     float padding_x = 20.0f;
     float padding_y = 12.0f;
@@ -128,5 +128,5 @@ void Notif_draw(BufManager *bufmgr, Font font) {
 
     // Render Teks
     Vector2 text_pos = {pos_x + padding_x, pos_y + padding_y};
-    DrawTextEx(font, notif.message, text_pos, FONT_SIZE, 1.0f, text_color);
+    DrawTextEx(font, notif.message, text_pos, current_font_x, 1.0f, text_color);
 }

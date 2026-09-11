@@ -5,9 +5,7 @@
  */
 #ifndef LSP_CONFIG_H
 #define LSP_CONFIG_H
-
-// Enum untuk type bahasa
-typedef enum { C, GENERAL } LangType;
+#include <tree_sitter/api.h>
 
 /**
  * Struct untuk data Config LSP dan Tree-sitter saat Open File
@@ -18,7 +16,7 @@ typedef struct {
     char *query_source;
     char *indent_source;
     const char *language_id;
-    LangType lang;
+    const TSLanguage *lang;
 } LangConfig;
 
 LangConfig *LspConfig_detail(const char *filepath);
