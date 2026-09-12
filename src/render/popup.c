@@ -92,7 +92,7 @@ static void FloatPrompt_open(FloatPrompt *fp, const char *msg, const char *defau
 bool GuiCustomInputBox(Rectangle bounds, char *text, int textSize, bool *editMode, int iconId,
                        Font font) {
     float iconSize = 20.0f;
-    float padding = 8.0f;
+    float padding = 6.0f;
     float clearBtnW = 28.0f;
     float current_font_size = (float)font.baseSize;
 
@@ -174,7 +174,7 @@ char *FloatPrompt_update_and_render(BufManager *bufmgr, FloatPrompt *fp, Font fo
         return nullptr;
     }
 
-    // HITUNG FUZZY MATCHING (Jika ada items)
+    // Hitung fuzzy matching (Jika ada items)
     const int MAX_MATCHES = 100;
     int matches[MAX_MATCHES];
     size_t match_count = 0;
@@ -230,7 +230,7 @@ char *FloatPrompt_update_and_render(BufManager *bufmgr, FloatPrompt *fp, Font fo
 
     EditorLayout layout = get_editor_layout(bufmgr);
 
-    // DIMENSI DINAMIS: Input box & suggestion item menyesuaikan ukuran font
+    // Dimensi dinamis: Input box & suggestion item menyesuaikan ukuran font
     float input_h = current_font_size + 16.0f;  // Dynamic height untuk input box
     float item_h = current_font_size + 12.0f;   // Dynamic height untuk item list
     float base_h = input_h + current_font_size + 36.0f;
@@ -265,7 +265,7 @@ char *FloatPrompt_update_and_render(BufManager *bufmgr, FloatPrompt *fp, Font fo
     bool enter_pressed = GuiCustomInputBox(input_rect, fp->input_buf, sizeof(fp->input_buf),
                                            &fp->edit_mode, fp->icon_id, font);
 
-    // RENDER SUGGESTION BOX (JIKA ADA MATCHES)
+    // Render suggestion jika ada yang match
     if (match_count > 0) {
         float start_y = input_rect.y + input_rect.height + 8.0f;
 
@@ -310,7 +310,7 @@ char *FloatPrompt_update_and_render(BufManager *bufmgr, FloatPrompt *fp, Font fo
         }
     }
 
-    // LOGIKA RETURN/EXECUTE
+    // Logika return dan execute
     if ((enter_pressed && enter_key_pressed) || enter_key_pressed) {
         fp->is_active = false;
         fp->edit_mode = false;

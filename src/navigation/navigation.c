@@ -59,6 +59,17 @@ extern void Nav_undo(BufManager *bufmgr, Font font);       // Nav_undo (nav_util
         lsp_free_signature_help(&g_lsp_ui.signature_help);                              \
     }
 
+// Helper macro/lambda kecil internal
+#define CHECK_SELECTION()                               \
+    if (is_shift) {                                     \
+        if (!HAS_FLAG(buf->buf_flags, BUF_IS_SELECT)) { \
+            buf->start = buf->cursor.cursor_pos;        \
+            SET_FLAG(buf->buf_flags, BUF_IS_SELECT);    \
+        }                                               \
+    } else {                                            \
+        CLR_FLAG(buf->buf_flags, BUF_IS_SELECT);        \
+    }
+
 /**
  * Fungsi untuk Navigation mouse berbasis Focus mode
  */
@@ -97,25 +108,14 @@ static void Update_navigation_click(BufManager *bufmgr) {
 void handle_input(BufManager *bufmgr, Font font) {
     Update_navigation_click(bufmgr);
     Buffer *buf = BufManager_getactive(bufmgr);
-    EditorLayout layout = get_editor_layout(bufmgr);
-
     if (!buf) return;
+
+    EditorLayout layout = get_editor_layout(bufmgr);
 
     bool lsp_enable =
         HAS_FLAG(g_lsp_ui.lsp_flag, LSP_VISIBLE) || HAS_FLAG(g_lsp_ui.lsp_flag, LSP_ENABLE);
 
     bool is_shift = IsKeyDown(KEY_LEFT_SHIFT) || IsKeyDown(KEY_RIGHT_SHIFT);
-
-// Helper macro/lambda kecil internal
-#define CHECK_SELECTION()                               \
-    if (is_shift) {                                     \
-        if (!HAS_FLAG(buf->buf_flags, BUF_IS_SELECT)) { \
-            buf->start = buf->cursor.cursor_pos;        \
-            SET_FLAG(buf->buf_flags, BUF_IS_SELECT);    \
-        }                                               \
-    } else {                                            \
-        CLR_FLAG(buf->buf_flags, BUF_IS_SELECT);        \
-    }
 
     /* -------------------------------- *
      * Scroll

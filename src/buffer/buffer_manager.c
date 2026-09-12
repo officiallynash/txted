@@ -36,7 +36,7 @@ static void BufManager_set_workspace(BufManager *bufmgr, const char *any_path) {
     }
 
     free(bufmgr->path_root);
-    bufmgr->path_root = strdup(root);  // Langsung gunakan pointer 'root' tanpa strdup ulang!
+    bufmgr->path_root = strdup(root);
 
     if (chdir(bufmgr->path_root) != 0) {
         Notif_show("Tidak bisa ke Workspace", NOTIF_WARNING, 3.0f);
@@ -55,7 +55,7 @@ BufManager *BufManager_init(void) {
     bufmgr->active_idx = -1;
     bufmgr->num_tabs = 0;
     bufmgr->clp = Clipboard_init();
-    bufmgr->fm_width_ratio = 0.25f;
+    bufmgr->fm_width_ratio = 0.20f;
     bufmgr->path_root = nullptr;
     bufmgr->win_flags = 0;
 

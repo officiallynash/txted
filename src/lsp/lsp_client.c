@@ -38,7 +38,7 @@ int calculate_score(const char *query, const char *label) {
     size_t q_len = strlen(query);
     size_t l_len = strlen(label);
 
-    // PREFIX MATCHING
+    // Prefix Matching
     if (strncasecmp(label, query, q_len) == 0) {
         int base_score = 1000;
         if (strncmp(label, query, q_len) == 0) base_score += 500;
@@ -46,7 +46,7 @@ int calculate_score(const char *query, const char *label) {
         return base_score;
     }
 
-    // SUBSTRING MATCHING
+    // Substring Matching
     char *found = strcasestr(label, query);
     if (found != nullptr) {
         int base_score = 500;
@@ -56,7 +56,7 @@ int calculate_score(const char *query, const char *label) {
         return base_score;
     }
 
-    // FUZZY MATCHING untuk Snake_case & CamelCase
+    // Fuzzy matching untuk Snake_case & CamelCase
     int score = 0;
     const char *q = query;
     const char *l = label;
@@ -99,6 +99,7 @@ static void lsp_ui_clear_completion(void) {
         lsp_free_completion(&g_lsp_ui.completion);
         g_lsp_ui.completion.items = nullptr;
         g_lsp_ui.completion.count = 0;
+
         CLR_FLAG(g_lsp_ui.lsp_flag, LSP_HAS_COMP);
     }
 }
@@ -144,7 +145,7 @@ void Ensure_lsp_init(LangConfig *lang, const char *filepath) {
         char *temp_uri = Path_to_uri(path_root);
 
         if (g_lsp_ui.root_uri) {
-            free(g_lsp_ui.root_uri);
+            free(g_lsp_ui.root_uri);  // Jaga2 agar memori tidak di isi garbage
         }
 
         size_t len = strlen(temp_uri);
@@ -230,7 +231,7 @@ void lsp_ui_set_document(const char *uri, const char *language_id, const char *t
 void lsp_ui_update(BufManager *bufmgr, float dt) {
     if (!HAS_FLAG(g_lsp_ui.lsp_flag, LSP_ENABLE)) return;
 
-    // PROSES DEBOUNCE TIMER
+    // Proses Debouncer Timer
     if (lsp_debounce_timer > 0.0f) {
         lsp_debounce_timer -= dt;
         if (lsp_debounce_timer <= 0.0f) {
@@ -248,7 +249,7 @@ void lsp_ui_update(BufManager *bufmgr, float dt) {
         return;
     }
 
-    // AUTO-HIDE KONTROL
+    // Auto Hide control
     if (IsKeyPressed(KEY_ESCAPE)) {
         lsp_ui_hide();
         return;
@@ -261,7 +262,7 @@ void lsp_ui_update(BufManager *bufmgr, float dt) {
     }
     size_t rope_len = String_len(buf->str);
 
-    // EKSEKUSI REQUEST LSP (Saat Debounce Selesai)
+    // Ekseskusi Request LSP (Saat Debounce Selesai)
     if (HAS_FLAG(g_lsp_ui.lsp_flag, LSP_REQUEST_PENDING)) {
         CLR_FLAG(g_lsp_ui.lsp_flag, LSP_REQUEST_PENDING);
         if (buf->path) {
@@ -380,7 +381,7 @@ void lsp_ui_update(BufManager *bufmgr, float dt) {
         }
     }
 
-    // AUTO-HIDE JIKA KURSOR PINDAH BARIS
+    // Auto hide jika sudah pindah baris
     if (HAS_FLAG(g_lsp_ui.lsp_flag, LSP_VISIBLE) && HAS_FLAG(g_lsp_ui.lsp_flag, LSP_HAS_COMP)) {
         if (buf->cursor.y != (size_t)g_lsp_ui.last_line) {
             lsp_ui_hide();

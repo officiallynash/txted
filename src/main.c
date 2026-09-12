@@ -48,7 +48,7 @@ int main(int argc, char *argv[]) {
     setsid();
 #endif
 
-    // Inisasi Buffer Manager
+    // Inisasi Buffer Manager dan Load setting dari File settings.ini
     Settings_load();
     BufManager *bufmgr = BufManager_init();
 
@@ -112,8 +112,8 @@ int main(int argc, char *argv[]) {
         EndDrawing();
     }
 
-    BufManager_destroy(bufmgr);  // safety free
     lsp_ui_shutdown();
+    BufManager_destroy(bufmgr);  // safety free
 
     if (IsWindowReady()) {
         UnloadFont(font);  // Safe free font

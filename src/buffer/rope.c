@@ -98,6 +98,21 @@ static String *String_concat(String *left, String *right) {
 }
 
 /**
+ * Helper Internal untuk build Balance si Rope
+ */
+static String *String_build_balanced(String **leaves, size_t start, size_t end) {
+    if (start >= end) return nullptr;
+    if (end - start == 1) return leaves[start];
+
+    size_t mid = start + (end - start) / 2;
+
+    String *left = String_build_balanced(leaves, start, mid);
+    String *right = String_build_balanced(leaves, mid, end);
+
+    return String_concat(left, right);
+}
+
+/**
  * Fungsi untuk String Split [PRIVATE API]
  */
 static void String_split(String *root, size_t index, String **left, String **right) {
@@ -187,6 +202,74 @@ static void String_collect(String *str, size_t start, size_t len, unsigned char 
 }
 
 /**
+ * Helper untuk menghitung kedalaman (height) dari Rope tree [PRIVATE API]
+ */
+static size_t String_height(String *str) {
+    if (!str || str->str) return 1;  // Leaf bernilai height 1
+
+    size_t hl = String_height(str->left);
+    size_t hr = String_height(str->right);
+    return 1 + (hl > hr ? hl : hr);
+}
+
+/**
+ * Helper untuk mengumpulkan seluruh leaf node ke dalam array [PRIVATE API]
+ */
+static void String_collect_leaves(String *str, String **leaves, size_t *count) {
+    if (!str) return;
+
+    if (str->str) {  // Jika ini leaf node
+        String_retain(str);
+        leaves[*count] = str;
+        (*count)++;
+        return;
+    }
+
+    String_collect_leaves(str->left, leaves, count);
+    String_collect_leaves(str->right, leaves, count);
+}
+
+/**
+ * Helper untuk hitung total leaf di dalam Rope [PRIVATE API]
+ */
+static size_t String_count_leaves(String *str) {
+    if (!str) return 0;
+    if (str->str) return 1;
+    return String_count_leaves(str->left) + String_count_leaves(str->right);
+}
+
+/**
+ * Fungsi Rebalance Utama [PUBLIC API]
+ */
+void String_rebalance(String **root) {
+    if (!root || !*root) return;
+
+    size_t height = String_height(*root);
+    size_t leaf_count = String_count_leaves(*root);
+    if (leaf_count <= 2) return;
+
+    // Cek Threshold Height: Jika tinggi tree > 32 atau jauh melebihi 2 * log2(leaf_count)
+    // Berarti tree sudah miring/unbalanced
+    size_t max_allowed_height = 32;
+    if (height < max_allowed_height) return;
+
+    // Alokasi array sementara untuk kumpulkan semua leaf
+    String **leaves = malloc(leaf_count * sizeof(String *));
+    size_t count = 0;
+
+    // Kumpulkan leaf
+    String_collect_leaves(*root, leaves, &count);
+
+    // Rebuild menjadi tree seimbang baru
+    String *new_root = String_build_balanced(leaves, 0, count);
+    free(leaves);
+
+    // Release root lama dan ganti dengan root baru
+    String_release(*root);
+    *root = new_root;
+}
+
+/**
  * Fungsi untuk mengetahui panjang String [PUBLIC API]
  */
 size_t String_len(String *str) { return str ? str->len : 0; }
@@ -227,21 +310,20 @@ void String_insert(String **str, size_t index, const char *text, size_t len) {
     String *inserted = nullptr;
     // Jika teks melebihi 1024 maka bagi menjadi 2
     if (len > MAX_SIZE_LEAF) {
-        size_t mid = len / 2;
+        // Hitung berapa banyak leaf yang dibutuhkan
+        size_t num_leaves = (len + MAX_SIZE_LEAF - 1) / MAX_SIZE_LEAF;
+        String **leaves = malloc(num_leaves * sizeof(String *));
 
-        // Deklarasi awal agar tidak terjadi data corrupt
-        String *left_part = String_new();
-        String *right_part = String_new();
+        size_t offset = 0;
+        for (size_t i = 0; i < num_leaves; i++) {
+            size_t chunk_len = (len - offset > MAX_SIZE_LEAF) ? MAX_SIZE_LEAF : (len - offset);
+            leaves[i] = String_make_leaf(text + offset, chunk_len);
+            offset += chunk_len;
+        }
 
-        String_insert(&left_part, 0, text, mid);
-        String_insert(&right_part, 0, text + mid, len - mid);
-
-        inserted = String_concat(left_part, right_part);
-
-        // Safe free berdasarkan ref count
-        String_release(left_part);
-        String_release(right_part);
-
+        // Buat Tree Seimbang secara instan (Zero Deep-Recursion)
+        inserted = String_build_balanced(leaves, 0, num_leaves);
+        free(leaves);
     } else {
         // Jika masih di bawah 1024, maka langsung buat baru saja
         inserted = String_make_leaf(text, len);
@@ -262,6 +344,7 @@ void String_insert(String **str, size_t index, const char *text, size_t len) {
 
     String_split(*str, index, &left, &right);  // Split
     *str = String_concat(String_concat(left, inserted), right);
+    String_rebalance(str);
 
     // Safety free
     String_release(left);
@@ -304,6 +387,7 @@ void String_delete(String **str, size_t pos_idx, size_t len) {
     // Update pointer root utama
     String_release(*str);
     *str = new_root;
+    String_rebalance(str);
 }
 
 /**
@@ -318,7 +402,7 @@ Bytes String_get(String *str, size_t index, size_t len) {
         len = str->len - index;
     }
 
-    unsigned char *buf = calloc(len + 1, sizeof(unsigned char));
+    unsigned char *buf = malloc(len + 1);
     if (!buf) return result;
 
     size_t offset = 0;

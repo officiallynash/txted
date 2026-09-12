@@ -34,7 +34,7 @@ void Notif_init(void) {
 }
 
 /**
- * Tampilkan Notification [PUBLIC API
+ * Tampilkan Notification [PUBLIC API]
  */
 void Notif_show(const char *msg, NotifType type, float duration_sec) {
     if (!msg) return;

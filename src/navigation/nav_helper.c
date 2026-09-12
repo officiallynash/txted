@@ -89,7 +89,7 @@ void set_cursor_from_mouse(BufManager *bufmgr, Vector2 mouse, int scroll_y, Font
  * Fungsi untuk sync Cursor
  */
 void sync_cursor_line_from_pos(Buffer *buf) {
-    if (!buf || buf->lines.line_count == 0) return;
+    if (!buf || !buf->lines.offset || buf->lines.line_count == 0) return;
 
     size_t rope_len = String_len(buf->str);
     // Pastikan cursor_pos berada dalam range buffer yang valid
@@ -97,14 +97,22 @@ void sync_cursor_line_from_pos(Buffer *buf) {
         buf->cursor.cursor_pos = rope_len;
     }
 
-    size_t line = 0;
-    for (size_t i = 0; i < buf->lines.line_count; ++i) {
-        if (buf->lines.offset[i] > buf->cursor.cursor_pos) {
-            break;
+    size_t pos = buf->cursor.cursor_pos;
+
+    // Binary search untuk mencari upper bound
+    size_t low = 0;
+    size_t high = buf->lines.line_count;
+    while (low < high) {
+        size_t mid = low + (high - low) / 2;
+        if (buf->lines.offset[mid] <= pos) {
+            low = mid + 1;
+        } else {
+            high = mid;
         }
-        line = i;
     }
 
+    // low - 1 adalah index-nya
+    size_t line = (low > 0) ? (low - 1) : 0;
     buf->cursor.y = line;
     buf->cursor.x = buf->cursor.cursor_pos - buf->lines.offset[line];
 }

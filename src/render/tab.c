@@ -246,11 +246,11 @@ void draw_tabs(BufManager *bufmgr, Font font) {
         Buffer *buf = bufmgr->buf[i];
         if (!buf) continue;
 
-        const char *name = buf->filename ? buf->filename : "Untitled";
-        Color text_color =
-            HAS_FLAG(buf->buf_flags, BUF_IS_DIRTY) ? g_theme.cursor : g_theme.text_normal;
+        char text[128];
+        snprintf(text, sizeof(text), "%s%s", buf->filename ? buf->filename : "Untitled",
+                 HAS_FLAG(buf->buf_flags, BUF_IS_DIRTY) ? "[*]" : "");
 
-        Vector2 nsize = MeasureTextEx(font, name, current_font_size, 1.0f);
+        Vector2 nsize = MeasureTextEx(font, text, current_font_size, 1.0f);
         int tab_w = (int)nsize.x + 48;
         Rectangle tab_rect = {(float)x, 4.0f, (float)tab_w, (float)(TAB_H - 8)};
 
@@ -260,7 +260,7 @@ void draw_tabs(BufManager *bufmgr, Font font) {
         // Render Teks Nama File
         float text_y = tab_rect.y + (tab_rect.height - current_font_size) / 2.0f;
         Vector2 text_pos = {(float)(x + 12), text_y};
-        DrawTextEx(font, name, text_pos, current_font_size, 1.0f, text_color);
+        DrawTextEx(font, text, text_pos, current_font_size, 1.0f, g_theme.text_normal);
 
         // Render Tombol "x"
         int x_btn_x = x + 12 + (int)nsize.x + 8;

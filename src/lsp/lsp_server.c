@@ -22,10 +22,6 @@
 
 constexpr size_t MAX_DIAG_DOCS = 16;
 
-/* =============================
- * INTERNAL STATE
- * ============================= */
-
 // Diagnostic
 static DiagnosticList g_diagnostics[MAX_DIAG_DOCS];
 static int g_diag_count = 0;
@@ -48,10 +44,6 @@ static pthread_cond_t pending_cond = PTHREAD_COND_INITIALIZER;
 static int pending_id = -1;
 static cJSON *pending_result = nullptr;
 static bool response_received = false;
-
-/* ================================
- * PRIVATE API
- * ================================ */
 
 /**
  * Fungsi untuk mengirimkan request LSP [PRIVATE API]

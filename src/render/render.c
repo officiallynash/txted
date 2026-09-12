@@ -220,7 +220,7 @@ static float get_text_column_x(Font font, const char *text, size_t target_col, f
     if (target_col > len) target_col = len;
 
     float current_x = start_x;
-    float current_font_x = (float)font.baseSize;  // <-- Gunakan ini
+    float current_font_x = (float)font.baseSize;  // Pakai float dari fontsize Base
     float space_w = MeasureTextEx(font, " ", current_font_x, 1.0f).x;
     int col_visual = 0;
 
@@ -231,7 +231,7 @@ static float get_text_column_x(Font font, const char *text, size_t target_col, f
             col_visual += spaces;
         } else {
             char ch[2] = {text[i], '\0'};
-            // PERBAIKAN: Gunakan current_font_x
+
             current_x += MeasureTextEx(font, ch, current_font_x, 1.0f).x;
             col_visual++;
         }

@@ -34,16 +34,6 @@ char *find_executable_in_path(const char *exec_name) {
         }
         free(path_copy);
     }
-
-    char *home = getenv("HOME");
-    if (home) {
-        char cargo_bin[1024] = {0};
-        snprintf(cargo_bin, sizeof(cargo_bin), "%s/.cargo/bin/%s", home, exec_name);
-        if (access(cargo_bin, X_OK) == 0) {
-            return strdup(cargo_bin);
-        }
-    }
-
     return nullptr;
 }
 
@@ -51,7 +41,6 @@ char *find_executable_in_path(const char *exec_name) {
  * Helper internal untuk load Syntax Query (Tree Sitter)
  */
 static char *Syntax_query(const char *lang_id, const char *scm_filename) {
-    FILE *fp;
     char path[256] = {0};
     snprintf(path, sizeof(path), "%squeries/%s/%s", GetApplicationDirectory(), lang_id,
              scm_filename);
@@ -59,7 +48,7 @@ static char *Syntax_query(const char *lang_id, const char *scm_filename) {
     // Sebenarnya akan lebih bagus pakai Result dan FS_open
     // Tapi casting dari unsigned char * ke char * malah bikin error
     // Jadi, terpaksa pakai manual
-    fp = fopen(path, "r");
+    FILE *fp = fopen(path, "r");
     if (!fp) return nullptr;
 
     fseek(fp, 0, SEEK_END);

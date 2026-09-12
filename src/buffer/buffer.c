@@ -34,7 +34,7 @@ extern void lsp_clear_all_diagnostics(void);         // Clear Diagnostic [lsp_cl
  */
 LineIndex LineIndex_init() {
     LineIndex li;
-    li.capacity = 32;
+    li.capacity = 128;
 
     // Ganti pakai calloc biar lebih aman karena memang hanya
     // dipanggil sekali ketika init aplikasi
@@ -68,6 +68,88 @@ static void LineIndex_insert(LineIndex *li, const char *data, size_t len) {
         }
         li->offset[li->line_count++] = i + 1;
     }
+}
+/**
+ * Helper untuk memastikan kapasitas LineIndex cukup [PRIVATE API]
+ */
+static bool line_index_reserve(LineIndex *li, size_t needed) {
+    if (needed <= li->capacity) return true;
+
+    size_t new_cap = li->capacity ? li->capacity * 2 : 128;
+    while (new_cap < needed) new_cap *= 2;
+
+    size_t *tmp = realloc(li->offset, new_cap * sizeof(size_t));
+    if (!tmp) return false;
+
+    li->offset = tmp;
+    li->capacity = new_cap;
+    return true;
+}
+
+/*
+ * Helper internal untuk Insert newlines secara incremental.
+ * newline_pos[] berisi offset relatif dari `pos` di mana karakter '\n' berada.
+ * Semua nilai di newline_pos harus < inserted dan sudah terurut ascending.
+ */
+static bool line_index_insert_newlines(LineIndex *li, size_t pos, size_t inserted,
+                                       const size_t *newline_pos, size_t newline_count) {
+    if (inserted == 0) return true;
+
+    /* Cari line pertama yang offset-nya > pos */
+    size_t first = 0;
+    while (first < li->line_count && li->offset[first] <= pos) first++;
+
+    /* Geser semua offset setelah titik insert */
+    for (size_t i = first; i < li->line_count; ++i) li->offset[i] += inserted;
+
+    if (newline_count == 0) return true;
+
+    if (!line_index_reserve(li, li->line_count + newline_count)) return false;
+
+    /* Buat ruang untuk entry baru */
+    memmove(li->offset + first + newline_count, li->offset + first,
+            (li->line_count - first) * sizeof(size_t));
+
+    /* Isi offset baru (menunjuk ke karakter setelah '\n') */
+    for (size_t i = 0; i < newline_count; ++i) li->offset[first + i] = pos + newline_pos[i] + 1;
+
+    li->line_count += newline_count;
+    return true;
+}
+
+/*
+ * Helper internal untuk Delete range [pos, pos + deleted).
+ * Menghapus semua line start yang jatuh di dalam range tersebut
+ * lalu menggeser offset yang tersisa.
+ */
+static bool line_index_delete_range(LineIndex *li, size_t pos, size_t deleted) {
+    if (deleted == 0) return true;
+
+    size_t end = pos + deleted;
+
+    size_t first = 0;
+    while (first < li->line_count && li->offset[first] <= pos) first++;
+
+    size_t last = first;
+    while (last < li->line_count && li->offset[last] <= end) last++;
+
+    size_t remove_count = last - first;
+
+    if (remove_count > 0) {
+        memmove(li->offset + first, li->offset + last, (li->line_count - last) * sizeof(size_t));
+        li->line_count -= remove_count;
+    }
+
+    /* Geser offset yang berada di belakang range */
+    for (size_t i = first; i < li->line_count; ++i) li->offset[i] -= deleted;
+
+    /* Jaga invariant: minimal 1 entry */
+    if (li->line_count == 0) {
+        li->offset[0] = 0;
+        li->line_count = 1;
+    }
+
+    return true;
 }
 
 /**
@@ -200,19 +282,6 @@ static bool lsp_apply_text_edits(Buffer *buf, TextEditList *edits) {
     sync_cursor_line_from_pos(buf);
 
     return true;
-}
-
-/**
- * Helper internal untuk update posisi kursor X & Y berdasarkan cursor_pos [PRIVATE API]
- */
-static void sync_cursor_coords(Buffer *buf) {
-    if (!buf) return;
-    size_t y = 0;
-    while (y + 1 < buf->lines.line_count && buf->lines.offset[y + 1] <= buf->cursor.cursor_pos) {
-        y++;
-    }
-    buf->cursor.y = y;
-    buf->cursor.x = buf->cursor.cursor_pos - buf->lines.offset[y];
 }
 
 /**
@@ -389,78 +458,90 @@ Buffer *Buffer_open(const char *filename) {
 void Buffer_insert(Buffer *buf, size_t pos_idx, const char *ch) {
     if (!buf || !ch) return;
 
-    SET_FLAG(buf->buf_flags, BUF_IS_DIRTY);  // Set flag ke dirty
+    SET_FLAG(buf->buf_flags, BUF_IS_DIRTY);
     size_t text_len = strlen(ch);
     if (text_len == 0) return;
 
-    Undo_push(&buf->undo, UNDO_INSERT, pos_idx, ch, text_len);  // UndoStack
-    // Jika ada seleksi, hapus dulu baru nulis
+    // Handle selection dulu
     if (HAS_FLAG(buf->buf_flags, BUF_IS_SELECT)) {
         Buffer_delete(buf, buf->cursor.cursor_pos);
         pos_idx = buf->cursor.cursor_pos;
     }
 
-    // Masukkan teks ke Rope / String
+    Undo_push(&buf->undo, UNDO_INSERT, pos_idx, ch, text_len);
+
+    // Insert ke rope
     String_insert(&buf->str, pos_idx, ch, text_len);
 
-    // Cek apakah karakter yang di-insert mengandung newline '\n'
-    bool contains_newline = false;
+    // Kumpulkan posisi semua newline yang baru di-insert
+    size_t newline_pos[64]; /* stack buffer kecil dulu */
+    size_t newline_count = 0;
+    bool need_heap = false;
+    size_t *nl_buf = newline_pos;
 
-    for (size_t i = 0; i < text_len; i++) {
+    for (size_t i = 0; i < text_len; ++i) {
         if (ch[i] == '\n') {
-            contains_newline = true;
-            break;
-        }
-    }
+            if (newline_count >= 64 && !need_heap) {
+                /* fallback ke heap kalau terlalu banyak newline */
+                nl_buf = malloc(text_len * sizeof(size_t));
+                if (!nl_buf) {
+                    goto full_rebuild;
+                }
 
-    size_t rope_len =
-        String_len(buf->str);  // Ini aman karena Insert ga perlu tahu actual len HAHAHAHHA
-    // Jika TIDAK ADA newline (ngetik huruf biasa) -> Update offset biasa (Cepat)
-    if (!contains_newline) {
-        for (size_t i = buf->cursor.y + 1; i < buf->lines.line_count; i++) {
-            buf->lines.offset[i] += text_len;
-        }
-        buf->cursor.x += text_len;
-        buf->cursor.cursor_pos += text_len;
-    } else {
-        // Jika ADA newline (pencet Enter / Paste multi-line) -> Rebuild LineIndex biar sinkron
-        buf->cursor.cursor_pos += text_len;
-
-        free(buf->lines.offset);
-        buf->lines = LineIndex_init();
-
-        if (rope_len > 0) {
-            Bytes all = String_get(buf->str, 0, rope_len);
-            if (all.data) {
-                LineIndex_insert(&buf->lines, (const char *)all.data, all.len);
-                Bytes_free(&all);
+                memcpy(nl_buf, newline_pos, 64 * sizeof(size_t));
+                need_heap = true;
             }
+            nl_buf[newline_count++] = i;
         }
-
-        // Cari posisi Y dan X kursor yang presisi dari cursor_pos
-        size_t y = 0;
-        while (y + 1 < buf->lines.line_count &&
-               buf->lines.offset[y + 1] <= buf->cursor.cursor_pos) {
-            y++;
-        }
-        buf->cursor.y = y;
-        buf->cursor.x = buf->cursor.cursor_pos - buf->lines.offset[y];
     }
 
-    sync_syntax_tree(buf);  // Update syntax tree
+    // Update LineIndex secara incremental
+    if (!line_index_insert_newlines(&buf->lines, pos_idx, text_len, nl_buf, newline_count)) {
+        /* Kalau reserve gagal, fallback ke rebuild */
+        goto full_rebuild;
+    }
 
-    // Update LSP
-    if (buf->language_id) {
-        Bytes all_text = String_get(buf->str, 0, rope_len);
-        if (all_text.data) {
-            char *uri = Path_to_uri(buf->path);
-            lsp_did_change(uri, (const char *)all_text.data, buf->lsp_version);
+    if (need_heap) free(nl_buf);
 
-            buf->lsp_version++;  // Update LSP Version
+    // Update cursor
+    buf->cursor.cursor_pos += text_len;
+    sync_cursor_line_from_pos(buf);
+
+    // Syntax + LSP
+    size_t rope_len = String_len(buf->str);
+    Bytes full_text = String_get(buf->str, 0, rope_len);
+
+    sync_syntax_tree(buf);
+
+    if (buf->language_id && buf->path) {
+        char *uri = Path_to_uri(buf->path);
+        if (uri) {
+            lsp_did_change(uri, (const char *)full_text.data, buf->lsp_version);
+            buf->lsp_version++;
             free(uri);
-            Bytes_free(&all_text);
         }
     }
+
+    Bytes_free(&full_text);
+    return;
+
+full_rebuild:
+    // Fallback path
+    if (need_heap) free(nl_buf);
+
+    free(buf->lines.offset);
+    buf->lines = LineIndex_init();
+
+    size_t rope_len2 = String_len(buf->str);
+    Bytes full = String_get(buf->str, 0, rope_len2);
+    if (full.data) {
+        LineIndex_insert(&buf->lines, (const char *)full.data, full.len);
+        Bytes_free(&full);
+    }
+
+    buf->cursor.cursor_pos += text_len;
+    sync_cursor_line_from_pos(buf);
+    sync_syntax_tree(buf);
 }
 
 /**
@@ -471,7 +552,8 @@ void Buffer_delete(Buffer *buf, size_t pos_idx) {
 
     size_t len = 0;
     size_t start_del = 0;
-    SET_FLAG(buf->buf_flags, BUF_IS_DIRTY);  // Set ke Dirty dulu
+
+    SET_FLAG(buf->buf_flags, BUF_IS_DIRTY);
 
     if (HAS_FLAG(buf->buf_flags, BUF_IS_SELECT)) {
         Get_selected_position(buf, &start_del, &len);
@@ -482,76 +564,42 @@ void Buffer_delete(Buffer *buf, size_t pos_idx) {
         start_del = pos_idx - 1;
     }
 
-    size_t rope_len = String_len(buf->str);  // Ambil Rope Len sebelum operasi hapus
+    size_t rope_len = String_len(buf->str);
     if (len == 0) return;
     if (start_del + len > rope_len) len = rope_len - start_del;
 
-    // Cek apakah ada karakter '\n' di area yang mau dihapus
-    bool contains_newline = false;
+    // Ambil data yang akan dihapus (untuk undo + deteksi newline)
     Bytes del_bytes = String_get(buf->str, start_del, len);
     if (del_bytes.data) {
-        for (size_t i = 0; i < len; i++) {
-            if (del_bytes.data[i] == '\n') {
-                contains_newline = true;
-                break;
-            }
-        }
         Undo_push(&buf->undo, UNDO_DELETE, start_del, (const char *)del_bytes.data, len);
         Bytes_free(&del_bytes);
     }
 
-    // Hapus dari rope
+    // Hapus dari rope dan update cursor pos
     String_delete(&buf->str, start_del, len);
     buf->cursor.cursor_pos = start_del;
 
-    size_t new_len = String_len(buf->str);  // Ambil actual len setelah operasi Hapus.
-    /* Jika TIDAK ADA newline, update offset biasa */
-    if (!contains_newline) {
-        for (size_t i = buf->cursor.y + 1; i < buf->lines.line_count; i++) {
-            buf->lines.offset[i] -= len;
-        }
-        buf->cursor.x = buf->cursor.cursor_pos - buf->lines.offset[buf->cursor.y];
-    }
-    // Jika ADA newline yang terhapus, Rebuild LineIndex
-    else {
-        free(buf->lines.offset);
-        buf->lines = LineIndex_init();
+    // Update LineIndex secara incremental
+    line_index_delete_range(&buf->lines, start_del, len);
 
-        if (new_len > 0) {
-            Bytes all = String_get(buf->str, 0, new_len);  // SINKRON HARUS PAKAI NEW LEN COKKKK
-            if (all.data) {
-                LineIndex_insert(&buf->lines, (const char *)all.data, all.len);
-                Bytes_free(&all);
-            }
-        }
+    // Sync cursor coordinates
+    sync_cursor_line_from_pos(buf);
 
-        if (buf->lines.line_count == 0) {
-            buf->lines.line_count = 1;
-            buf->lines.offset[0] = 0;
-        }
+    // Syntax + LSP
+    size_t new_len = String_len(buf->str);
+    Bytes full_text = String_get(buf->str, 0, new_len);
 
-        size_t y = 0;
-        while (y + 1 < buf->lines.line_count &&
-               buf->lines.offset[y + 1] <= buf->cursor.cursor_pos) {
-            y++;
-        }
-        buf->cursor.y = y;
-        buf->cursor.x = buf->cursor.cursor_pos - buf->lines.offset[y];
-    }
-
-    // Sync Syntax Tree & LSP
     sync_syntax_tree(buf);
 
     if (buf->language_id && buf->path) {
-        Bytes full_text = String_get(buf->str, 0, new_len);  // PAKAI NEW LEN COOOOOKKKKKK
         char *uri = Path_to_uri(buf->path);
         if (uri) {
             lsp_did_change(uri, (const char *)full_text.data, buf->lsp_version);
             buf->lsp_version++;
             free(uri);
         }
-        Bytes_free(&full_text);
     }
+    Bytes_free(&full_text);
 }
 
 /**
@@ -667,21 +715,22 @@ void Buffer_undo(Buffer *buf) {
     if (!Undo_pop(&buf->undo, &a)) return;
 
     buf->undo.is_undoing = true;
-    CLR_FLAG(buf->buf_flags, BUF_IS_SELECT);  // Matikan seleksi agar tidak ngerusak delete
+    // Matikan seleksi agar tidak ngerusak delete
+    CLR_FLAG(buf->buf_flags, BUF_IS_SELECT);
 
     if (a.type == UNDO_INSERT) {
         // Undo dari INSERT adalah DELETE teks tersebut
         buf->cursor.cursor_pos = a.offset + a.len;
-        sync_cursor_coords(buf);
+        sync_cursor_line_from_pos(buf);
         Buffer_delete(buf, buf->cursor.cursor_pos);
 
         // Kembalikan kursor ke posisi awal sebelum insert
         buf->cursor.cursor_pos = a.offset;
-        sync_cursor_coords(buf);
+        sync_cursor_line_from_pos(buf);
     } else if (a.type == UNDO_DELETE) {
         // Undo dari DELETE adalah INSERT kembali teks yang terhapus
         buf->cursor.cursor_pos = a.offset;
-        sync_cursor_coords(buf);
+        sync_cursor_line_from_pos(buf);
         Buffer_insert(buf, a.offset, a.text);
     }
 
@@ -703,12 +752,12 @@ void Buffer_redo(Buffer *buf) {
     if (a.type == UNDO_INSERT) {
         // Redo INSERT = Insert ulang teks di offset asal
         buf->cursor.cursor_pos = a.offset;
-        sync_cursor_coords(buf);
+        sync_cursor_line_from_pos(buf);
         Buffer_insert(buf, a.offset, a.text);
     } else if (a.type == UNDO_DELETE) {
         // Redo DELETE = Delete ulang teks tersebut
         buf->cursor.cursor_pos = a.offset + a.len;
-        sync_cursor_coords(buf);
+        sync_cursor_line_from_pos(buf);
         Buffer_delete(buf, buf->cursor.cursor_pos);
     }
 
@@ -942,7 +991,8 @@ int Buffer_search(Buffer *buf, const char *query, SearchHitBuffer *out, int max_
             if (buf->state &&
                 is_position_in_comment(buf->state->tree, match_start_byte, match_end_byte)) {
                 p += (q_len > 0 ? q_len : 1);
-                continue;  // Lanjut cari kata kunci berikutnya tanpa dimasukkan ke results
+                continue;  // Lanjut cari kata kunci berikutnya tanpa dimasukkan ke
+                           // results
             }
 
             SearchHitBuffer *h = &out[count++];
