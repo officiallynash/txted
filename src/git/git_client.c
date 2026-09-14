@@ -24,6 +24,12 @@ static bool g_push_in_progress = false;
 static bool g_push_success = false;
 static bool prev_push_state = false;
 
+typedef struct {
+    char *repo_path;
+    char *file_path;
+    Buffer *buf;
+} GitFetchArgs;
+
 /**
  * Fungsi untuk Stage [PRIVATE API]
  */
@@ -74,7 +80,7 @@ bool GitPopup_commit(const char *repo_path, const char *message) {
         return false;
     }
 
-    // 1. Tulis Index ke Tree
+    // Tulis Index ke Tree
     git_index *index = nullptr;
     git_oid tree_id, commit_id;
     git_tree *tree = nullptr;
@@ -89,14 +95,14 @@ bool GitPopup_commit(const char *repo_path, const char *message) {
     }
     git_index_free(index);
 
-    // 2. Ambil Signature Author & Committer (dari config)
+    // Ambil Signature Author & Committer (dari config)
     git_signature *author = nullptr;
     if (git_signature_default(&author, repo) != 0) {
         // Fallback jika user.name / user.email belum di-set di config
         git_signature_now(&author, "TxtEd User", "user@txted.local");
     }
 
-    // 3. Ambil Parent Commit (HEAD) jika ada
+    // Ambil Parent Commit (HEAD) jika ada
     git_commit *parent = nullptr;
     git_oid parent_id;
     int parents_count = 0;
@@ -109,7 +115,7 @@ bool GitPopup_commit(const char *repo_path, const char *message) {
         }
     }
 
-    // 4. Buat Commit Baru
+    // Buat Commit Baru
     int rc = git_commit_create(&commit_id, repo, "HEAD", author, author, nullptr, message, tree,
                                parents_count, parents);
 
@@ -533,7 +539,7 @@ void Git_fetch_file_diff(const char *repo_path, const char *file_path, Buffer *b
  * Mengambil metadata Author & Timestamp commit terakhir per baris via Git Blame
  */
 void Git_fetch_file_blame(const char *repo_path, const char *file_path, Buffer *buf) {
-    if (!repo_path || !file_path || !buf) return;
+    if (!repo_path || !file_path || !buf || !buf->line_git) return;
 
     git_repository *repo = nullptr;
     if (git_repository_open_ext(&repo, repo_path, 0, nullptr) != 0) return;
@@ -554,13 +560,15 @@ void Git_fetch_file_blame(const char *repo_path, const char *file_path, Buffer *
             for (size_t l = 0; l < line_count; l++) {
                 size_t current_line = start_line + l;
                 if (current_line < buf->lines.line_count && current_line < buf->meta_capacity) {
-                    strncpy(buf->line_git[current_line].author, hunk->final_signature->name,
-                            sizeof(buf->line_git[current_line].author) - 1);
-
-                    if (buf->line_git[current_line].last_edited_at == 0) {
-                        buf->line_git[current_line].last_edited_at =
-                            (double)hunk->final_signature->when.time;
+                    // ALWAYS copy author jika dari commit valid
+                    if (hunk->final_signature->name && hunk->final_signature->name[0] != '\0') {
+                        strncpy(buf->line_git[current_line].author, hunk->final_signature->name,
+                                sizeof(buf->line_git[current_line].author) - 1);
                     }
+
+                    // ALWAYS update timestamp dari commit asli
+                    buf->line_git[current_line].last_edited_at =
+                        (double)hunk->final_signature->when.time;
                 }
             }
         }
@@ -575,3 +583,50 @@ void Git_fetch_file_blame(const char *repo_path, const char *file_path, Buffer *
  */
 void Git_global_init(void) { git_libgit2_init(); }
 void Git_global_shutdown(void) { git_libgit2_shutdown(); }
+
+/*
+ * Worker tunggal yang mengeksekusi Diff lalu Blame
+ */
+static void *git_fetch_worker(void *arg) {
+    GitFetchArgs *args = (GitFetchArgs *)arg;
+    if (args) {
+        Git_fetch_file_diff(args->repo_path, args->file_path, args->buf);
+        Git_fetch_file_blame(args->repo_path, args->file_path, args->buf);
+
+        free(args->repo_path);
+        free(args->file_path);
+        free(args);
+    }
+    return nullptr;
+}
+
+/*
+ * Fungsi untuk worker async
+ */
+void Git_fetch_file_async(const char *repo_path, const char *file_path, Buffer *buf) {
+    if (!repo_path || !file_path || !buf) return;
+
+    // Potong repo_path dari file_path agar menjadi relative path
+    const char *rel_path = file_path;
+    size_t repo_len = strlen(repo_path);
+    if (strncmp(file_path, repo_path, repo_len) == 0) {
+        rel_path = file_path + repo_len;
+        while (*rel_path == '/' || *rel_path == '\\') rel_path++;  // Skip leading slash
+    }
+
+    GitFetchArgs *args = malloc(sizeof(GitFetchArgs));
+    if (!args) return;
+
+    args->repo_path = strdup(repo_path);
+    args->file_path = strdup(rel_path);  // Kirim relative path ke worker
+    args->buf = buf;
+
+    pthread_t thread;
+    if (pthread_create(&thread, nullptr, git_fetch_worker, args) == 0) {
+        pthread_detach(thread);
+    } else {
+        free(args->repo_path);
+        free(args->file_path);
+        free(args);
+    }
+}

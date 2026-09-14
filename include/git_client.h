@@ -60,8 +60,7 @@ const char *Git_folder_mark(const char *dir_path);
 void GitStatus_update(BufManager *bufmgr, float dt);
 void GitStatus_force(void);
 void format_time_ago(const char *author, double last_edited, char *out_str, size_t max_len);
-void Git_fetch_file_diff(const char *repo_path, const char *file_path, Buffer *buf);
-void Git_fetch_file_blame(const char *repo_path, const char *file_path, Buffer *buf);
+void Git_fetch_file_async(const char *repo_path, const char *file_path, Buffer *buf);
 
 void GitPopup_open(void);
 void GitPopup_close(void);

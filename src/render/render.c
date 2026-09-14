@@ -8,6 +8,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
 #include <unistd.h>
 
 #include "buffer.h"
@@ -319,7 +320,7 @@ void draw_editor(BufManager *bufmgr, Font font) {
             if (buf->line_git && y < buf->meta_capacity) {
                 LineGitMeta meta = buf->line_git[y];
 
-                // 1. Render Strip Warna di Samping Kiri Line Number
+                // Render Strip Warna di Samping Kiri Line Number
                 if (meta.status != GUTTER_NONE) {
                     float gutter_bar_x = (float)(Layout.editor_x + 4);
                     Rectangle gutter_rect = {gutter_bar_x, (float)py, 3.0f, (float)LINE_H - 2.0f};
@@ -424,17 +425,24 @@ void draw_editor(BufManager *bufmgr, Font font) {
             /* ------------------------------------------------------------- *
              * RENDER INLINE GHOST TEXT
              * ------------------------------------------------------------- */
-            if (git.is_repo) {  // Hanya render jika Path adalah Repo
+            // render.c pada blok Inline Ghost Text
+            if (git.is_repo) {
                 if (y == buf->cursor.y && buf->line_git && y < buf->meta_capacity) {
                     LineGitMeta meta = buf->line_git[y];
 
-                    // tampil kalau ada waktu (blame ATAU edit lokal)
-                    if (meta.last_edited_at > 0) {
+                    // Jika last_edited_at belum terisi oleh blame, gunakan waktu sekarang jika
+                    // baris dimodifikasi
+                    double time_to_show = meta.last_edited_at;
+                    if (time_to_show == 0 && meta.status != GUTTER_NONE) {
+                        time_to_show = (double)time(nullptr);
+                    }
+
+                    if (time_to_show > 0) {
                         char ghost_str[64] = {0};
                         const char *who =
                             meta.author[0] ? meta.author : (git.author[0] ? git.author : "You");
 
-                        format_time_ago(who, meta.last_edited_at, ghost_str, sizeof(ghost_str));
+                        format_time_ago(who, time_to_show, ghost_str, sizeof(ghost_str));
 
                         float line_w = get_text_column_x(font, expanded_text, strlen(expanded_text),
                                                          (float)text_x);
