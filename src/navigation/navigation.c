@@ -14,6 +14,7 @@
 
 #include "buffer.h"
 #include "buffer_manager.h"
+#include "git_client.h"
 #include "lsp_server.h"
 #include "lsp_ui.h"
 #include "notification.h"
@@ -73,7 +74,7 @@ extern void Nav_undo(BufManager *bufmgr, Font font);       // Nav_undo (nav_util
 /**
  * Fungsi untuk Navigation mouse berbasis Focus mode
  */
-static void Update_navigation_click(BufManager *bufmgr) {
+static void Update_navigation_click(BufManager *bufmgr, EditorLayout layout) {
     // Jika bukan Show FM maka set ke Mode Write
     if (!HAS_FLAG(bufmgr->win_flags, TXTED_SHOW_FM)) {
         CLR_FLAG(bufmgr->win_flags, TXTED_FILE_MANAGER);  /// Matiin dulu File Manager
@@ -83,19 +84,22 @@ static void Update_navigation_click(BufManager *bufmgr) {
 
     if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
         Vector2 mouse = GetMousePosition();
-        EditorLayout Layout = get_editor_layout(bufmgr);
 
+        int fm_x = layout.fm_x;
+        int fm_w = layout.fm_w;
+        int editor_x = layout.editor_x;
+        int editor_w = layout.editor_w;
         // Jangan proses kalau klik di area Bar Menu Atas (Tab Bar)
         if (mouse.y <= TAB_H) return;
 
         // Klik di area File Manager Sidebar
-        if (mouse.x >= Layout.fm_x && mouse.x < (Layout.fm_x + Layout.fm_w)) {
+        if (mouse.x >= fm_x && mouse.x < (fm_x + fm_w)) {
             CLR_FLAG(bufmgr->win_flags, TXTED_WRITE);         // Matiin dulu si Write
             SET_FLAG(bufmgr->win_flags, TXTED_FILE_MANAGER);  // set ke FM
         }
 
         // Klik di area Write / Text Editor
-        else if (mouse.x >= Layout.editor_x && mouse.x < (Layout.editor_x + Layout.editor_w)) {
+        else if (mouse.x >= editor_x && mouse.x < (editor_x + editor_w)) {
             CLR_FLAG(bufmgr->win_flags, TXTED_FILE_MANAGER);  // Matiin dulu si File Manager
             SET_FLAG(bufmgr->win_flags, TXTED_WRITE);         // Set default ke Write
         }
@@ -106,27 +110,28 @@ static void Update_navigation_click(BufManager *bufmgr) {
  * Input handling
  **/
 void handle_input(BufManager *bufmgr, Font font) {
-    Update_navigation_click(bufmgr);
+    EditorLayout layout = get_editor_layout(bufmgr);
+
+    Update_navigation_click(bufmgr, layout);
     Buffer *buf = BufManager_getactive(bufmgr);
     if (!buf) return;
-
-    EditorLayout layout = get_editor_layout(bufmgr);
 
     bool lsp_enable =
         HAS_FLAG(g_lsp_ui.lsp_flag, LSP_VISIBLE) || HAS_FLAG(g_lsp_ui.lsp_flag, LSP_ENABLE);
 
     bool is_shift = IsKeyDown(KEY_LEFT_SHIFT) || IsKeyDown(KEY_RIGHT_SHIFT);
 
+    int editor_w = layout.editor_w;
+    int editor_x = layout.editor_x;
+
     /* -------------------------------- *
      * Scroll
      * -------------------------------- */
     Vector2 mouse = GetMousePosition();
-    EditorLayout Layout = get_editor_layout(bufmgr);
 
     // Cek apakah mouse berada di wilayah Editor
-    bool is_mouse_in_editor = (mouse.x >= Layout.editor_x) &&
-                              (mouse.x < Layout.editor_x + Layout.editor_w) && (mouse.y > TAB_H) &&
-                              !Is_active_menu();
+    bool is_mouse_in_editor = (mouse.x >= editor_x) && (mouse.x < editor_x + editor_w) &&
+                              (mouse.y > TAB_H) && !Is_active_menu();
 
     bool is_mouse_scroll = false;
     float wheel = GetMouseWheelMove();
@@ -189,47 +194,35 @@ void handle_input(BufManager *bufmgr, Font font) {
     int key = GetCharPressed();
     while (key > 0) {
         if (key >= 32) {
-            char utf8[8] = {0};
-            int n = 0;
-            /* Raylib GetCharPressed codepoint */
-            if (key < 0x80) {
-                utf8[0] = (char)key;
-                n = 1;
-            } else {
-                /* simple utf-8 encode */
-                n = 0;
-                /* pakai pendekatan sederhana: hanya BMP */
-                if (key <= 0x7FF) {
-                    utf8[n++] = (char)(0xC0 | (key >> 6));
-                    utf8[n++] = (char)(0x80 | (key & 0x3F));
-                } else {
-                    utf8[n++] = (char)(0xE0 | (key >> 12));
-                    utf8[n++] = (char)(0x80 | ((key >> 6) & 0x3F));
-                    utf8[n++] = (char)(0x80 | (key & 0x3F));
-                }
-            }
+            int bytes_written = 0;
+            const char *utf8_char = CodepointToUTF8(key, &bytes_written);
 
-            utf8[n] = '\0';  // Null Terminator
-
-            // Auto pair
-            if (key == '{') {
-                Buffer_insert(buf, buf->cursor.cursor_pos, "{}");
-                buf->cursor.cursor_pos--;
-            } else if (key == '[') {
-                Buffer_insert(buf, buf->cursor.cursor_pos, "[]");
-                buf->cursor.cursor_pos--;
-            } else if (key == '(') {
-                Buffer_insert(buf, buf->cursor.cursor_pos, "()");
-                SET_FLAG(g_lsp_ui.lsp_flag, LSP_SIG_PENDING);
-                buf->cursor.cursor_pos--;
-            } else if (key == '"') {
-                Buffer_insert(buf, buf->cursor.cursor_pos, "\"\"");
-                buf->cursor.cursor_pos--;
-            } else if (key == '\'') {
-                Buffer_insert(buf, buf->cursor.cursor_pos, "\'\'");
-                buf->cursor.cursor_pos--;
-            } else {
-                Buffer_insert(buf, buf->cursor.cursor_pos, utf8);
+            // Auto pair check (menggunakan utf8_char[0])
+            switch (key) {
+                case '{':
+                    Buffer_insert(buf, buf->cursor.cursor_pos, "{}");
+                    buf->cursor.cursor_pos--;
+                    break;
+                case '[':
+                    Buffer_insert(buf, buf->cursor.cursor_pos, "[]");
+                    buf->cursor.cursor_pos--;
+                    break;
+                case '(':
+                    Buffer_insert(buf, buf->cursor.cursor_pos, "()");
+                    SET_FLAG(g_lsp_ui.lsp_flag, LSP_SIG_PENDING);
+                    buf->cursor.cursor_pos--;
+                    break;
+                case '"':
+                    Buffer_insert(buf, buf->cursor.cursor_pos, "\"\"");
+                    buf->cursor.cursor_pos--;
+                    break;
+                case '\'':
+                    Buffer_insert(buf, buf->cursor.cursor_pos, "''");
+                    buf->cursor.cursor_pos--;
+                    break;
+                default:
+                    Buffer_insert(buf, buf->cursor.cursor_pos, utf8_char);
+                    break;
             }
 
             sync_cursor_line_from_pos(buf);  // Sync cursor dengan Pos Rope
@@ -346,7 +339,7 @@ void handle_input(BufManager *bufmgr, Font font) {
     /* -------------------- *
      * Handling Backspace
      * -------------------- */
-    if (IsKeyPressed(KEY_BACKSPACE)) {
+    if (IsKeyPressed(KEY_BACKSPACE) || IsKeyPressedRepeat(KEY_BACKSPACE)) {
         if (HAS_FLAG(buf->buf_flags, BUF_IS_SELECT) || buf->cursor.cursor_pos > 0) {
             Buffer_delete(buf, buf->cursor.cursor_pos);
             lsp_ui_hide();
@@ -356,7 +349,7 @@ void handle_input(BufManager *bufmgr, Font font) {
     /* -------------------- *
      * Handling Left
      * -------------------- */
-    if (IsKeyPressed(KEY_LEFT)) {
+    if (IsKeyPressed(KEY_LEFT) || IsKeyPressedRepeat(KEY_LEFT)) {
         CHECK_SELECTION();
         Nav_move_left(buf);
     }
@@ -364,7 +357,7 @@ void handle_input(BufManager *bufmgr, Font font) {
     /* -------------------- *
      * Handling Right
      * -------------------- */
-    if (IsKeyPressed(KEY_RIGHT)) {
+    if (IsKeyPressed(KEY_RIGHT) || IsKeyPressedRepeat(KEY_RIGHT)) {
         CHECK_SELECTION();
         Nav_move_right(buf);
     }
@@ -372,7 +365,7 @@ void handle_input(BufManager *bufmgr, Font font) {
     /* -------------------- *
      * Handling Up
      * -------------------- */
-    if (IsKeyPressed(KEY_UP)) {
+    if (IsKeyPressed(KEY_UP) || IsKeyPressedRepeat(KEY_UP)) {
         CHECK_SELECTION();
         Nav_move_up(buf);
         SIGNATURE_HIDE();  // Auto hide
@@ -381,7 +374,7 @@ void handle_input(BufManager *bufmgr, Font font) {
     /* -------------------- *
      * Handling Down
      * -------------------- */
-    if (IsKeyPressed(KEY_DOWN)) {
+    if (IsKeyPressed(KEY_DOWN) || IsKeyPressedRepeat(KEY_DOWN)) {
         CHECK_SELECTION();
         Nav_move_down(buf);
         SIGNATURE_HIDE();  // Auto hide
@@ -412,6 +405,13 @@ void handle_input(BufManager *bufmgr, Font font) {
             } else {
                 BufManager_switchtab(bufmgr, NEXT);
             }
+        }
+
+        /* -------------------- *
+         * CTRL + G (Git Panel)
+         * -------------------- */
+        if (IsKeyPressed(KEY_G)) {
+            if (!git_popup.open) GitPopup_open();
         }
 
         /* -------------------- *

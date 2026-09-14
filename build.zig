@@ -40,14 +40,20 @@ pub fn build(b: *std.Build) !void {
         .files = c_files.items,
         .flags = &.{ "-std=gnu23", "-Wall", "-Wextra", "-O2" },
     });
+    exe.root_module.addObjectFile(b.path("src/git/libgit2.a"));
 
     // Import module
     exe.root_module.linkSystemLibrary("raylib", .{});
     exe.root_module.linkSystemLibrary("GL", .{});
     exe.root_module.linkSystemLibrary("dl", .{});
+    exe.root_module.linkSystemLibrary("m", .{});
+    exe.root_module.linkSystemLibrary("pthread", .{});
     exe.root_module.linkSystemLibrary("rt", .{});
     exe.root_module.linkSystemLibrary("X11", .{});
     exe.root_module.linkSystemLibrary("tree-sitter", .{});
+    exe.root_module.linkSystemLibrary("z", .{});
+    exe.root_module.linkSystemLibrary("ssl", .{});
+    exe.root_module.linkSystemLibrary("crypto", .{});
 
     if (optimize != .Debug) {
         exe.root_module.strip = true;

@@ -6,25 +6,25 @@
 #include "rope.h"
 
 #include <stddef.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#define MAX_SIZE_LEAF ((u32)1024)
 
-constexpr size_t MAX_SIZE_LEAF = 1024;  // Perubahan jadi constexpr agar aman dari overflow
-String *String_new();                   // Register awal
-size_t String_len(String *str);         // Register Awal
+typedef uint8_t u8;
+typedef uint32_t u32;
+String *String_new();            // Register awal
+size_t String_len(String *str);  // Register Awal
 
 /**
  * Struct pembungkus untuk Rope (String)
  * Sengaja di Private karena ini inti dari Manipulasi teks di Buffer
  */
 struct String {
-    char *str;
-    size_t len;
-    size_t weight;
-    size_t ref_count;
-
+    u8 *str;
+    u32 len, weight, ref_count;
     struct String *left, *right;
 };
 
@@ -137,8 +137,8 @@ static void String_split(String *root, size_t index, String **left, String **rig
         }
         // Kalau tidak maka buat baru
         else {
-            *left = String_make_leaf(root->str, index);
-            *right = String_make_leaf(root->str + index, root->len - index);
+            *left = String_make_leaf((const char *)root->str, index);
+            *right = String_make_leaf((const char *)root->str + index, root->len - index);
         }
         return;
     }
@@ -288,16 +288,21 @@ String *String_new() {
  */
 void String_release(String *str) {
     if (!str) return;
-    str->ref_count--;
 
-    if (str->ref_count > 0) return;
+    if (str->ref_count > 0) {
+        str->ref_count--;
+        return;
+    }
 
+    // Rekursif release
     String_release(str->left);
     String_release(str->right);
 
+    // Jika str tidak kosong maka hapus
     if (str->str != nullptr) {
         free(str->str);
     }
+    // Hapus root atau String
     free(str);
 }
 

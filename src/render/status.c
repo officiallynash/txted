@@ -7,6 +7,7 @@
 #include <stdio.h>
 
 #include "buffer.h"
+#include "git_client.h"
 #include "lsp_ui.h"
 #include "result.h"
 #include "theme.h"
@@ -18,13 +19,16 @@
 void draw_status(BufManager *bufmgr, Font font) {
     EditorLayout layout = get_editor_layout(bufmgr);
 
-    // 1. Ambil ukuran font dinamis & hitung offset Y agar teks tepat di tengah (vertically
+    int win_w = layout.win_w;
+    int win_h = layout.win_h;
+
+    // Ambil ukuran font dinamis & hitung offset Y agar teks tepat di tengah (vertically
     // centered)
     float current_font_size = (float)font.baseSize;
-    float text_y = (float)(layout.win_h - STATUS_H) + ((float)STATUS_H - current_font_size) / 2.0f;
+    float text_y = (float)(win_h - STATUS_H) + ((float)STATUS_H - current_font_size) / 2.0f;
 
     // Gambar background status bar
-    DrawRectangle(0, layout.win_h - STATUS_H, layout.win_w, STATUS_H, g_theme.bg_sidebar);
+    DrawRectangle(0, win_h - STATUS_H, win_w, STATUS_H, g_theme.bg_sidebar);
 
     Buffer *buf = BufManager_getactive(bufmgr);
     if (!buf) {
@@ -37,7 +41,21 @@ void draw_status(BufManager *bufmgr, Font font) {
 
     // Format Teks Kiri
     char left[256] = {0};
-    snprintf(left, sizeof(left), "File: %s %s ", buf->filename ? buf->filename : "Untitled", text);
+    const char *mark = Git_file_mark(buf->path);
+    if (git.is_repo) {
+        if (mark[0]) {
+            snprintf(left, sizeof(left), "File: %s %s[%s] | Branch: %s%s ",
+                     buf->filename ? buf->filename : "Untitled", text, mark, git.branch,
+                     git.has_changes ? "*" : "");
+        } else {
+            snprintf(left, sizeof(left), "File: %s %s | Branch: %s%s ",
+                     buf->filename ? buf->filename : "Untitled", text, git.branch,
+                     git.has_changes ? "*" : "");
+        }
+    } else {
+        snprintf(left, sizeof(left), "File: %s %s ", buf->filename ? buf->filename : "Untitled",
+                 text);
+    }
 
     // Render Teks Kiri (Posisi Y Dinamis)
     Vector2 left_pos = {(float)PAD_X, text_y};
@@ -55,6 +73,6 @@ void draw_status(BufManager *bufmgr, Font font) {
 
     // Render Teks Kanan (Ukur Lebar Pakai current_font_size & Posisi Y Dinamis)
     Vector2 rsize = MeasureTextEx(font, right, current_font_size, 1.0f);
-    Vector2 right_pos = {(float)(layout.win_w - (int)rsize.x - PAD_X), text_y};
+    Vector2 right_pos = {(float)(win_w - (int)rsize.x - PAD_X), text_y};
     DrawTextEx(font, right, right_pos, current_font_size, 1.0f, g_theme.text_normal);
 }

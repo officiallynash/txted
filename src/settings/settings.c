@@ -74,7 +74,8 @@ void Settings_load(void) {
 void Settings_apply(BufManager *bufmgr, Font *font) {
     EditorLayout layout = get_editor_layout(bufmgr);
 
-    SetConfigFlags(FLAG_WINDOW_RESIZABLE);
+    SetConfigFlags(FLAG_VSYNC_HINT | FLAG_WINDOW_RESIZABLE | FLAG_MSAA_4X_HINT |
+                   FLAG_BORDERLESS_WINDOWED_MODE);
 
     // Init window dan dynamic title
     InitWindow(layout.win_w, layout.win_h, "TxtEd - Simple Text Editor");

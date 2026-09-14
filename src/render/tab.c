@@ -10,6 +10,7 @@
 
 #include "buffer.h"
 #include "buffer_manager.h"
+#include "git_client.h"
 #include "raygui.h"
 #include "result.h"
 #include "theme.h"
@@ -68,6 +69,12 @@ void Nav_show_about(BufManager *bufmgr, Font font) {
     UI_open_dialog(bufmgr, DIALOG_ABOUT);
 }
 
+void Nav_open_git(BufManager *bufmgr, Font font) {
+    (void)bufmgr;
+    (void)font;
+    GitPopup_open();
+}
+
 void Nav_show_fm(BufManager *bufmgr, Font font) {
     (void)font;
     if (!HAS_FLAG(bufmgr->win_flags, TXTED_SHOW_FM)) {
@@ -87,6 +94,7 @@ static MenuItem file_items[] = {
     {"Save As", "Ctrl+Shift+S", Nav_save_as},
     {"Create Folder", "Ctrl+P", Nav_create_folder},
     {"File Manager", "Ctrl + F", Nav_show_fm},
+    {"Git Panel", "Ctrl + G", Nav_open_git},
     {"Exit", "Ctrl+Q", Nav_exit},
 };
 
@@ -368,6 +376,7 @@ void draw_dialog_modal(BufManager *bufmgr, Font font) {
                                    "Ctrl + Shift + S : Save As",
                                    "Ctrl + P : Create Folder",
                                    "Ctrl + F : File Manager",
+                                   "Ctrl + G : Git Panel",
                                    "",
                                    "--- Tab Management ---",
                                    "Ctrl + T : New Tab",

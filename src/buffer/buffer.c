@@ -17,6 +17,7 @@
 #include <unistd.h>
 
 #include "fs.h"
+#include "git_client.h"
 #include "lsp_config.h"
 #include "lsp_server.h"
 #include "lsp_ui.h"
@@ -150,6 +151,27 @@ static bool line_index_delete_range(LineIndex *li, size_t pos, size_t deleted) {
     }
 
     return true;
+}
+
+/**
+ * Fungsi untuk memastikan meta_capacity [PRIVATE API]
+ */
+static void Buffer_ensure_git_meta_capacity(Buffer *buf, size_t needed_cap) {
+    if (!buf || needed_cap <= buf->meta_capacity) return;
+
+    size_t new_cap = needed_cap * 2;
+    LineGitMeta *new_git = realloc(buf->line_git, new_cap * sizeof(LineGitMeta));
+    if (!new_git) return;
+
+    // Clean up alokasi baru
+    for (size_t i = buf->meta_capacity; i < new_cap; i++) {
+        new_git[i].status = GUTTER_NONE;
+        new_git[i].last_edited_at = 0;
+        new_git[i].author[0] = '\0';
+    }
+
+    buf->line_git = new_git;
+    buf->meta_capacity = new_cap;
 }
 
 /**
@@ -353,6 +375,9 @@ Buffer *Buffer_new() {
     new_buffer->diagnostic = nullptr;  // Diagnostic
 
     Undo_init(&new_buffer->undo);  // Undo init
+    // Metadata Git
+    new_buffer->meta_capacity = new_buffer->lines.line_count ? new_buffer->lines.line_count : 64;
+    new_buffer->line_git = calloc(new_buffer->meta_capacity, sizeof(LineGitMeta));
 
     return new_buffer;
 }
@@ -400,6 +425,10 @@ Buffer *Buffer_open(const char *filename) {
 
     // Undo init
     Undo_init(&new->undo);
+
+    // Git
+    new->meta_capacity = (lines.line_count > 64) ? lines.line_count : 64;
+    new->line_git = calloc(new->meta_capacity, sizeof(LineGitMeta));
 
     // LSP dan Syntax init
     LangConfig *lang = LspConfig_detail(new->path);
@@ -467,6 +496,9 @@ void Buffer_insert(Buffer *buf, size_t pos_idx, const char *ch) {
         Buffer_delete(buf, buf->cursor.cursor_pos);
         pos_idx = buf->cursor.cursor_pos;
     }
+    // Save Line Count dan Original Y
+    size_t old_line_count = buf->lines.line_count;
+    size_t orig_y = buf->cursor.y;
 
     Undo_push(&buf->undo, UNDO_INSERT, pos_idx, ch, text_len);
 
@@ -510,6 +542,36 @@ void Buffer_insert(Buffer *buf, size_t pos_idx, const char *ch) {
     // Syntax + LSP
     size_t rope_len = String_len(buf->str);
     Bytes full_text = String_get(buf->str, 0, rope_len);
+
+    // Sinkronisasi Metadata Git
+    Buffer_ensure_git_meta_capacity(buf, buf->lines.line_count);
+
+    // Sinkronisasi dengan Git jika Path adalah Repo
+    if (git.is_repo && newline_count > 0 && buf->line_git) {
+        size_t added_lines = buf->lines.line_count - old_line_count;
+
+        // Geser metadata di bawah baris yang terbelah ke arah bawah
+        if (orig_y + 1 < old_line_count) {
+            size_t lines_to_move = old_line_count - (orig_y + 1);
+            memmove(&buf->line_git[orig_y + 1 + added_lines], &buf->line_git[orig_y + 1],
+                    lines_to_move * sizeof(LineGitMeta));
+        }
+
+        // Tandai baris-baris baru hasil pecahan/insert sebagai MODIFIED/ADDED
+        for (size_t i = orig_y; i <= orig_y + added_lines; i++) {
+            buf->line_git[i].status = GUTTER_MODIFIED;
+            buf->line_git[i].last_edited_at = (double)time(nullptr);
+            strncpy(buf->line_git[i].author, git.author[0] ? git.author : "You",
+                    sizeof(buf->line_git[i].author) - 1);
+        }
+    } else if (git.is_repo && buf->line_git) {  // Sinkronisasi jika Path adalah Repo
+        // Edit biasa (1 baris)
+        size_t y = buf->cursor.y;
+        buf->line_git[y].status = GUTTER_MODIFIED;
+        buf->line_git[y].last_edited_at = (double)time(nullptr);
+        strncpy(buf->line_git[y].author, git.author[0] ? git.author : "You",
+                sizeof(buf->line_git[y].author) - 1);
+    }
 
     sync_syntax_tree(buf);
 
@@ -564,14 +626,22 @@ void Buffer_delete(Buffer *buf, size_t pos_idx) {
         start_del = pos_idx - 1;
     }
 
+    // Simpan old Line Count
+    size_t old_line_count = buf->lines.line_count;
     size_t rope_len = String_len(buf->str);
     if (len == 0) return;
     if (start_del + len > rope_len) len = rope_len - start_del;
 
     // Ambil data yang akan dihapus (untuk undo + deteksi newline)
+    bool contains_newline = false;
     Bytes del_bytes = String_get(buf->str, start_del, len);
+
     if (del_bytes.data) {
         Undo_push(&buf->undo, UNDO_DELETE, start_del, (const char *)del_bytes.data, len);
+
+        for (size_t i = 0; i < len; i++) {
+            if (del_bytes.data[i] == '\n') contains_newline = true;
+        }
         Bytes_free(&del_bytes);
     }
 
@@ -585,9 +655,50 @@ void Buffer_delete(Buffer *buf, size_t pos_idx) {
     // Sync cursor coordinates
     sync_cursor_line_from_pos(buf);
 
-    // Syntax + LSP
+    // Syntax + LSP + Metadata GIT
     size_t new_len = String_len(buf->str);
     Bytes full_text = String_get(buf->str, 0, new_len);
+
+    // Sinkronisasi Metadata Git
+    Buffer_ensure_git_meta_capacity(
+        buf, old_line_count > buf->lines.line_count ? old_line_count : buf->lines.line_count);
+
+    // Git Metadata
+    if (git.is_repo && contains_newline && buf->line_git) {  // Jika Path adalah Repo
+        size_t deleted_lines = old_line_count - buf->lines.line_count;
+        size_t cur_y = buf->cursor.y;
+
+        // Geser metadata di bawah baris terhapus ke ATAS
+        if (cur_y + 1 + deleted_lines < old_line_count) {
+            size_t lines_to_move = old_line_count - (cur_y + 1 + deleted_lines);
+            memmove(&buf->line_git[cur_y + 1], &buf->line_git[cur_y + 1 + deleted_lines],
+                    lines_to_move * sizeof(LineGitMeta));
+        }
+
+        // Bersihkan slot tersisa di ekor array
+        for (size_t i = buf->lines.line_count; i < old_line_count; i++) {
+            buf->line_git[i].status = GUTTER_NONE;
+            buf->line_git[i].last_edited_at = 0;
+            buf->line_git[i].author[0] = '\0';
+        }
+
+        // Update status baris penggabungan saat ini
+        if (cur_y < buf->meta_capacity) {
+            buf->line_git[cur_y].status = GUTTER_MODIFIED;
+            buf->line_git[cur_y].last_edited_at = (double)time(nullptr);
+            strncpy(buf->line_git[cur_y].author, git.author[0] ? git.author : "You",
+                    sizeof(buf->line_git[cur_y].author) - 1);
+        }
+    } else if (git.is_repo && buf->line_git) {  // Jika Path adalah Repo
+        // Delete biasa 1 baris
+        size_t y = buf->cursor.y;
+        if (y < buf->meta_capacity) {
+            buf->line_git[y].status = GUTTER_MODIFIED;
+            buf->line_git[y].last_edited_at = (double)time(nullptr);
+            strncpy(buf->line_git[y].author, git.author[0] ? git.author : "You",
+                    sizeof(buf->line_git[y].author) - 1);
+        }
+    }
 
     sync_syntax_tree(buf);
 
@@ -660,6 +771,7 @@ void Buffer_save(Buffer *buf, const char *filename) {
         Result_free(&result);
         Bytes_free(&data);
     }
+    GitStatus_force();
 }
 
 /**
@@ -837,6 +949,12 @@ void Buffer_free(Buffer *buf) {
         buf->lines.offset = nullptr;
     }
 
+    // Line Git
+    if (buf->line_git != nullptr) {
+        free(buf->line_git);
+        buf->line_git = nullptr;
+    }
+
     // Undo
     Undo_free(&buf->undo);
 
@@ -1008,3 +1126,4 @@ int Buffer_search(Buffer *buf, const char *query, SearchHitBuffer *out, int max_
     }
     return count;
 }
+

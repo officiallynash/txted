@@ -42,8 +42,8 @@ char *find_executable_in_path(const char *exec_name) {
  */
 static char *Syntax_query(const char *lang_id, const char *scm_filename) {
     char path[256] = {0};
-    snprintf(path, sizeof(path), "%squeries/%s/%s", GetApplicationDirectory(), lang_id,
-             scm_filename);
+    char *home = getenv("HOME");
+    snprintf(path, sizeof(path), "%s/.config/txted/queries/%s/%s", home, lang_id, scm_filename);
 
     // Sebenarnya akan lebih bagus pakai Result dan FS_open
     // Tapi casting dari unsigned char * ke char * malah bikin error

@@ -15,6 +15,7 @@
 #include "buffer.h"
 #include "buffer_manager.h"
 #include "fs.h"
+#include "git_client.h"
 #include "result.h"
 #include "theme.h"
 #include "ui.h"
@@ -205,16 +206,21 @@ static void draw_file_node_recursive(FileNode *node, Font font, EditorLayout L, 
                                      float *current_y, Vector2 mouse_pos, BufManager *bufmgr) {
     if (!node) return;
 
+    int fm_y = L.fm_y;
+    int fm_x = L.fm_x;
+    int fm_h = L.fm_h;
+    int fm_w = L.fm_w;
+
     float current_font_size = (float)font.baseSize;
     // Item height disesuaikan dengan tinggi font ditambah vertical padding
     float item_h = current_font_size + 6.0f;
     float item_y = *current_y - g_fm_scroll_y;
     float indent = depth * 14.0f + 12.0f;
 
-    Rectangle item_bounds = {(float)L.fm_x + 4.0f, item_y, (float)L.fm_w - 8.0f, item_h};
+    Rectangle item_bounds = {(float)fm_x + 4.0f, item_y, (float)fm_w - 8.0f, item_h};
 
-    float visible_top = L.fm_y + current_font_size + 16.0f;
-    float visible_bottom = L.fm_y + L.fm_h;
+    float visible_top = fm_y + current_font_size + 16.0f;
+    float visible_bottom = fm_y + fm_h;
 
     if (item_y + item_h > visible_top && item_y < visible_bottom) {
         // Tambahan cek apakah Active menu sedang aktif
@@ -250,13 +256,33 @@ static void draw_file_node_recursive(FileNode *node, Font font, EditorLayout L, 
         Color text_color = node->is_directory
                                ? g_theme.keyword
                                : (is_selected ? g_theme.cursor : g_theme.text_normal);
+        // Git Mark (Untuk tracking Changes dan lain2)
+        const char *mark = "";
+        if (node->is_directory) {
+            mark = Git_folder_mark(node->path);
+        } else {
+            mark = Git_file_mark(node->path);
+        }
 
         char label[300] = {0};
-        snprintf(label, sizeof(label), "%s%s", prefix, node->name);
+        if (mark[0]) {
+            snprintf(label, sizeof(label), "%s%s [%s]", prefix, node->name, mark);
+        } else {
+            snprintf(label, sizeof(label), "%s%s", prefix, node->name);
+        }
+
+        if (mark[0] == '~')
+            text_color = g_theme.warning;
+        else if (mark[0] == '-')
+            text_color = g_theme.error;
+        else if (mark[0] == '+' || mark[0] == '?')
+            text_color = g_theme.cursor;
+        else if (mark[0] == 'x')
+            text_color = g_theme.text_muted;
 
         // Posisi Y diselaraskan secara vertikal tepat di tengah baris item
         float text_y = item_y + (item_h - current_font_size) / 2.0f;
-        Vector2 text_pos = {(float)L.fm_x + indent, text_y};
+        Vector2 text_pos = {(float)fm_x + indent, text_y};
         DrawTextEx(font, label, text_pos, current_font_size, 1.0f, text_color);
     }
 
@@ -309,25 +335,29 @@ void draw_file_manager(BufManager *bufmgr, Font font) {
     EditorLayout L = get_editor_layout(bufmgr);
     Vector2 mouse_pos = GetMousePosition();
 
-    DrawRectangle(L.fm_x, L.fm_y, L.fm_w, L.fm_h, g_theme.bg_sidebar);
-    DrawLine(L.fm_x + L.fm_w - 1, L.fm_y, L.fm_x + L.fm_w - 1, L.fm_y + L.fm_h, g_theme.border);
+    int fm_w = L.fm_w;
+    int fm_h = L.fm_h;
+    int fm_x = L.fm_x;
+    int fm_y = L.fm_y;
+
+    DrawRectangle(fm_x, fm_y, fm_w, fm_h, g_theme.bg_sidebar);
+    DrawLine(fm_x + fm_w - 1, fm_y, fm_x + fm_w - 1, fm_y + fm_h, g_theme.border);
 
     // Header "FILE EXPLORER" menyesuaikan ukuran font
     float header_h = current_font_size + 16.0f;
-    float header_text_y = L.fm_y + (header_h - current_font_size) / 2.0f;
-    DrawTextEx(font, "FILE EXPLORER", (Vector2){(float)(L.fm_x + 12), header_text_y},
+    float header_text_y = fm_y + (header_h - current_font_size) / 2.0f;
+    DrawTextEx(font, "FILE EXPLORER", (Vector2){(float)(fm_x + 12), header_text_y},
                current_font_size, 1.0f, g_theme.cursor);
 
-    Rectangle fm_rect = {(float)L.fm_x, (float)L.fm_y, (float)L.fm_w,
-                         (float)(L.fm_h - DIAG_PANEL_H)};
+    Rectangle fm_rect = {(float)fm_x, (float)fm_y, (float)fm_w, (float)(fm_h - DIAG_PANEL_H)};
 
     // Scissor offset dan height menyesuaikan tinggi header secara dinamis
-    float content_start_y = L.fm_y + header_h;
+    float content_start_y = fm_y + header_h;
     float current_y = content_start_y;
-    int scissor_h = L.fm_h - (int)header_h - DIAG_PANEL_H;
+    int scissor_h = fm_h - (int)header_h - DIAG_PANEL_H;
 
     if (scissor_h > 0) {
-        BeginScissorMode(L.fm_x, (int)content_start_y, L.fm_w - 1, scissor_h);
+        BeginScissorMode(fm_x, (int)content_start_y, L.fm_w - 1, scissor_h);
 
         if (g_fm_root) {
             for (int i = 0; i < g_fm_root->child_count; i++) {
@@ -363,12 +393,12 @@ void draw_file_manager(BufManager *bufmgr, Font font) {
         if (thumb_h < 14.0f) thumb_h = 14.0f;
 
         float thumb_y = content_start_y + (g_fm_scroll_y / max_scroll) * (view_h - thumb_h);
-        Rectangle scrollbar_rect = {(float)(L.fm_x + L.fm_w - 6), thumb_y, 4.0f, thumb_h};
+        Rectangle scrollbar_rect = {(float)(fm_x + fm_w - 6), thumb_y, 4.0f, thumb_h};
 
         DrawRectangleRounded(scrollbar_rect, 0.5f, 4, g_theme.border);
     }
 
     // Line separator
-    float ws_y = L.fm_y + L.fm_h - DIAG_PANEL_H;
-    DrawLine(L.fm_x, (int)ws_y, L.fm_x + L.fm_w - 1, (int)ws_y, g_theme.line_num);
+    float ws_y = fm_y + fm_h - DIAG_PANEL_H;
+    DrawLine(fm_x, (int)ws_y, fm_x + fm_w - 1, (int)ws_y, g_theme.line_num);
 }

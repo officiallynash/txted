@@ -27,10 +27,6 @@ extern void render_all_ui(BufManager *bufmgr, Font font);  // Didefinisikan di m
 extern int calculate_score(const char *query,
                            const char *label);  // Calculate score for fuzzy matching (LSP_UI)
 
-/* ================================
- * PRIVATE API
- * ================================ */
-
 /**
  * Fungsi untuk menambahkan karakter [PRIVATE API]
  */

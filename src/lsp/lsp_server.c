@@ -50,9 +50,11 @@ static bool response_received = false;
  */
 static void lsp_send_raw(const char *json) {
     char header[64] = {0};
-    int len = snprintf(header, sizeof(header), "Content-Length: %zu\r\n\r\n", strlen(json));
+    size_t body_len = strlen(json);
+
+    int len = snprintf(header, sizeof(header), "Content-Length: %zu\r\n\r\n", body_len);
     write(stdin_fd, header, len);
-    write(stdin_fd, json, strlen(json));
+    write(stdin_fd, json, body_len);
 }
 
 /**
@@ -974,7 +976,7 @@ bool lsp_start(const char *lsp_path, char **argv, const char *workspace_root) {
 
     // clientInfo (sangat direkomendasikan)
     cJSON *client_info = cJSON_CreateObject();
-    cJSON_AddStringToObject(client_info, "name", "MyEditor");
+    cJSON_AddStringToObject(client_info, "name", "TxtEd");
     cJSON_AddStringToObject(client_info, "version", "0.1.0");
     cJSON_AddItemToObject(params, "clientInfo", client_info);
 

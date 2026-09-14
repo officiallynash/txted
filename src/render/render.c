@@ -12,6 +12,7 @@
 
 #include "buffer.h"
 #include "buffer_manager.h"
+#include "git_client.h"
 #include "lsp_ui.h"
 #include "raylib.h"
 #include "result.h"
@@ -257,16 +258,20 @@ void draw_editor(BufManager *bufmgr, Font font) {
     BracketMatch b2;
     find_matching_brackets(buf, &b1, &b2);
 
+    int editor_x = Layout.editor_x;
+    int editor_y = Layout.editor_y;
+    int editor_h = Layout.editor_h;
+    int editor_w = Layout.editor_w;
+    int gutter_screen_x = Layout.gutter_screen_x;
+
     /* Buka Scissor cuma untuk area antara TAB dan STATUS BAR */
-    BeginScissorMode(Layout.editor_x, Layout.editor_y, Layout.editor_w, Layout.editor_h);
+    BeginScissorMode(editor_x, editor_y, editor_w, editor_h);
 
     /* Fill the Editor*/
-    DrawRectangle(Layout.editor_x, Layout.editor_y, Layout.editor_w, Layout.editor_h,
-                  g_theme.bg_editor);
+    DrawRectangle(editor_x, editor_y, editor_w, editor_h, g_theme.bg_editor);
 
     /* Background Gutter */
-    DrawRectangle(Layout.gutter_screen_x, Layout.editor_y, GUTTER_W, Layout.editor_h,
-                  g_theme.bg_editor);
+    DrawRectangle(gutter_screen_x, editor_y, GUTTER_W, editor_h, g_theme.bg_editor);
 
     /* clamp scroll */
     if (buf->scroll_y < 0) buf->scroll_y = 0;
@@ -299,19 +304,38 @@ void draw_editor(BufManager *bufmgr, Font font) {
     }
 
     for (size_t y = first; y < last; y++) {
-        int py = Layout.editor_y + PAD_Y + (int)(y - first) * LINE_H;
+        int py = editor_y + PAD_Y + (int)(y - first) * LINE_H;
 
         // Active line
         if (y == buf->cursor.y) {
-            DrawRectangle(Layout.editor_x + GUTTER_W + 4, py, Layout.editor_w - GUTTER_W - 4,
-                          current_font_x + 2, g_theme.active_line);
+            DrawRectangle(editor_x + GUTTER_W + 4, py, editor_w - GUTTER_W - 4, current_font_x + 2,
+                          g_theme.active_line);
+        }
+
+        /* ------------------------------------------------------------- *
+         * RENDER GIT GUTTER INDICATOR BAR & GHOST TEXT
+         * ------------------------------------------------------------- */
+        if (git.is_repo) {  // Hanya render jika Path adalah repo
+            if (buf->line_git && y < buf->meta_capacity) {
+                LineGitMeta meta = buf->line_git[y];
+
+                // 1. Render Strip Warna di Samping Kiri Line Number
+                if (meta.status != GUTTER_NONE) {
+                    float gutter_bar_x = (float)(Layout.editor_x + 4);
+                    Rectangle gutter_rect = {gutter_bar_x, (float)py, 3.0f, (float)LINE_H - 2.0f};
+
+                    Color bar_color =
+                        (meta.status == GUTTER_ADDED) ? g_theme.function : g_theme.warning;
+                    DrawRectangleRounded(gutter_rect, 0.5f, 2, bar_color);
+                }
+            }
         }
 
         /* Line Number */
         char num_str[16] = {0};
         snprintf(num_str, sizeof(num_str), "%4zu", y + 1);
         Color num_color = (y == buf->cursor.y) ? g_theme.line_num : g_theme.text_muted;
-        Vector2 num_pos = {(float)(Layout.editor_x + PAD_X - 8), (float)py};
+        Vector2 num_pos = {(float)(editor_x + PAD_X - 8), (float)py};
         DrawTextEx(font, num_str, num_pos, current_font_x, 1.0f, num_color);
 
         /* Teks Editor */
@@ -396,6 +420,29 @@ void draw_editor(BufManager *bufmgr, Font font) {
 
             // Render teks dengan highlight [RENDER UTAMA]
             Draw_line_highlighted(font, text, pos, tokens, token_count, buf->lines.offset[y]);
+
+            /* ------------------------------------------------------------- *
+             * RENDER INLINE GHOST TEXT
+             * ------------------------------------------------------------- */
+            if (git.is_repo) {  // Hanya render jika Path adalah Repo
+                if (y == buf->cursor.y && buf->line_git && y < buf->meta_capacity) {
+                    LineGitMeta meta = buf->line_git[y];
+
+                    // tampil kalau ada waktu (blame ATAU edit lokal)
+                    if (meta.last_edited_at > 0) {
+                        char ghost_str[64] = {0};
+                        const char *who =
+                            meta.author[0] ? meta.author : (git.author[0] ? git.author : "You");
+
+                        format_time_ago(who, meta.last_edited_at, ghost_str, sizeof(ghost_str));
+
+                        float line_w = get_text_column_x(font, expanded_text, strlen(expanded_text),
+                                                         (float)text_x);
+                        DrawTextEx(font, ghost_str, (Vector2){line_w + 32.0f, (float)py},
+                                   current_font_x, 1.0f, g_theme.text_muted);
+                    }
+                }
+            }
 
             /* ------------------------------------------------------------- *
              * Render Squiggly / Underline Diagnostics
@@ -484,7 +531,7 @@ void draw_editor(BufManager *bufmgr, Font font) {
         }
 
         int cx = (int)cx_float;
-        int cy = Layout.editor_y + PAD_Y + (int)(buf->cursor.y - first) * LINE_H;
+        int cy = editor_y + PAD_Y + (int)(buf->cursor.y - first) * LINE_H;
 
         int cursor_w = 2;
         int cursor_h = (int)current_font_x + 2;
@@ -500,9 +547,9 @@ void draw_editor(BufManager *bufmgr, Font font) {
     size_t total_lines = buf->lines.line_count;
     if (total_lines > (size_t)max_vis) {
         float scrollbar_w = 8.0f;
-        float scrollbar_x = (float)(Layout.editor_x + Layout.editor_w) - scrollbar_w - 2.0f;
-        float track_h = (float)Layout.editor_h;
-        float track_y = (float)Layout.editor_y;
+        float scrollbar_x = (float)(editor_x + editor_w) - scrollbar_w - 2.0f;
+        float track_h = (float)editor_h;
+        float track_y = (float)editor_y;
 
         // Ratio tinggi thumb terhadap total konten
         float visible_ratio = (float)max_vis / (float)total_lines;

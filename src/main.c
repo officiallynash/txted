@@ -12,6 +12,7 @@
 
 #include "buffer_manager.h"
 #include "fs.h"
+#include "git_client.h"
 #include "lsp_ui.h"
 #include "notification.h"
 #include "raylib.h"
@@ -30,6 +31,7 @@ void render_all_ui(BufManager *bufmgr, Font font) {
     draw_diagnostic_bar(bufmgr, font);
     draw_status(bufmgr, font);
     draw_dialog_modal(bufmgr, font);
+    GitPopup_render(bufmgr, font);
 
     // Jika LSP aktif, Kita tampilkan lsp
     if (HAS_FLAG(g_lsp_ui.lsp_flag, LSP_ENABLE)) {
@@ -37,6 +39,8 @@ void render_all_ui(BufManager *bufmgr, Font font) {
         render_signature_help(bufmgr, font);
         render_hover_ui(bufmgr, font);
     }
+
+    // Draw notifikasi paling atas
     Notif_draw(bufmgr, font);
 }
 
@@ -54,6 +58,7 @@ int main(int argc, char *argv[]) {
 
     // Inisiasi Notify
     Notif_init();
+    Git_global_init();
 
     // Set Log level
     SetTraceLogLevel(LOG_NONE);
@@ -74,6 +79,7 @@ int main(int argc, char *argv[]) {
     while (!HAS_FLAG(bufmgr->win_flags, TXTED_EXIT)) {
         float dt = GetFrameTime();
         Notif_update(dt);
+        GitStatus_update(bufmgr, dt);
 
         // Jika dipencet si X
         // Aku assume bahwa Semua buffer telah di save
@@ -88,7 +94,7 @@ int main(int argc, char *argv[]) {
                 lsp_ui_toggle();
             }
 
-            handle_input(bufmgr, font);
+            if (!git_popup.open) handle_input(bufmgr, font);
         } else {
             lsp_ui_hide();
             // Hotkey shortcut keyboard saat modal exit aktif
@@ -112,6 +118,7 @@ int main(int argc, char *argv[]) {
         EndDrawing();
     }
 
+    Git_global_shutdown();
     lsp_ui_shutdown();
     BufManager_destroy(bufmgr);  // safety free
 
