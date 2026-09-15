@@ -1,9 +1,10 @@
-#include "git2/credential.h"
 /*
  * TxtEd - Simple Text Editor
  * Copyright (c) 2026 Nash
  * SPDX-License-Identifier: MIT
  */
+#include "git_client.h"
+
 #include <git2.h>
 #include <pthread.h>
 #include <stdbool.h>
@@ -13,8 +14,9 @@
 #include <string.h>
 #include <time.h>
 
+#include "git2/credential.h"
+#include "git2/errors.h"
 #include "git2/global.h"
-#include "git_client.h"
 #include "notification.h"
 
 GitStatus git = {};
@@ -142,7 +144,7 @@ static int credential_cb(git_credential **out, const char *url, const char *user
     (void)url, (void)payload;
 
     if (allowed_types & GIT_CREDENTIAL_SSH_KEY) {
-        return git_credential_ssh_key_from_agent(out, username_from_url);
+        if (git_credential_ssh_key_from_agent(out, username_from_url) == 0) return 0;
     }
 
     return git_credential_default_new(out);
@@ -154,7 +156,9 @@ static int credential_cb(git_credential **out, const char *url, const char *user
 bool GitPopup_push(const char *repo_path) {
     git_repository *repo = nullptr;
     if (git_repository_open_ext(&repo, repo_path, 0, nullptr) != 0) {
-        snprintf(git_popup.last_error, sizeof(git_popup.last_error), "Gagal membuka repository!");
+        const git_error *e = git_error_last();
+        snprintf(git_popup.last_error, sizeof(git_popup.last_error), "Repo Error: %s!",
+                 e ? e->message : "Gagal membuka!");
         return false;
     }
 
@@ -190,7 +194,9 @@ bool GitPopup_push(const char *repo_path) {
     git_repository_free(repo);
 
     if (rc != 0) {
-        snprintf(git_popup.last_error, sizeof(git_popup.last_error), "Push failed!");
+        const git_error *e = git_error_last();
+        snprintf(git_popup.last_error, sizeof(git_popup.last_error), "Push Error: %s",
+                 (e && e->message) ? e->message : "Gagal push!");
         return false;
     }
 
