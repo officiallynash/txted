@@ -21,8 +21,7 @@ GitStatus git = {};
 GitPopup git_popup = {};
 float GitStatus_timer = 0.0f;
 static _Atomic bool g_push_in_progress = false;
-static _Atomic bool g_push_success = false;
-static bool prev_push_state = false;
+static _Atomic int g_push_result = 0;
 
 typedef struct {
     char *repo_path;
@@ -208,7 +207,7 @@ static void *git_push_worker(void *arg) {
     // Jalankan push (blocking cuma terjadi di background thread ini)
     bool ok = GitPopup_push(repo);
 
-    g_push_success = ok;
+    g_push_result = ok ? 1 : -1;
     g_push_in_progress = false;  // Flag penanda selesai
     free(repo);
     return nullptr;
@@ -221,6 +220,7 @@ void GitPopup_push_async(const char *repo) {
     if (g_push_in_progress) return;  // Mencegah spam klik tombol push
 
     g_push_in_progress = true;
+    g_push_result = 0;
 
     pthread_t thread;
     char *repo_copy = strdup(repo);
@@ -465,8 +465,10 @@ const char *Git_folder_mark(const char *dir_path) {
  * Fungsi untuk Refresh UI Git
  */
 void GitStatus_update(BufManager *bufmgr, float dt) {
-    if (prev_push_state && !g_push_in_progress) {
-        if (g_push_success) {
+    int result = g_push_result;
+    if (result != 0) {
+        g_push_result = 0;
+        if (result == 1) {
             Notif_show("Push ke remote berhasil!", NOTIF_SUCCESS, 3.0f);
         } else {
             const char *err = git_popup.last_error[0] ? git_popup.last_error : "Push gagal!";
@@ -474,7 +476,6 @@ void GitStatus_update(BufManager *bufmgr, float dt) {
         }
         GitStatus_force();  // Langsung trigger refresh status Git seketika
     }
-    prev_push_state = g_push_in_progress;
 
     GitStatus_timer -= dt;
     if (GitStatus_timer > 0) return;
