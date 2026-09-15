@@ -18,8 +18,8 @@
 #include "ui.h"
 
 extern int calculate_score(const char *query, const char *label);  // Menghitung score (lsp_ui.c)
-extern int compare_scores(const void *a,
-                          const void *b);     // Menghitung compare_scores (completion.c)
+// Menghitung compare_scores (completion.c)
+extern int compare_scores(const void *a, const void *b);
 extern void lsp_clear_all_diagnostics(void);  // Clear Diagnostic [lsp_client.c]
 
 // Helper internal
@@ -433,7 +433,7 @@ void render_hover_ui(BufManager *bufmgr, Font font) {
     float padding_x = 12.0f;
     float usable_w = max_box_w - (padding_x * 2.0f) - 10.0f;
 
-    // PASS 1: HITUNG JUMLAH BARIS VISUAL (WORD WRAP) & MAX LEBAR
+    // Hitung baris visual untuk word wrap
     int total_visual_lines = 0;
     float max_measured_w = 0.0f;
 
@@ -526,17 +526,17 @@ void render_hover_ui(BufManager *bufmgr, Font font) {
         }
     }
 
-    // CLAMP SCROLL
+    // Clamp Scroll
     float max_scroll = content_h - box_h;
     if (max_scroll < 0.0f) max_scroll = 0.0f;
     if (g_lsp_ui.hover_scroll < 0.0f) g_lsp_ui.hover_scroll = 0.0f;
     if (g_lsp_ui.hover_scroll > max_scroll) g_lsp_ui.hover_scroll = max_scroll;
 
-    // BACKGROUND & BORDER
+    // Backgroud dan Border
     DrawRectangleRounded(box, 0.06f, 4, g_theme.bg_card);
     DrawRectangleRoundedLines(box, 0.06f, 4, g_theme.border);
 
-    // RENDER TEKS DENGAN CLIPPING & WORD WRAP
+    // Render dengan clipping
     BeginScissorMode((int)box.x + 2, (int)box.y + 2, (int)box.width - 4, (int)box.height - 4);
 
     float ty = y + 8.0f - g_lsp_ui.hover_scroll;
@@ -616,7 +616,7 @@ void render_hover_ui(BufManager *bufmgr, Font font) {
 
     EndScissorMode();
 
-    // MINI SCROLLBAR
+    // Mini Scroll bar
     if (max_scroll > 0.0f) {
         float scrollbar_h = (box_h / content_h) * (box_h - 8.0f);
         if (scrollbar_h < 12.0f) scrollbar_h = 12.0f;

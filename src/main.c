@@ -27,6 +27,7 @@
 void render_all_ui(BufManager *bufmgr, Font font) {
     draw_file_manager(bufmgr, font);
     draw_editor(bufmgr, font);
+    render_top_right_state(bufmgr, font);
     draw_tabs(bufmgr, font);
     draw_diagnostic_bar(bufmgr, font);
     draw_status(bufmgr, font);
@@ -94,7 +95,13 @@ int main(int argc, char *argv[]) {
                 lsp_ui_toggle();
             }
 
-            if (!git_popup.open) handle_input(bufmgr, font);
+            // Karena TxtEd fokusnya ke Editor
+            // Jadi, handling input itu default ke Editor
+            // FocusMode itu global. misal mau edit binding fs ya pergi ke fs_ui
+            // Git_ui ya git_ui
+            // Editor dan lsp itu satu tempat di Navigation.c
+            handle_input(bufmgr, font);
+            handle_mouse_input(bufmgr, font);
         } else {
             lsp_ui_hide();
             // Hotkey shortcut keyboard saat modal exit aktif

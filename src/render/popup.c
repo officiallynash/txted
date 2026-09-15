@@ -24,8 +24,8 @@ constexpr size_t MAX_SEARCH_HIT = 100;
 
 FloatPrompt g_prompt = {};  // Deklarasi awal g_prompt nantinya buat di extern
 extern void render_all_ui(BufManager *bufmgr, Font font);  // Didefinisikan di main.c
-extern int calculate_score(const char *query,
-                           const char *label);  // Calculate score for fuzzy matching (LSP_UI)
+// Calculate score for fuzzy matching (LSP_UI)
+extern int calculate_score(const char *query, const char *label);
 
 /**
  * Fungsi untuk menambahkan karakter [PRIVATE API]
@@ -167,6 +167,7 @@ char *FloatPrompt_update_and_render(BufManager *bufmgr, FloatPrompt *fp, Font fo
     if (IsKeyPressed(KEY_ESCAPE)) {
         fp->is_active = false;
         fp->edit_mode = false;
+        bufmgr->mode = WRITE;
         return nullptr;
     }
 
@@ -401,6 +402,7 @@ void Buffer_goto_search_hit(BufManager *bufmgr, const SearchHitBuffer *hit) {
     }
 
     CLR_FLAG(buf->buf_flags, BUF_IS_SELECT);  // Memastikan bahwa is_selected mati!
+    bufmgr->mode = WRITE;
 
     // scroll biar kelihatan
     int vis = layout.visible_lines;

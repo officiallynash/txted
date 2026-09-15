@@ -69,8 +69,8 @@ BufManager *BufManager_init(void) {
     bufmgr->path_root = nullptr;
     bufmgr->win_flags = 0;
 
-    // Pasang default ke Write
-    SET_FLAG(bufmgr->win_flags, TXTED_WRITE);
+    // Default mode it Write
+    bufmgr->mode = WRITE;
 
     for (size_t i = 0; i < MAX_TABS; i++) {
         bufmgr->buf[i] = nullptr;

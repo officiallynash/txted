@@ -1,3 +1,4 @@
+#include "result.h"
 /*
  * TxtEd - Simple Text Editor
  * Copyright (c) 2026 Nash
@@ -22,8 +23,12 @@ extern bool GitPopup_is_pushing(void);
 
 static bool git_popup_just_opened = false;
 
-void GitPopup_open(void) {
-    git_popup.open = true;
+/**
+ * Fungsi untuk membuka GitUi
+ */
+void GitPopup_open(BufManager *bufmgr) {
+    SET_FLAG(bufmgr->win_flags, TXTED_SHOW_GIT);
+    bufmgr->mode = POPUP;
     git_popup.edit_message = true;
     git_popup.selected = 0;
     git_popup.list_scroll = 0.0f;
@@ -32,9 +37,12 @@ void GitPopup_open(void) {
     GitStatus_force();
 }
 
-void GitPopup_close(void) {
-    git_popup.open = false;
+/**
+ * FUngsi untuk GitPopup Close
+ */
+void GitPopup_close(BufManager *bufmgr) {
     git_popup.edit_message = false;
+    CLR_FLAG(bufmgr->win_flags, TXTED_SHOW_GIT);
 }
 
 /**
@@ -44,6 +52,7 @@ static bool DrawButton(Font font, const char *text, Rectangle rect, Color base_c
                        bool disabled) {
     Vector2 mouse = GetMousePosition();
     bool hovered = CheckCollisionPointRec(mouse, rect) && !disabled;
+    float current_font_size = (float)font.baseSize;
 
     // Warna background saat normal vs hover
     Color bg = disabled ? g_theme.bg_editor : (hovered ? g_theme.active_line : base_col);
@@ -52,15 +61,18 @@ static bool DrawButton(Font font, const char *text, Rectangle rect, Color base_c
     DrawRectangleRounded(rect, 0.15f, 4, bg);
     DrawRectangleRoundedLines(rect, 0.15f, 4, g_theme.border);
 
-    Vector2 size = MeasureTextEx(font, text, (float)font.baseSize, 1.0f);
+    Vector2 size = MeasureTextEx(font, text, current_font_size, 1.0f);
     Vector2 pos = {rect.x + (rect.width - size.x) / 2.0f, rect.y + (rect.height - size.y) / 2.0f};
-    DrawTextEx(font, text, pos, (float)font.baseSize, 1.0f, txt_c);
+    DrawTextEx(font, text, pos, current_font_size, 1.0f, txt_c);
 
     return hovered && IsMouseButtonPressed(MOUSE_BUTTON_LEFT);
 }
 
+/**
+ * Fungsi utama untuk Render GitUi
+ */
 void GitPopup_render(BufManager *bufmgr, Font font) {
-    if (!git_popup.open) return;
+    if (!HAS_FLAG(bufmgr->win_flags, TXTED_SHOW_GIT)) return;
     EditorLayout Layout = get_editor_layout(bufmgr);
 
     float current_font_size = (float)font.baseSize;
@@ -71,8 +83,9 @@ void GitPopup_render(BufManager *bufmgr, Font font) {
     // Dim background (overlay)
     DrawRectangle(0, 0, win_w, win_h, (Color){0, 0, 0, 140});
 
+    // Box
     float box_w = 480.0f;
-    float box_h = 360.0f;
+    float box_h = 410.0f;
     Rectangle box = {(win_w - box_w) / 2.0f, (win_h - box_h) / 3.0f, box_w, box_h};
 
     DrawRectangleRounded(box, 0.04f, 4, g_theme.bg_card);
@@ -80,10 +93,11 @@ void GitPopup_render(BufManager *bufmgr, Font font) {
 
     // Header Title
     char title[160] = {0};
-    if (git.is_repo)
+    if (git.is_repo) {
         snprintf(title, sizeof(title), "Git  ·  %s%s", git.branch, git.has_changes ? "*" : "");
-    else
+    } else {
         snprintf(title, sizeof(title), "Git  ·  not a repo");
+    }
 
     DrawTextEx(font, title, (Vector2){box.x + 16, box.y + 14}, current_font_size, 1.0f,
                g_theme.cursor);
@@ -91,7 +105,7 @@ void GitPopup_render(BufManager *bufmgr, Font font) {
     // List Files (Scrollable Area)
     float list_y = box.y + 44;
     float list_h = 170.0f;
-    float item_h = 22.0f;
+    float item_h = current_font_size;
     float content_h = git.file_count * item_h;
     float max_scroll = content_h > list_h ? content_h - list_h : 0.0f;
 
@@ -145,28 +159,91 @@ void GitPopup_render(BufManager *bufmgr, Font font) {
                              g_theme.border);
     }
 
-    // Message Input Box
+    // =========================================================================
+    // Multi line input untuk Commit
+    // =========================================================================
     float msg_y = box.y + 226;
     DrawTextEx(font, "Commit Message:", (Vector2){box.x + 16, msg_y}, current_font_size, 1.0f,
                g_theme.comment);
 
-    Rectangle input = {box.x + 16, msg_y + 22, box_w - 32, 32};
-    DrawRectangleRounded(input, 0.1f, 4, g_theme.bg_editor);
-    DrawRectangleRoundedLines(input, 0.1f, 4,
+    float line_step = current_font_size + 4.0f;
+    float input_h = (line_step * 3.0f) + 12.0f;  // Tinggi cukup untuk 3 baris + padding
+    Rectangle input = {box.x + 16, msg_y + 22, box_w - 32, input_h};
+
+    DrawRectangleRounded(input, 0.06f, 4, g_theme.bg_editor);
+    DrawRectangleRoundedLines(input, 0.06f, 4,
                               git_popup.edit_message ? g_theme.cursor : g_theme.border);
 
-    float text_w = MeasureTextEx(font, git_popup.message, current_font_size, 1.0f).x;
-    float max_w = input.width - 16.0f;
-    float offset_x = (text_w > max_w) ? (text_w - max_w) : 0.0f;
+    BeginScissorMode((int)input.x + 2, (int)input.y + 2, (int)input.width - 4,
+                     (int)input.height - 4);
 
-    BeginScissorMode((int)input.x + 4, (int)input.y, (int)input.width - 8, (int)input.height);
-    Vector2 text_pos = {input.x + 8.0f - offset_x, input.y + 7.0f};
-    DrawTextEx(font, git_popup.message, text_pos, current_font_size, 1.0f, g_theme.text_normal);
+    float draw_x = input.x + 8.0f;
+    float draw_y = input.y + 6.0f;
+    float usable_w = input.width - 16.0f;
 
-    if (git_popup.edit_message && ((int)(GetTime() * 2) % 2) == 0) {
-        float cx = text_pos.x + text_w;
-        DrawRectangle((int)cx, (int)input.y + 7, 2, (int)current_font_size - 2, g_theme.cursor);
+    // Buffer sementara untuk menghitung kata per baris
+    char current_wrap[512] = {0};
+    char *temp_msg = strdup(git_popup.message);
+    char *word = strtok(temp_msg, " ");
+
+    float cursor_draw_x = draw_x;
+    float cursor_draw_y = draw_y;
+
+    if (git_popup.message[0] == '\0') {
+        // Jika teks masih kosong, kursor digambar di awal baris pertama
+        cursor_draw_x = draw_x;
+        cursor_draw_y = draw_y;
+    } else {
+        while (word) {
+            char test_buf[512] = {0};
+            if (strlen(current_wrap) > 0) {
+                snprintf(test_buf, sizeof(test_buf), "%s %s", current_wrap, word);
+            } else {
+                snprintf(test_buf, sizeof(test_buf), "%s", word);
+            }
+
+            // Jika kata melebihi lebar input box, turunkan ke baris baru
+            if (MeasureTextEx(font, test_buf, current_font_size, 1.0f).x > usable_w) {
+                if (strlen(current_wrap) > 0) {
+                    DrawTextEx(font, current_wrap, (Vector2){draw_x, draw_y}, current_font_size,
+                               1.0f, g_theme.text_normal);
+                    draw_y += line_step;
+                    snprintf(current_wrap, sizeof(current_wrap), "%s", word);
+                } else {
+                    DrawTextEx(font, word, (Vector2){draw_x, draw_y}, current_font_size, 1.0f,
+                               g_theme.text_normal);
+                    draw_y += line_step;
+                    current_wrap[0] = '\0';
+                }
+            } else {
+                snprintf(current_wrap, sizeof(current_wrap), "%s", test_buf);
+            }
+            word = strtok(nullptr, " ");
+        }
+
+        // Render sisa potongan teks di baris terakhir
+        if (strlen(current_wrap) > 0) {
+            DrawTextEx(font, current_wrap, (Vector2){draw_x, draw_y}, current_font_size, 1.0f,
+                       g_theme.text_normal);
+            float wrap_w = MeasureTextEx(font, current_wrap, current_font_size, 1.0f).x;
+
+            // Hitung posisi kursor aktif di ekor teks
+            cursor_draw_x = draw_x + wrap_w;
+            if (git_popup.message[strlen(git_popup.message) - 1] == ' ') {
+                cursor_draw_x += MeasureTextEx(font, " ", current_font_size, 1.0f).x;
+            }
+            cursor_draw_y = draw_y;
+        }
     }
+
+    free(temp_msg);
+
+    // Gambarkan Kursor Berkedip (Blinking Cursor)
+    if (git_popup.edit_message && ((int)(GetTime() * 2) % 2) == 0) {
+        DrawRectangle((int)cursor_draw_x, (int)cursor_draw_y + 1, 2, (int)current_font_size - 1,
+                      g_theme.cursor);
+    }
+
     EndScissorMode();
 
     // Buttons Layout
@@ -177,7 +254,7 @@ void GitPopup_render(BufManager *bufmgr, Font font) {
     Rectangle b_close = {box.x + box_w - 96, by, 80, 28};
 
     bool is_pushing = GitPopup_is_pushing();
-    const char *push_label = is_pushing ? "Pushing..." : "Push";
+    const char *push_label = is_pushing ? "Pushing" : "Push";
 
     // Handling Button Clicks via Helper
     bool click_stage =
@@ -214,7 +291,8 @@ void GitPopup_render(BufManager *bufmgr, Font font) {
                 Notif_show("Push sedang diproses...", NOTIF_INFO, 3.0f);
                 GitPopup_push_async(repo);
             } else if (click_close || !CheckCollisionPointRec(m, box)) {
-                GitPopup_close();
+                bufmgr->mode = WRITE;
+                GitPopup_close(bufmgr);
             } else if (CheckCollisionPointRec(m, input)) {
                 git_popup.edit_message = true;
             }
@@ -223,7 +301,8 @@ void GitPopup_render(BufManager *bufmgr, Font font) {
 
     // Keyboard Shortcuts & Typing
     if (IsKeyPressed(KEY_ESCAPE)) {
-        GitPopup_close();
+        GitPopup_close(bufmgr);
+        bufmgr->mode = WRITE;
         return;
     }
 

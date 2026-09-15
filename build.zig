@@ -54,6 +54,7 @@ pub fn build(b: *std.Build) !void {
     exe.root_module.linkSystemLibrary("z", .{});
     exe.root_module.linkSystemLibrary("ssl", .{});
     exe.root_module.linkSystemLibrary("crypto", .{});
+    exe.root_module.linkSystemLibrary("ssh2", .{});
 
     if (optimize != .Debug) {
         exe.root_module.strip = true;

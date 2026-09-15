@@ -35,7 +35,7 @@ extern void lsp_clear_all_diagnostics(void);         // Clear Diagnostic [lsp_cl
  */
 LineIndex LineIndex_init() {
     LineIndex li;
-    li.capacity = 128;
+    li.capacity = 512;
 
     // Ganti pakai calloc biar lebih aman karena memang hanya
     // dipanggil sekali ketika init aplikasi
@@ -83,7 +83,7 @@ static void LineIndex_insert(LineIndex *li, const char *data, size_t len) {
 static bool line_index_reserve(LineIndex *li, size_t needed) {
     if (needed <= li->capacity) return true;
 
-    size_t new_cap = li->capacity ? li->capacity * 2 : 128;
+    size_t new_cap = li->capacity ? li->capacity * 2 : 512;
     while (new_cap < needed) new_cap *= 2;
 
     size_t *tmp = realloc(li->offset, new_cap * sizeof(size_t));

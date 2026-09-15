@@ -58,28 +58,30 @@ extern void Nav_redo(BufManager *bufmgr, Font);
 extern void Nav_undo(BufManager *bufmgr, Font font);
 
 void Nav_show_help(BufManager *bufmgr, Font font) {
-    (void)bufmgr;
     (void)font;
+    bufmgr->mode = POPUP;
     UI_open_dialog(bufmgr, DIALOG_HELP);
 }
 
 void Nav_show_about(BufManager *bufmgr, Font font) {
-    (void)bufmgr;
     (void)font;
+    bufmgr->mode = POPUP;
     UI_open_dialog(bufmgr, DIALOG_ABOUT);
 }
 
 void Nav_open_git(BufManager *bufmgr, Font font) {
-    (void)bufmgr;
     (void)font;
-    GitPopup_open();
+    bufmgr->mode = POPUP;
+    GitPopup_open(bufmgr);
 }
 
 void Nav_show_fm(BufManager *bufmgr, Font font) {
     (void)font;
     if (!HAS_FLAG(bufmgr->win_flags, TXTED_SHOW_FM)) {
+        bufmgr->mode = FILE_MANAGER;
         SET_FLAG(bufmgr->win_flags, TXTED_SHOW_FM);
     } else {
+        bufmgr->mode = WRITE;
         CLR_FLAG(bufmgr->win_flags, TXTED_SHOW_FM);
     }
 }
@@ -320,6 +322,44 @@ void draw_tabs(BufManager *bufmgr, Font font) {
     }
 }
 
+/*
+ * Render Status Mode
+ */
+void render_top_right_state(BufManager *bufmgr, Font font) {
+    EditorLayout Layout = get_editor_layout(bufmgr);
+    float font_size = (float)font.baseSize;
+
+    // Tentukan teks & warna berdasarkan mode
+    const char *mode_str = " WRITE ";
+    Color mode_color = g_theme.keyword;  // misal biru/purple
+
+    if (bufmgr->mode == WRITE) {
+        mode_str = " WRITE ";
+        mode_color = g_theme.keyword;  // hijau emerald
+    } else if (bufmgr->mode == FILE_MANAGER) {
+        mode_str = " FILE MANAGER ";
+        mode_color = g_theme.warning;  // oranye
+    } else {
+        mode_str = " POPUP ";
+        mode_color = g_theme.warning;
+    }
+
+    // Hitung ukuran badge
+    float text_w = MeasureTextEx(font, mode_str, font_size, 1.0f).x;
+    float badge_w = text_w + 12.0f;
+    float badge_h = TAB_H - 8.0f;  // Pas di dalam tinggi tab bar
+
+    // Posisikan sejajar di kanan atas (inline dengan tab)
+    float badge_x = Layout.win_w - badge_w - 12.0f;
+    float badge_y = 4.0f;  // Vertical center terhadap Menu/Tab bar
+
+    Rectangle badge_rec = {badge_x, badge_y, badge_w, badge_h};
+
+    // Render Pill/Badge Mode
+    DrawRectangleRounded(badge_rec, 0.3f, 4, mode_color);
+    DrawTextEx(font, mode_str, (Vector2){badge_x + 6.0f, badge_y + 4.0f}, font_size, 1.0f, BLACK);
+}
+
 /**
  * Fungsi untuk render Dialog / Help / About Modal
  */
@@ -471,6 +511,7 @@ void draw_dialog_modal(BufManager *bufmgr, Font font) {
         current_dialog = DIALOG_NONE;
         just_opened = true;
 
+        bufmgr->mode = WRITE;
         CLR_FLAG(bufmgr->win_flags, TXTED_SHOW_HELP);
 
         Buffer *buf = BufManager_getactive(bufmgr);

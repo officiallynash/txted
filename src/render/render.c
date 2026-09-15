@@ -270,7 +270,6 @@ void draw_editor(BufManager *bufmgr, Font font) {
 
     /* Fill the Editor*/
     DrawRectangle(editor_x, editor_y, editor_w, editor_h, g_theme.bg_editor);
-
     /* Background Gutter */
     DrawRectangle(gutter_screen_x, editor_y, GUTTER_W, editor_h, g_theme.bg_editor);
 
@@ -322,7 +321,7 @@ void draw_editor(BufManager *bufmgr, Font font) {
 
                 // Render Strip Warna di Samping Kiri Line Number
                 if (meta.status != GUTTER_NONE) {
-                    float gutter_bar_x = (float)(Layout.editor_x + 4);
+                    float gutter_bar_x = (float)(editor_x + 4);
                     Rectangle gutter_rect = {gutter_bar_x, (float)py, 3.0f, (float)LINE_H - 2.0f};
 
                     Color bar_color =
@@ -484,13 +483,13 @@ void draw_editor(BufManager *bufmgr, Font font) {
                             if (item->severity == 2) {
                                 diag_color = g_theme.warning;  // Warning
                             } else if (item->severity >= 3) {
-                                diag_color =
-                                    g_theme.info;  // Info / Hint (Pakai warna g_theme yang sesuai)
+                                // Info / Hint (Pakai warna g_theme yang sesuai)
+                                diag_color = g_theme.info;
                             }
 
                             // Gambar garis bawah tipis tepat di bawah teks
                             int line_y =
-                                py + (int)current_font_x + 1;  // + 1 aja kali ya biar ga ada jarak
+                                py + (int)current_font_x;  // + 1 aja kali ya biar ga ada jarak
                             int line_w = (int)(x2 - x1);
                             if (line_w <= 0)
                                 line_w = (int)MeasureTextEx(font, " ", current_font_x, 1.0f).x;
@@ -509,7 +508,7 @@ void draw_editor(BufManager *bufmgr, Font font) {
     /* ---------------- *
      * Cursor
      * ---------------- */
-    if (buf->cursor.y >= first && buf->cursor.y < last) {
+    if (bufmgr->mode == WRITE && buf->cursor.y >= first && buf->cursor.y < last) {
         char *cur = Buffer_get_line_text(buf, buf->cursor.y);
         float cx_float = (float)text_x;
 
@@ -609,4 +608,10 @@ void draw_editor(BufManager *bufmgr, Font font) {
     }
 
     EndScissorMode();
+    // Render Border Indikator Focus Mode (Write Focus)
+    if (bufmgr->mode == WRITE) {
+        Rectangle editor_rect = {(float)editor_x, (float)editor_y, (float)editor_w,
+                                 (float)editor_h};
+        DrawRectangleLinesEx(editor_rect, 1.5f, g_theme.cursor);  // Border warna cursor (terang)
+    }
 }

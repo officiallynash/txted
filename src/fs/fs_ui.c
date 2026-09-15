@@ -41,6 +41,11 @@ static FileNode *g_fm_root = nullptr;
 static float g_fm_scroll_y = 0.0f;
 static char g_active_file_path[512] = {0};
 static char g_loaded_root_path[512] = "";
+
+// State untuk Navigasi Keyboard
+static int g_fm_selected_index = 0;
+static FileNode *g_visible_nodes[1024];  // Max node yang tampil/visible
+static int g_visible_count = 0;
 extern char *format_pretty_path(const char *path);  // (fs.c)
 
 /**
@@ -224,31 +229,51 @@ static void draw_file_node_recursive(FileNode *node, Font font, EditorLayout L, 
 
     if (item_y + item_h > visible_top && item_y < visible_bottom) {
         // Tambahan cek apakah Active menu sedang aktif
+
         bool is_hovered = CheckCollisionPointRec(mouse_pos, item_bounds) && !Is_active_menu();
-        bool is_selected = (!node->is_directory && strcmp(g_active_file_path, node->path) == 0 &&
-                            !Is_active_menu());
+
+        // Item terpilih via Keyboard ATAU Active File Path (Mouse)
+        bool is_selected = false;
+        if (bufmgr->mode == FILE_MANAGER) {
+            if (g_fm_selected_index >= 0 && g_fm_selected_index < g_visible_count) {
+                is_selected = (g_visible_nodes[g_fm_selected_index] == node);
+            }
+        } else {
+            is_selected = (!node->is_directory && strcmp(g_active_file_path, node->path) == 0 &&
+                           !Is_active_menu());
+        }
 
         if (is_selected) {
             DrawRectangleRounded(item_bounds, 0.15f, 4, g_theme.active_line);
         } else if (is_hovered) {
             DrawRectangleRounded(item_bounds, 0.15f, 4, g_theme.border);
+        }
 
-            if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
-                if (node->is_directory) {
-                    node->is_expanded = !node->is_expanded;
-                    if (node->is_expanded && !node->is_loaded) {
-                        FileNode_load_children(node);
-                    }
-                } else {
-                    strncpy(g_active_file_path, node->path, sizeof(g_active_file_path));
-                    Buffer *buf = BufManager_getactive(bufmgr);
-
-                    if (buf && HAS_FLAG(buf->buf_flags, BUF_IS_DIRTY)) {
-                        BufManager_newtab(bufmgr, node->path);
-                    } else {
-                        BufManager_open(bufmgr, node->path);
-                    }
+        // Logic Click Mouse
+        if (is_hovered && IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
+            // Update selected index ke node ini saat di-click
+            for (int i = 0; i < g_visible_count; i++) {
+                if (g_visible_nodes[i] == node) {
+                    g_fm_selected_index = i;
+                    break;
                 }
+            }
+
+            if (node->is_directory) {
+                node->is_expanded = !node->is_expanded;
+                if (node->is_expanded && !node->is_loaded) {
+                    FileNode_load_children(node);
+                }
+            } else {
+                strncpy(g_active_file_path, node->path, sizeof(g_active_file_path));
+                Buffer *buf = BufManager_getactive(bufmgr);
+                if (buf && HAS_FLAG(buf->buf_flags, BUF_IS_DIRTY)) {
+                    BufManager_newtab(bufmgr, node->path);
+                } else {
+                    BufManager_open(bufmgr, node->path);
+                }
+
+                bufmgr->mode = WRITE;
             }
         }
 
@@ -297,14 +322,116 @@ static void draw_file_node_recursive(FileNode *node, Font font, EditorLayout L, 
 }
 
 /**
+ * Mengumpulkan semua node yang visible (termasuk child dari folder yang expanded)
+ */
+static void collect_visible_nodes(FileNode *node) {
+    if (!node || g_visible_count >= 1024) return;
+
+    g_visible_nodes[g_visible_count++] = node;
+
+    if (node->is_directory && node->is_expanded) {
+        for (int i = 0; i < node->child_count; i++) {
+            collect_visible_nodes(node->children[i]);
+        }
+    }
+}
+
+/**
+ * Memastikan item yang dipilih via keyboard selalu berada di area pandang (scissor)
+ */
+static void ensure_node_visible(int index, float header_h, float item_h, float view_h) {
+    (void)header_h;
+    float item_top = index * item_h;
+    float item_bottom = item_top + item_h;
+
+    if (item_top < g_fm_scroll_y) {
+        g_fm_scroll_y = item_top;
+    } else if (item_bottom > g_fm_scroll_y + view_h) {
+        g_fm_scroll_y = item_bottom - view_h;
+    }
+}
+
+/**
  * Fungsi untuk Draw atau Render utama [PUBLIC API]
  * Layout header, scissor height, dan scroll calculation disinkronkan dengan font dinamis.
  */
 void draw_file_manager(BufManager *bufmgr, Font font) {
     if (!bufmgr || !HAS_FLAG(bufmgr->win_flags, TXTED_SHOW_FM)) return;
 
-    float current_font_size = (float)font.baseSize;
+    // Reset dan Rebuild ulang
+    g_visible_count = 0;
+    if (g_fm_root) {
+        for (int i = 0; i < g_fm_root->child_count; i++) {
+            collect_visible_nodes(g_fm_root->children[i]);
+        }
+    }
 
+    float current_font_size = (float)font.baseSize;
+    float item_h = current_font_size + 6.0f;
+
+    // Safety clamp untuk selected index
+    if (g_fm_selected_index >= g_visible_count) g_fm_selected_index = g_visible_count - 1;
+    if (g_fm_selected_index < 0) g_fm_selected_index = 0;
+
+    // Handling keyboard event
+    if (bufmgr->mode == FILE_MANAGER && !Is_active_menu() && g_visible_count > 0) {
+        int key = GetKeyPressed();
+
+        // Panah Bawah / Down
+        if (key == KEY_DOWN || IsKeyPressedRepeat(KEY_DOWN)) {
+            if (g_fm_selected_index < g_visible_count - 1) {
+                g_fm_selected_index++;
+            }
+        }
+        // Panah Atas / Up
+        else if (key == KEY_UP || IsKeyPressedRepeat(KEY_UP)) {
+            if (g_fm_selected_index > 0) {
+                g_fm_selected_index--;
+            }
+        }
+        // Panah Kanan / Expand Folder
+        else if (key == KEY_RIGHT || key == KEY_L) {
+            FileNode *sel = g_visible_nodes[g_fm_selected_index];
+            if (sel->is_directory && !sel->is_expanded) {
+                sel->is_expanded = true;
+                if (!sel->is_loaded) FileNode_load_children(sel);
+            }
+        }
+        // Panah Kiri / Collapse Folder
+        else if (key == KEY_LEFT || key == KEY_H) {
+            FileNode *sel = g_visible_nodes[g_fm_selected_index];
+            if (sel->is_directory && sel->is_expanded) {
+                sel->is_expanded = false;
+            }
+        }
+        // Enter / Space untuk Buka File atau Expand Folder
+        else if (key == KEY_ENTER || key == KEY_SPACE) {
+            FileNode *sel = g_visible_nodes[g_fm_selected_index];
+            if (sel->is_directory) {
+                sel->is_expanded = !sel->is_expanded;
+                if (sel->is_expanded && !sel->is_loaded) {
+                    FileNode_load_children(sel);
+                }
+            } else {
+                strncpy(g_active_file_path, sel->path, sizeof(g_active_file_path));
+                Buffer *buf = BufManager_getactive(bufmgr);
+                if (buf && HAS_FLAG(buf->buf_flags, BUF_IS_DIRTY)) {
+                    BufManager_newtab(bufmgr, sel->path);
+                } else {
+                    BufManager_open(bufmgr, sel->path);
+                }
+
+                // Pindah mode ke WRITE setelah buka file
+                bufmgr->mode = WRITE;
+            }
+        } else if (key == KEY_ESCAPE) {
+            // Untuk kembali ke Write dan tutup si FM
+            bufmgr->mode = WRITE;
+            CLR_FLAG(bufmgr->win_flags, TXTED_SHOW_FM);
+        }
+    }
+
+    // Load Path Root
     const char *wanted = bufmgr->path_root;
     if (wanted && wanted[0] && strcmp(g_loaded_root_path, wanted) != 0) {
         if (g_fm_root) {
@@ -320,6 +447,7 @@ void draw_file_manager(BufManager *bufmgr, Font font) {
 
         g_fm_root = FileNode_build(wanted, folder_name);
         g_fm_scroll_y = 0.0f;
+        g_fm_selected_index = 0;
     }
 
     if (!g_fm_root) {
@@ -343,7 +471,6 @@ void draw_file_manager(BufManager *bufmgr, Font font) {
     DrawRectangle(fm_x, fm_y, fm_w, fm_h, g_theme.bg_sidebar);
     DrawLine(fm_x + fm_w - 1, fm_y, fm_x + fm_w - 1, fm_y + fm_h, g_theme.border);
 
-    // Header "FILE EXPLORER" menyesuaikan ukuran font
     float header_h = current_font_size + 16.0f;
     float header_text_y = fm_y + (header_h - current_font_size) / 2.0f;
     DrawTextEx(font, "FILE EXPLORER", (Vector2){(float)(fm_x + 12), header_text_y},
@@ -351,10 +478,14 @@ void draw_file_manager(BufManager *bufmgr, Font font) {
 
     Rectangle fm_rect = {(float)fm_x, (float)fm_y, (float)fm_w, (float)(fm_h - DIAG_PANEL_H)};
 
-    // Scissor offset dan height menyesuaikan tinggi header secara dinamis
     float content_start_y = fm_y + header_h;
     float current_y = content_start_y;
     int scissor_h = fm_h - (int)header_h - DIAG_PANEL_H;
+
+    // Update Scroll Position Otomatis Saat Menggunakan Keyboard Up/Down
+    if (bufmgr->mode == FILE_MANAGER && scissor_h > 0) {
+        ensure_node_visible(g_fm_selected_index, header_h, item_h, (float)scissor_h);
+    }
 
     if (scissor_h > 0) {
         BeginScissorMode(fm_x, (int)content_start_y, L.fm_w - 1, scissor_h);
@@ -369,25 +500,22 @@ void draw_file_manager(BufManager *bufmgr, Font font) {
         EndScissorMode();
     }
 
-    // Hitung total tinggi konten & batas max scroll
+    // Scroll Bar dan Mouse
     float total_content_h = current_y - content_start_y;
     float view_h = (float)scissor_h;
     float max_scroll = (total_content_h > view_h) ? (total_content_h - view_h) : 0.0f;
 
-    // Clamp scroll offset agar tidak tembus atas/bawah
     if (g_fm_scroll_y < 0.0f) g_fm_scroll_y = 0.0f;
     if (g_fm_scroll_y > max_scroll) g_fm_scroll_y = max_scroll;
 
     if (CheckCollisionPointRec(mouse_pos, fm_rect) && !Is_active_menu()) {
         float wheel = GetMouseWheelMove();
         if (wheel != 0) {
-            // Kecepatan scroll fleksibel mengikuti tinggi font
             g_fm_scroll_y -= wheel * (current_font_size * 1.5f);
             if (g_fm_scroll_y < 0.0f) g_fm_scroll_y = 0.0f;
         }
     }
 
-    // Render Custom Scrollbar Indicator (Visual Bar Samping Kanan Sidebar)
     if (max_scroll > 0) {
         float thumb_h = (view_h / total_content_h) * view_h;
         if (thumb_h < 14.0f) thumb_h = 14.0f;
@@ -398,7 +526,11 @@ void draw_file_manager(BufManager *bufmgr, Font font) {
         DrawRectangleRounded(scrollbar_rect, 0.5f, 4, g_theme.border);
     }
 
-    // Line separator
+    if (bufmgr->mode == FILE_MANAGER) {
+        Rectangle fm_rect = {(float)fm_x, (float)fm_y, (float)fm_w, (float)fm_h - DIAG_PANEL_H};
+        DrawRectangleLinesEx(fm_rect, 1.5f, g_theme.cursor);
+    }
+
     float ws_y = fm_y + fm_h - DIAG_PANEL_H;
     DrawLine(fm_x, (int)ws_y, fm_x + fm_w - 1, (int)ws_y, g_theme.line_num);
 }

@@ -61,6 +61,41 @@ void Nav_move_down(Buffer *buf) {
 }
 
 /**
+ * Fungsi helper untuk scroll y + penyesuaian kursor yang presisi
+ */
+void scroll_y_nav(BufManager *bufmgr, bool nav_up) {
+    Buffer *buf = BufManager_getactive(bufmgr);
+    if (!buf) return;
+
+    int total_lines = (int)buf->lines.line_count;
+    EditorLayout layout = get_editor_layout(bufmgr);
+    int max_vis = layout.visible_lines;
+
+    int max_scroll = total_lines - max_vis;
+    if (max_scroll < 0) max_scroll = 0;
+
+    // 1. Geser kursor sesuai arah navigasi
+    if (nav_up) {
+        Nav_move_up(buf);
+    } else {
+        Nav_move_down(buf);
+    }
+
+    // 2. Adjust Viewport (scroll_y) agar SELALU mengikuti posisi kursor
+    if ((int)buf->cursor.y < buf->scroll_y) {
+        // Kursor keluar lewat atas viewport
+        buf->scroll_y = (int)buf->cursor.y;
+    } else if ((int)buf->cursor.y >= buf->scroll_y + max_vis) {
+        // Kursor keluar lewat bawah viewport
+        buf->scroll_y = (int)buf->cursor.y - max_vis + 1;
+    }
+
+    // 3. Clamp scroll_y agar tidak membal / out of bounds
+    if (buf->scroll_y < 0) buf->scroll_y = 0;
+    if (buf->scroll_y > max_scroll) buf->scroll_y = max_scroll;
+}
+
+/**
  * Fungsi untuk navigasi kiri
  */
 void Nav_move_left(Buffer *buf) {
@@ -211,6 +246,8 @@ void Nav_create_folder(BufManager *bufmgr, Font font) {
                 Notif_show("Gagal membuat folder!", NOTIF_ERROR, 3.0f);
             }
         }
+
+        bufmgr->mode = WRITE;
         file_manager_refresh();
         // Safety free
         free(cwd);
@@ -231,6 +268,7 @@ void Nav_open_file(BufManager *bufmgr, Font font) {
                                    bufmgr, file_list->items, file_list->item_count);
     if (selected != nullptr) {
         BufManager_open(bufmgr, selected);
+        bufmgr->mode = WRITE;
         free(selected);
     }
 
@@ -273,6 +311,7 @@ void Nav_create_new_file(BufManager *bufmgr, Font font) {
             BufManager_newtab(bufmgr, result.data);
         }
 
+        bufmgr->mode = WRITE;
         // Free semua Heap
         free(filename);
         free(cwd);
@@ -290,6 +329,7 @@ void Nav_save_as(BufManager *bufmgr, Font font) {
     char *filename = FloatPrompt_ask(&g_prompt, "Nama File baru", "", ICON_FILE_SAVE, font, bufmgr);
     if (filename) {
         Buffer_save(buf, filename);
+        bufmgr->mode = WRITE;
         free(filename);
     }
 }
@@ -301,10 +341,12 @@ void Nav_save(BufManager *bufmgr, Font font) {
     Buffer *buf = BufManager_getactive(bufmgr);
 
     if (buf->path == nullptr) {
+        bufmgr->mode = POPUP;
         char *filename = FloatPrompt_ask(&g_prompt, "Nama File", "", ICON_FILE_SAVE, font, bufmgr);
 
         if (filename) {
             Buffer_save(buf, filename);
+            bufmgr->mode = WRITE;
             free(filename);
         }
     } else {

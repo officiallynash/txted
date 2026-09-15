@@ -11,10 +11,13 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
-#define MAX_SIZE_LEAF ((u32)1024)
 
 typedef uint8_t u8;
 typedef uint32_t u32;
+
+// Balik ke constexpr, menurutku lebih aman daripada #define walau di cast ke u32
+constexpr u32 MAX_SIZE_LEAF = 1024;
+
 String *String_new();            // Register awal
 size_t String_len(String *str);  // Register Awal
 
@@ -177,8 +180,8 @@ static void String_collect(String *str, size_t start, size_t len, unsigned char 
             size_t bytes_to_copy = str->len - start;
             if (bytes_to_copy > len) bytes_to_copy = len;
 
-            memcpy(buffer + *offset, str->str + start,
-                   bytes_to_copy);  // Copy memory zero cost
+            // Copy memory zero cost
+            memcpy(buffer + *offset, str->str + start, bytes_to_copy);
             *offset += bytes_to_copy;
         }
 
@@ -188,12 +191,10 @@ static void String_collect(String *str, size_t start, size_t len, unsigned char 
     // Jika ada left dan right
     if (start < str->weight) {
         size_t left_len = str->weight - start;
-
         size_t copy_from_left = (left_len < len) ? left_len : len;
 
-        String_collect(str->left, start, copy_from_left, buffer,
-                       offset);  // Recursive
-
+        // Recursive
+        String_collect(str->left, start, copy_from_left, buffer, offset);
         if (len > copy_from_left) {
             String_collect(str->right, 0, len - copy_from_left, buffer, offset);
         }
@@ -380,7 +381,7 @@ void String_delete(String **str, size_t pos_idx, size_t len) {
     // Potong bagian middle [pos_idx ... pos_idx + len] dari sisa kanan
     String_split(mid_and_right, len, &middle, &right);
 
-    // 3Gabungkan bagian left + right (Abaikan 'middle' karena mau dihapus)
+    // Gabungkan bagian left + right (Abaikan 'middle' karena mau dihapus)
     String *new_root = String_concat(left, right);
 
     // Cleanup & Safety Release

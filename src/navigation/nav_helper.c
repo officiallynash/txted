@@ -13,8 +13,8 @@
 #include "rope.h"
 #include "ui.h"
 
-extern void expand_tabs(const char *src, char *dst, size_t dst_size,
-                        int tab_size);  // expand_tabs (render.c)
+// expand_tabs (render.c)
+extern void expand_tabs(const char *src, char *dst, size_t dst_size, int tab_size);
 
 /**
  * Mengatur kursor berdasarkan posisi mouse

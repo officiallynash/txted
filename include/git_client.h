@@ -45,7 +45,6 @@ typedef struct {
     char last_error[256];
     int selected;
     float list_scroll;
-    bool open;
     bool edit_message;
 } GitPopup;
 
@@ -62,8 +61,8 @@ void GitStatus_force(void);
 void format_time_ago(const char *author, double last_edited, char *out_str, size_t max_len);
 void Git_fetch_file_async(const char *repo_path, const char *file_path, Buffer *buf);
 
-void GitPopup_open(void);
-void GitPopup_close(void);
+void GitPopup_open(BufManager *bufmgr);
+void GitPopup_close(BufManager *bufmgr);
 void GitPopup_render(BufManager *bufmgr, Font font);
 void Git_global_init(void);
 void Git_global_shutdown(void);

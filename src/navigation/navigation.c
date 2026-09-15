@@ -29,8 +29,6 @@ extern void set_cursor_from_mouse(BufManager *bufmgr, Vector2 mouse, int scroll_
 extern void sync_cursor_line_from_pos(Buffer *buf);  // sync_cursor_line_from_pos (nav_helper.c)
 extern void Syntax_auto_indent(Buffer *active_buf);  // Syntax_auto_indent (nav_helper.c)
 
-extern void Nav_move_up(Buffer *buf);                           // Nav_move_up (nav_utils.c)
-extern void Nav_move_down(Buffer *buf);                         // Nav_move_down (nav_utils.c)
 extern void Nav_move_left(Buffer *buf);                         // Nav_move_left (nav_utils.c)
 extern void Nav_move_right(Buffer *buf);                        // Nav_move_right (nav_utils.c)
 extern void Nav_mouse_scroll(BufManager *bufmgr, float wheel);  // Nav_mouse_scroll (nav_utils.c)
@@ -43,13 +41,16 @@ extern void Nav_exit(BufManager *bufmgr, Font font);           // Nav_exit (nav_
 extern void Nav_save_as(BufManager *bufmgr, Font font);        // Nav_save_as (nav_utils.c)
 extern void Nav_save(BufManager *bufmgr, Font font);           // Nav_save (nav_utils.c)
 extern void Nav_create_new_file(BufManager *bufmgr,
-                                Font font);                // Nav_create_new_file (nav_utils.c)
-extern void Nav_close_tab(BufManager *bufmgr, Font font);  // Nav_close_tab (nav_utils.c)
-extern void Nav_copy(BufManager *bufmgr, Font font);       // Nav_copy (nav_utils.c)
-extern void Nav_cut(BufManager *bufmgr, Font font);        // Nav_cut (nav_utils.c)
-extern void Nav_paste(BufManager *bufmgr, Font font);      // Nav_paste (nav_utils.c)
-extern void Nav_redo(BufManager *bufmgr, Font font);       // Nav_redo (nav_utils.c)
-extern void Nav_undo(BufManager *bufmgr, Font font);       // Nav_undo (nav_utils.c)
+                                Font font);                 // Nav_create_new_file (nav_utils.c)
+extern void Nav_close_tab(BufManager *bufmgr, Font font);   // Nav_close_tab (nav_utils.c)
+extern void Nav_copy(BufManager *bufmgr, Font font);        // Nav_copy (nav_utils.c)
+extern void Nav_cut(BufManager *bufmgr, Font font);         // Nav_cut (nav_utils.c)
+extern void Nav_paste(BufManager *bufmgr, Font font);       // Nav_paste (nav_utils.c)
+extern void Nav_redo(BufManager *bufmgr, Font font);        // Nav_redo (nav_utils.c)
+extern void Nav_undo(BufManager *bufmgr, Font font);        // Nav_undo (nav_utils.c)
+extern void scroll_y_nav(BufManager *bufmgr, bool nav_up);  // scroll_y
+
+static bool is_mouse_scroll = false;
 
 // helper untuk hide Signature Help (pakai macro aja kali ya HAHAHA)
 #define SIGNATURE_HIDE()                                                                \
@@ -75,10 +76,11 @@ extern void Nav_undo(BufManager *bufmgr, Font font);       // Nav_undo (nav_util
  * Fungsi untuk Navigation mouse berbasis Focus mode
  */
 static void Update_navigation_click(BufManager *bufmgr, EditorLayout layout) {
+    if (bufmgr->mode == POPUP) return;
+
     // Jika bukan Show FM maka set ke Mode Write
     if (!HAS_FLAG(bufmgr->win_flags, TXTED_SHOW_FM)) {
-        CLR_FLAG(bufmgr->win_flags, TXTED_FILE_MANAGER);  /// Matiin dulu File Manager
-        SET_FLAG(bufmgr->win_flags, TXTED_WRITE);
+        bufmgr->mode = WRITE;
         return;
     }
 
@@ -94,36 +96,32 @@ static void Update_navigation_click(BufManager *bufmgr, EditorLayout layout) {
 
         // Klik di area File Manager Sidebar
         if (mouse.x >= fm_x && mouse.x < (fm_x + fm_w)) {
-            CLR_FLAG(bufmgr->win_flags, TXTED_WRITE);         // Matiin dulu si Write
-            SET_FLAG(bufmgr->win_flags, TXTED_FILE_MANAGER);  // set ke FM
-        }
-
-        // Klik di area Write / Text Editor
-        else if (mouse.x >= editor_x && mouse.x < (editor_x + editor_w)) {
-            CLR_FLAG(bufmgr->win_flags, TXTED_FILE_MANAGER);  // Matiin dulu si File Manager
-            SET_FLAG(bufmgr->win_flags, TXTED_WRITE);         // Set default ke Write
+            bufmgr->mode = FILE_MANAGER;
+        } else if (mouse.x >= editor_x && mouse.x < (editor_x + editor_w)) {
+            bufmgr->mode = WRITE;
         }
     }
 }
 
 /**
- * Input handling
- **/
-void handle_input(BufManager *bufmgr, Font font) {
-    EditorLayout layout = get_editor_layout(bufmgr);
+ * Mouse Handling
+ */
+void handle_mouse_input(BufManager *bufmgr, Font font) {
+    if (bufmgr->mode == POPUP) return;
 
-    Update_navigation_click(bufmgr, layout);
+    (void)font;  // Font ga kepake
+    if (!bufmgr) return;
+    EditorLayout layout = get_editor_layout(bufmgr);
     Buffer *buf = BufManager_getactive(bufmgr);
     if (!buf) return;
 
+    // Simpan layout ke state
+    int editor_x = layout.editor_x;
+    int editor_w = layout.editor_w;
+
+    // penanda apakah lsp aktif
     bool lsp_enable =
         HAS_FLAG(g_lsp_ui.lsp_flag, LSP_VISIBLE) || HAS_FLAG(g_lsp_ui.lsp_flag, LSP_ENABLE);
-
-    bool is_shift = IsKeyDown(KEY_LEFT_SHIFT) || IsKeyDown(KEY_RIGHT_SHIFT);
-
-    int editor_w = layout.editor_w;
-    int editor_x = layout.editor_x;
-
     /* -------------------------------- *
      * Scroll
      * -------------------------------- */
@@ -133,7 +131,6 @@ void handle_input(BufManager *bufmgr, Font font) {
     bool is_mouse_in_editor = (mouse.x >= editor_x) && (mouse.x < editor_x + editor_w) &&
                               (mouse.y > TAB_H) && !Is_active_menu();
 
-    bool is_mouse_scroll = false;
     float wheel = GetMouseWheelMove();
 
     // Bool untuk show help
@@ -141,10 +138,11 @@ void handle_input(BufManager *bufmgr, Font font) {
         !HAS_FLAG(g_lsp_ui.lsp_flag, LSP_HAS_HOVE)) {  // Kalau ada hover matiin dulu
         if (lsp_enable && HAS_FLAG(g_lsp_ui.lsp_flag, LSP_HAS_COMP)) {
             // Scroll pilihan popup via mouse wheel!
-            if (wheel > 0)
+            if (wheel > 0) {
                 g_lsp_ui.selected_index--;
-            else
+            } else {
                 g_lsp_ui.selected_index++;
+            }
 
             // Clamp index
             if (g_lsp_ui.selected_index < 0) g_lsp_ui.selected_index = 0;
@@ -186,6 +184,158 @@ void handle_input(BufManager *bufmgr, Font font) {
                 CLR_FLAG(buf->buf_flags, BUF_IS_SELECT);
             }
         }
+    }
+}
+/**
+ * Input handling
+ **/
+void handle_input(BufManager *bufmgr, Font font) {
+    EditorLayout layout = get_editor_layout(bufmgr);
+
+    Update_navigation_click(bufmgr, layout);
+    if (bufmgr->mode != WRITE) return;
+
+    Buffer *buf = BufManager_getactive(bufmgr);
+    if (!buf) return;
+
+    bool is_shift = IsKeyDown(KEY_LEFT_SHIFT) || IsKeyDown(KEY_RIGHT_SHIFT);
+    bool lsp_enable =
+        HAS_FLAG(g_lsp_ui.lsp_flag, LSP_VISIBLE) || HAS_FLAG(g_lsp_ui.lsp_flag, LSP_ENABLE);
+
+    /* -------------------- *
+     * Handling Hotkeys CTRL
+     * -------------------- */
+    if (IsKeyDown(KEY_LEFT_CONTROL) || IsKeyDown(KEY_RIGHT_CONTROL)) {
+        bool is_shift = IsKeyDown(KEY_LEFT_SHIFT) || IsKeyDown(KEY_RIGHT_SHIFT);  // Shift pressed
+        /* --------------------- *
+         * New Tab (CTRL + T)
+         * Close Tab (CTRL + W)
+         * Switch Tab (CTRL + TAB)
+         * --------------------- */
+        if (IsKeyPressed(KEY_T)) BufManager_newtab(bufmgr, nullptr);
+
+        if (is_shift && IsKeyPressed(KEY_W)) {
+            CLR_FLAG(buf->buf_flags, BUF_IS_DIRTY);
+            BufManager_closetab(bufmgr);
+        } else if (!is_shift && IsKeyPressed(KEY_W)) {
+            Nav_close_tab(bufmgr, font);
+        }
+
+        if (IsKeyPressed(KEY_TAB)) {
+            if (is_shift) {
+                BufManager_switchtab(bufmgr, PREV);
+            } else {
+                BufManager_switchtab(bufmgr, NEXT);
+            }
+        }
+
+        /* -------------------- *
+         * CTRL + G (Git Panel)
+         * -------------------- */
+        if (IsKeyPressed(KEY_G)) {
+            bufmgr->mode = POPUP;
+            GitPopup_open(bufmgr);
+        }
+
+        /* -------------------- *
+         * CTRL + K (Render Hover LSP)
+         * -------------------- */
+        if (lsp_enable && IsKeyPressed(KEY_K)) {
+            SET_FLAG(g_lsp_ui.lsp_flag, LSP_HOV_PENDING);
+            SET_FLAG(g_lsp_ui.lsp_flag, LSP_HAS_HOVE);
+            g_lsp_ui.hover_scroll = 0.0f;
+        }
+
+        /* -------------------- *
+         * Save File (CTRL + S)
+         * Save As (CTRL + SHIFT + S)
+         * -------------------- */
+        if (!is_shift && IsKeyPressed(KEY_S)) {
+            Nav_save(bufmgr, font);
+        } else if (is_shift && IsKeyPressed(KEY_S)) {
+            bufmgr->mode = POPUP;
+            Nav_save_as(bufmgr, font);
+        }
+
+        /* -------------------- *
+         * CTRL + P (Create Folder)
+         * -------------------- */
+        if (IsKeyPressed(KEY_P)) {
+            bufmgr->mode = POPUP;
+            Nav_create_folder(bufmgr, font);
+        }
+
+        /* -------------------- *
+         * CTRL + N (Create New File)
+         * -------------------- */
+        if (IsKeyPressed(KEY_N)) {
+            bufmgr->mode = POPUP;
+            Nav_create_new_file(bufmgr, font);
+        }
+
+        /* -------------------- *
+         * 1. Ctrl + Shift + Q (Exit Override / Paksa Keluar)
+         * 2. Ctrl + Q biasa (Cek Dirty dulu)
+         * -------------------- */
+        if (is_shift && IsKeyPressed(KEY_Q)) {
+            Notif_show("File yang belum disimpan akan diabaikan!", NOTIF_INFO, 3.0f);
+            SET_FLAG(bufmgr->win_flags, TXTED_REQ_EXIT);
+        } else if (!is_shift && IsKeyPressed(KEY_Q)) {
+            Nav_exit(bufmgr, font);
+        }
+
+        /* -------------------- *
+         * FILE MANAGER (Ctrl + f)
+         * -------------------- */
+        if (IsKeyPressed(KEY_F)) {
+            bufmgr->mode = FILE_MANAGER;
+            SET_FLAG(bufmgr->win_flags, TXTED_SHOW_FM);
+        }
+
+        /* -------------------- *
+         * Fuzzy Search (Ctrl + B)
+         * -------------------- */
+        if (IsKeyPressed(KEY_B)) {
+            bufmgr->mode = POPUP;
+            SearchPrompt_ask(bufmgr, font);
+            return;
+        }
+
+        /* -------------------- *
+         * Open file
+         * -------------------- */
+        if (IsKeyPressed(KEY_O)) {
+            bufmgr->mode = POPUP;
+            Nav_open_file(bufmgr, font);
+        }
+
+        /* -------------------- *
+         * Copy, Cut dan Paste
+         * -------------------- */
+        if (IsKeyPressed(KEY_C)) Nav_copy(bufmgr, font);
+        if (IsKeyPressed(KEY_X)) Nav_cut(bufmgr, font);
+        if (IsKeyPressed(KEY_V)) Nav_paste(bufmgr, font);
+
+        /* --------------------- *
+         * Undo dan Redo
+         * --------------------- */
+        if (IsKeyPressed(KEY_Z)) Nav_undo(bufmgr, font);
+        if (IsKeyPressed(KEY_R)) Nav_redo(bufmgr, font);
+
+        /* -------------------- *
+         * Handling awal Line dan akhir Line
+         * -------------------- */
+        if (IsKeyPressed(KEY_H)) {
+            buf->cursor.x = 0;
+            buf->cursor.cursor_pos = buf->lines.offset[buf->cursor.y];
+        }
+        if (IsKeyPressed(KEY_L)) Nav_goto_end_of_line(buf);
+
+        /* -------------------- *
+         * Jump ke atas dan ke bawah
+         * -------------------- */
+        if (IsKeyPressed(KEY_D)) Nav_jump_down(buf);
+        if (IsKeyPressed(KEY_U)) Nav_jump_up(buf);
     }
 
     /* -------------------- *
@@ -367,7 +517,8 @@ void handle_input(BufManager *bufmgr, Font font) {
      * -------------------- */
     if (IsKeyPressed(KEY_UP) || IsKeyPressedRepeat(KEY_UP)) {
         CHECK_SELECTION();
-        Nav_move_up(buf);
+        scroll_y_nav(bufmgr, true);
+        //        Nav_move_up(buf);
         SIGNATURE_HIDE();  // Auto hide
     }
 
@@ -376,159 +527,9 @@ void handle_input(BufManager *bufmgr, Font font) {
      * -------------------- */
     if (IsKeyPressed(KEY_DOWN) || IsKeyPressedRepeat(KEY_DOWN)) {
         CHECK_SELECTION();
-        Nav_move_down(buf);
+        scroll_y_nav(bufmgr, false);
+        // Nav_move_down(buf);
         SIGNATURE_HIDE();  // Auto hide
-    }
-
-    /* -------------------- *
-     * Handling Hotkeys CTRL
-     * -------------------- */
-    if (IsKeyDown(KEY_LEFT_CONTROL) || IsKeyDown(KEY_RIGHT_CONTROL)) {
-        bool is_shift = IsKeyDown(KEY_LEFT_SHIFT) || IsKeyDown(KEY_RIGHT_SHIFT);  // Shift pressed
-        /* --------------------- *
-         * New Tab (CTRL + T)
-         * Close Tab (CTRL + W)
-         * Switch Tab (CTRL + TAB)
-         * --------------------- */
-        if (IsKeyPressed(KEY_T)) BufManager_newtab(bufmgr, nullptr);
-
-        if (is_shift && IsKeyPressed(KEY_W)) {
-            CLR_FLAG(buf->buf_flags, BUF_IS_DIRTY);
-            BufManager_closetab(bufmgr);
-        } else if (!is_shift && IsKeyPressed(KEY_W)) {
-            Nav_close_tab(bufmgr, font);
-        }
-
-        if (IsKeyPressed(KEY_TAB)) {
-            if (is_shift) {
-                BufManager_switchtab(bufmgr, PREV);
-            } else {
-                BufManager_switchtab(bufmgr, NEXT);
-            }
-        }
-
-        /* -------------------- *
-         * CTRL + G (Git Panel)
-         * -------------------- */
-        if (IsKeyPressed(KEY_G)) {
-            if (!git_popup.open) GitPopup_open();
-        }
-
-        /* -------------------- *
-         * CTRL + K (Render Hover LSP)
-         * -------------------- */
-        if (lsp_enable && IsKeyPressed(KEY_K)) {
-            SET_FLAG(g_lsp_ui.lsp_flag, LSP_HOV_PENDING);
-            SET_FLAG(g_lsp_ui.lsp_flag, LSP_HAS_HOVE);
-            g_lsp_ui.hover_scroll = 0.0f;
-        }
-
-        /* -------------------- *
-         * Save File (CTRL + S)
-         * Save As (CTRL + SHIFT + S)
-         * -------------------- */
-        if (!is_shift && IsKeyPressed(KEY_S)) {
-            Nav_save(bufmgr, font);
-        } else if (is_shift && IsKeyPressed(KEY_S)) {
-            Nav_save_as(bufmgr, font);
-        }
-
-        /* -------------------- *
-         * CTRL + P (Create Folder)
-         * -------------------- */
-        if (IsKeyPressed(KEY_P)) {
-            Nav_create_folder(bufmgr, font);
-        }
-
-        /* -------------------- *
-         * CTRL + N (Create New File)
-         * -------------------- */
-        if (IsKeyPressed(KEY_N)) {
-            Nav_create_new_file(bufmgr, font);
-        }
-
-        /* -------------------- *
-         * 1. Ctrl + Shift + Q (Exit Override / Paksa Keluar)
-         * 2. Ctrl + Q biasa (Cek Dirty dulu)
-         * -------------------- */
-        if (is_shift && IsKeyPressed(KEY_Q)) {
-            Notif_show("File yang belum disimpan akan diabaikan!", NOTIF_INFO, 3.0f);
-            SET_FLAG(bufmgr->win_flags, TXTED_REQ_EXIT);
-        } else if (!is_shift && IsKeyPressed(KEY_Q)) {
-            Nav_exit(bufmgr, font);
-        }
-
-        /* -------------------- *
-         * FILE MANAGER (Ctrl + f)
-         * -------------------- */
-        if (IsKeyPressed(KEY_F)) {
-            if (!HAS_FLAG(bufmgr->win_flags, TXTED_SHOW_FM)) {
-                SET_FLAG(bufmgr->win_flags, TXTED_SHOW_FM);
-            } else {
-                CLR_FLAG(bufmgr->win_flags, TXTED_SHOW_FM);
-            }
-        }
-
-        /* -------------------- *
-         * Fuzzy Search (Ctrl + B)
-         * -------------------- */
-        if (IsKeyPressed(KEY_B)) {
-            SearchPrompt_ask(bufmgr, font);
-            return;
-        }
-
-        /* -------------------- *
-         * Open file
-         * -------------------- */
-        if (IsKeyPressed(KEY_O)) {
-            Nav_open_file(bufmgr, font);
-        }
-
-        /* -------------------- *
-         * Copy, Cut dan Paste
-         * -------------------- */
-        if (IsKeyPressed(KEY_C)) {
-            Nav_copy(bufmgr, font);
-        }
-
-        if (IsKeyPressed(KEY_X)) {
-            Nav_cut(bufmgr, font);
-        }
-
-        if (IsKeyPressed(KEY_V)) {
-            Nav_paste(bufmgr, font);
-        }
-
-        /* --------------------- *
-         * Undo dan Redo
-         * --------------------- */
-        if (IsKeyPressed(KEY_Z)) {
-            Nav_undo(bufmgr, font);
-        }
-        if (IsKeyPressed(KEY_R)) {
-            Nav_redo(bufmgr, font);
-        }
-
-        /* -------------------- *
-         * Handling awal Line dan akhir Line
-         * -------------------- */
-        if (IsKeyPressed(KEY_H)) {
-            buf->cursor.x = 0;
-            buf->cursor.cursor_pos = buf->lines.offset[buf->cursor.y];
-        }
-        if (IsKeyPressed(KEY_L)) {
-            Nav_goto_end_of_line(buf);
-        }
-
-        /* -------------------- *
-         * Jump ke atas dan ke bawah
-         * -------------------- */
-        if (IsKeyPressed(KEY_D)) {
-            Nav_jump_down(buf);
-        }
-        if (IsKeyPressed(KEY_U)) {
-            Nav_jump_up(buf);
-        }
     }
 
     /* -------------------- *

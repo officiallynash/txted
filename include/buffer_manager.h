@@ -21,8 +21,17 @@ constexpr uint8_t TXTED_REQ_EXIT = (1 << 0);
 constexpr uint8_t TXTED_EXIT = (1 << 1);
 constexpr uint8_t TXTED_SHOW_FM = (1 << 2);
 constexpr uint8_t TXTED_SHOW_HELP = (1 << 3);
-constexpr uint8_t TXTED_WRITE = (1 << 4);
-constexpr uint8_t TXTED_FILE_MANAGER = (1 << 5);
+constexpr uint8_t TXTED_SHOW_GIT = (1 << 4);
+
+/**
+ * Enum sebagai penanda Focus Mode
+ * Jadi untuk bitwise nantinya hanya untuk simpan flags
+ */
+typedef enum {
+    FILE_MANAGER,
+    WRITE,
+    POPUP,
+} FocusMode;
 
 /**
  * Enum untuk Switch Tab
@@ -40,6 +49,7 @@ typedef struct BufManager {
     float fm_width_ratio;   // Ratio untuk File Manager
     char *path_root;        // Menyimpan path root, untuk kebutuhan workspace
     uint8_t win_flags;      // Flag untuk menampung state window, misal minta exit, dll
+    FocusMode mode;
 } BufManager;
 
 BufManager *BufManager_init(void);

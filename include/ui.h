@@ -74,7 +74,9 @@ void draw_editor(BufManager *bufmgr, Font font);
 void draw_diagnostic_bar(BufManager *bufmgr, Font font);
 void draw_dialog_modal(BufManager *bufmgr, Font font);
 void handle_input(BufManager *bufmgr, Font font);
+void handle_mouse_input(BufManager *bufmgr, Font font);
 void Draw_confirm_exit(BufManager *bufmgr, Font font);
+void render_top_right_state(BufManager *bufmgr, Font font);
 
 // Pop up
 char *FloatPrompt_ask(FloatPrompt *fp, const char *msg, const char *default_val, int icon_id,
