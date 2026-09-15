@@ -156,52 +156,60 @@ static int credential_cb(git_credential **out, const char *url, const char *user
 bool GitPopup_push(const char *repo_path) {
     git_repository *repo = nullptr;
     if (git_repository_open_ext(&repo, repo_path, 0, nullptr) != 0) {
-        const git_error *e = git_error_last();
-        snprintf(git_popup.last_error, sizeof(git_popup.last_error), "Repo Error: %s!",
-                 e ? e->message : "Gagal membuka!");
+        snprintf(git_popup.last_error, sizeof(git_popup.last_error), "Gagal membuka repo!");
         return false;
     }
 
+    // Dapatkan branch aktif
+    git_reference *head = nullptr;
+    char branch_name[128] = "main";
+    if (git_repository_head(&head, repo) == 0 && git_reference_is_branch(head)) {
+        const char *b = nullptr;
+        git_branch_name(&b, head);
+        if (b) strncpy(branch_name, b, sizeof(branch_name) - 1);
+        git_reference_free(head);
+    }
+
     git_remote *remote = nullptr;
-    // Cari remote default ("origin")
     if (git_remote_lookup(&remote, repo, "origin") != 0) {
-        snprintf(git_popup.last_error, sizeof(git_popup.last_error),
-                 "Remote 'origin' tidak ditemukan!");
+        snprintf(git_popup.last_error, sizeof(git_popup.last_error), "Remote 'origin' tidak ada!");
         git_repository_free(repo);
         return false;
     }
 
-    // Dapatkan nama branch aktif saat ini
-    git_reference *head = nullptr;
-    char refspec_str[256] = {0};
-    if (git_repository_head(&head, repo) == 0 && git_reference_is_branch(head)) {
-        const char *branch = nullptr;
-        git_branch_name(&branch, head);
-        snprintf(refspec_str, sizeof(refspec_str), "refs/heads/%s:refs/heads/%s", branch, branch);
-        git_reference_free(head);
-    } else {
-        snprintf(refspec_str, sizeof(refspec_str), "refs/heads/main:refs/heads/main");
-    }
-
+    char refspec_str[256];
+    snprintf(refspec_str, sizeof(refspec_str), "refs/heads/%s:refs/heads/%s", branch_name,
+             branch_name);
     git_strarray refspecs = {.strings = (char *[]){refspec_str}, .count = 1};
 
     git_push_options push_opts = GIT_PUSH_OPTIONS_INIT;
     push_opts.callbacks.credentials = credential_cb;
 
     int rc = git_remote_push(remote, &refspecs, &push_opts);
-
     git_remote_free(remote);
     git_repository_free(repo);
 
-    if (rc != 0) {
-        const git_error *e = git_error_last();
-        snprintf(git_popup.last_error, sizeof(git_popup.last_error), "Push Error: %s",
-                 (e && e->message) ? e->message : "Gagal push!");
-        return false;
+    // jika Libgit2 sukses, langsung return true
+    if (rc == 0) {
+        git_popup.last_error[0] = '\0';
+        return true;
     }
 
-    git_popup.last_error[0] = '\0';
-    return true;
+    // fallback Libgit2 gagal (misal tidak support SSH), panggil CLI 'git push' OS
+    char cmd[512];
+    snprintf(cmd, sizeof(cmd), "git -C \"%s\" push origin %s > /dev/null 2>&1", repo_path,
+             branch_name);
+    int sys_rc = system(cmd);
+
+    if (sys_rc == 0) {
+        git_popup.last_error[0] = '\0';
+        return true;
+    }
+
+    const git_error *e = git_error_last();
+    snprintf(git_popup.last_error, sizeof(git_popup.last_error), "Push error: %s",
+             (e && e->message) ? e->message : "Gagal push SSH");
+    return false;
 }
 
 /**
