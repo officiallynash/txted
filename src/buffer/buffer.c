@@ -52,24 +52,31 @@ LineIndex LineIndex_init() {
 static void LineIndex_insert(LineIndex *li, const char *data, size_t len) {
     if (!li || !li->offset || !data) return;
 
-    // Set internal dulu, pastikan kosong
     li->offset[0] = 0;
     li->line_count = 1;
 
-    // Masuk ke perulangan teks sesuai dengan len
-    for (size_t i = 0; i < len; i++) {
-        if (data[i] != '\n') continue;  // Jika bukan '\n' lanjut
+    const char *ptr = data;
+    const char *end = data + len;
+
+    while (ptr < end) {
+        // memchr memindai byte '\n' dengan instruksi SIMD hardware bawaan OS
+        const char *nl = memchr(ptr, '\n', end - ptr);
+        if (!nl) break;
+
+        size_t idx = (size_t)(nl - data);
 
         if (li->line_count >= li->capacity) {
             li->capacity *= 2;
             size_t *new_offset = realloc(li->offset, sizeof(size_t) * li->capacity);
-            if (!new_offset) return;  // Guard jika realloc gagal
-
+            if (!new_offset) return;
             li->offset = new_offset;
         }
-        li->offset[li->line_count++] = i + 1;
+
+        li->offset[li->line_count++] = idx + 1;
+        ptr = nl + 1;  // Lanjut scan setelah karakter '\n'
     }
 }
+
 /**
  * Helper untuk memastikan kapasitas LineIndex cukup [PRIVATE API]
  */
@@ -1126,4 +1133,3 @@ int Buffer_search(Buffer *buf, const char *query, SearchHitBuffer *out, int max_
     }
     return count;
 }
-

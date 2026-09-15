@@ -148,15 +148,17 @@ static void String_split(String *root, size_t index, String **left, String **rig
         // Jika index lebih kecil dari weight, sudah pasti left
         String *ll, *lr;
         String_split(root->left, index, &ll, &lr);
+
         *left = ll;
         *right = String_concat(lr, root->right);
-        String_release(lr);  // safety free
+        if (lr) String_release(lr);  // safety free
     } else {
         String *rl, *rr;
         String_split(root->right, index - root->weight, &rl, &rr);
+
         *left = String_concat(root->left, rl);
         *right = rr;
-        String_release(rl);  // safety free
+        if (rl) String_release(rl);  // safety free
     }
 }
 
@@ -289,10 +291,8 @@ String *String_new() {
 void String_release(String *str) {
     if (!str) return;
 
-    if (str->ref_count > 0) {
-        str->ref_count--;
-        return;
-    }
+    str->ref_count--;
+    if (str->ref_count > 0) return;
 
     // Rekursif release
     String_release(str->left);

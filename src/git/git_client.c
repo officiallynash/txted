@@ -1,10 +1,9 @@
+#include "git2/credential.h"
 /*
  * TxtEd - Simple Text Editor
  * Copyright (c) 2026 Nash
  * SPDX-License-Identifier: MIT
  */
-#include "git_client.h"
-
 #include <git2.h>
 #include <pthread.h>
 #include <stdbool.h>
@@ -15,13 +14,14 @@
 #include <time.h>
 
 #include "git2/global.h"
+#include "git_client.h"
 #include "notification.h"
 
 GitStatus git = {};
 GitPopup git_popup = {};
 float GitStatus_timer = 0.0f;
-static bool g_push_in_progress = false;
-static bool g_push_success = false;
+static _Atomic bool g_push_in_progress = false;
+static _Atomic bool g_push_success = false;
 static bool prev_push_state = false;
 
 typedef struct {
@@ -136,6 +136,20 @@ bool GitPopup_commit(const char *repo_path, const char *message) {
 }
 
 /**
+ * Fungsi helper untuk credentiial cb [PRIVATE API]
+ */
+static int credential_cb(git_credential **out, const char *url, const char *username_from_url,
+                         unsigned int allowed_types, void *payload) {
+    (void)url, (void)payload;
+
+    if (allowed_types & GIT_CREDENTIAL_SSH_KEY) {
+        return git_credential_ssh_key_from_agent(out, username_from_url);
+    }
+
+    return git_credential_default_new(out);
+}
+
+/**
  * Fungsi untuk Push ke Git [PRIVATE API]
  */
 bool GitPopup_push(const char *repo_path) {
@@ -169,6 +183,8 @@ bool GitPopup_push(const char *repo_path) {
     git_strarray refspecs = {.strings = (char *[]){refspec_str}, .count = 1};
 
     git_push_options push_opts = GIT_PUSH_OPTIONS_INIT;
+    push_opts.callbacks.credentials = credential_cb;
+
     int rc = git_remote_push(remote, &refspecs, &push_opts);
 
     git_remote_free(remote);
