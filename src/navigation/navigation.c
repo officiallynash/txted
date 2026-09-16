@@ -33,8 +33,8 @@ extern void Nav_move_left(Buffer *buf);                         // Nav_move_left
 extern void Nav_move_right(Buffer *buf);                        // Nav_move_right (nav_utils.c)
 extern void Nav_mouse_scroll(BufManager *bufmgr, float wheel);  // Nav_mouse_scroll (nav_utils.c)
 extern void Nav_goto_end_of_line(Buffer *buf);                 // Nav_goto_end_of_line (nav_utils.c)
-extern void Nav_jump_down(Buffer *buf);                        // Nav_jump_down (nav_utils.c)
-extern void Nav_jump_up(Buffer *buf);                          // Nav_jump_up (nav_utils.c)
+extern void Nav_jump_down(BufManager *bufmgr);                 // Nav_jump_down (nav_utils.c)
+extern void Nav_jump_up(BufManager *bufmgr);                   // Nav_jump_up (nav_utils.c)
 extern void Nav_create_folder(BufManager *bufmgr, Font font);  // Nav_create_folder (nav_utils.c)
 extern void Nav_open_file(BufManager *bufmgr, Font font);      // Nav_Open_file (nav_utils.c)
 extern void Nav_exit(BufManager *bufmgr, Font font);           // Nav_exit (nav_utils.c)
@@ -288,8 +288,17 @@ void handle_input(BufManager *bufmgr, Font font) {
          * FILE MANAGER (Ctrl + f)
          * -------------------- */
         if (IsKeyPressed(KEY_F)) {
-            bufmgr->mode = FILE_MANAGER;
-            SET_FLAG(bufmgr->win_flags, TXTED_SHOW_FM);
+            // Jika belum ada flag Show FM set dulu ke FM
+            // Ini juga berguna biar ga bolak balik pakai mouse atau touch pad
+            if (!HAS_FLAG(bufmgr->win_flags, TXTED_SHOW_FM)) {
+                bufmgr->mode = FILE_MANAGER;
+                SET_FLAG(bufmgr->win_flags, TXTED_SHOW_FM);
+            } else {
+                // Kalau sudah ada dan masih aktif, setelah open file
+                // bisa pencet tombol ini biar kembali ke full bar
+                bufmgr->mode = WRITE;
+                CLR_FLAG(bufmgr->win_flags, TXTED_SHOW_FM);
+            }
         }
 
         /* -------------------- *
@@ -334,8 +343,8 @@ void handle_input(BufManager *bufmgr, Font font) {
         /* -------------------- *
          * Jump ke atas dan ke bawah
          * -------------------- */
-        if (IsKeyPressed(KEY_D)) Nav_jump_down(buf);
-        if (IsKeyPressed(KEY_U)) Nav_jump_up(buf);
+        if (IsKeyPressed(KEY_D)) Nav_jump_down(bufmgr);
+        if (IsKeyPressed(KEY_U)) Nav_jump_up(bufmgr);
     }
 
     /* -------------------- *

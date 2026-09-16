@@ -5,6 +5,7 @@
  */
 #include "undo.h"
 
+#include <bits/time.h>
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdlib.h>
@@ -14,7 +15,11 @@
 /**
  * Fungsi untuk mendapatkan waktu dalam milidetik [PRIVATE API]
  */
-static long now_ms() { return (long)(clock() * 1000 / CLOCKS_PER_SEC); }
+static long now_ms() {
+    struct timespec ts;
+    clock_gettime(CLOCK_MONOTONIC, &ts);
+    return (long)(ts.tv_sec * 1'000 + ts.tv_nsec / 1'000'000);
+}
 
 /**
  * Fungsi untuk membersihkan stack undo [PRIVATE API]
@@ -75,63 +80,75 @@ void Undo_push(UndoStack *us, UndoType type, size_t offset, const char *text, si
 
     long ts = now_ms();
 
-    if (us->count > 0 && type == UNDO_INSERT) {
+    if (us->count > 0) {
         UndoAction *last = &us->actions[us->count - 1];
 
-        if (last->type == UNDO_INSERT && last->offset + last->len == offset &&
-            ts - last->timestamp_ms < UNDO_TIMEOUT) {
-            last->text = realloc(last->text, last->len + len + 1);
-            memcpy(last->text + last->len, text, len);
+        // Merge INSERT (Ngetik beruntun)
+        if (type == UNDO_INSERT && last->type == UNDO_INSERT &&
+            last->offset + last->len == offset && (ts - last->timestamp_ms < UNDO_TIMEOUT)) {
+            char *tmp = realloc(last->text, last->len + len + 1);
+            if (tmp) {
+                last->text = tmp;
+                memcpy(last->text + last->len, text, len);
+                last->len += len;
+                last->text[last->len] = '\0';
+                last->timestamp_ms = ts;
+                return;
+            }
+        }
 
-            last->len += len;
-            last->text[last->len] = '\0';
-            last->timestamp_ms = ts;
-            us->current = us->count;
-            return;
+        // Merge DELETE BACKSPACE (Delete ke kiri: pos mundur)
+        if (type == UNDO_DELETE && last->type == UNDO_DELETE && offset + len == last->offset &&
+            (ts - last->timestamp_ms < UNDO_TIMEOUT)) {
+            char *tmp = realloc(last->text, last->len + len + 1);
+            if (tmp) {
+                last->text = tmp;
+                // Geser teks lama ke kanan, masukkan teks baru di depan
+                memmove(last->text + len, last->text, last->len + 1);
+                memcpy(last->text, text, len);
+                last->offset = offset;
+                last->len += len;
+                last->timestamp_ms = ts;
+                return;
+            }
+        }
+
+        // Merge DELETE KEY (Delete ke kanan: pos tetap sama)
+        if (type == UNDO_DELETE && last->type == UNDO_DELETE && offset == last->offset &&
+            (ts - last->timestamp_ms < UNDO_TIMEOUT)) {
+            char *tmp = realloc(last->text, last->len + len + 1);
+            if (tmp) {
+                last->text = tmp;
+                memcpy(last->text + last->len, text, len);
+                last->len += len;
+                last->text[last->len] = '\0';
+                last->timestamp_ms = ts;
+                return;
+            }
         }
     }
 
-    if (us->count > 0 && type == UNDO_DELETE) {
-        UndoAction *last = &us->actions[us->count - 1];
-        if (last->type == UNDO_DELETE && offset + len == last->offset &&
-            ts - last->timestamp_ms < UNDO_TIMEOUT) {
-            char *new_text = calloc(last->len + len + 1, sizeof(char));
-            memcpy(new_text, text, len);                    // Teks baru di depan
-            memcpy(new_text + len, last->text, last->len);  // Teks lama di belakang
-
-            free(last->text);
-            last->text = new_text;
-            last->offset = offset;
-            last->len += len;
-            last->timestamp_ms = ts;
-            new_text[last->len] = '\0';
-
-            us->current = us->count;
-            return;
-        }
-    }
-
+    // Dynamic array expansion biasa jika belum melebihi limit
     if (us->count >= us->capacity) {
-        us->capacity *= 2;
-        us->actions = realloc(us->actions, sizeof(UndoAction) * us->capacity);
+        size_t new_cap = us->capacity * 2;
+        UndoAction *tmp = realloc(us->actions, sizeof(UndoAction) * new_cap);
+        if (!tmp) return;
+        us->actions = tmp;
+        us->capacity = new_cap;
     }
 
-    if (us->count >= UNDO_MAX_ACTIONS) {
-        free(us->actions[0].text);
-        memmove(us->actions, us->actions + 1, sizeof(UndoAction) * (us->count - 1));
-        us->count--;
-        us->current--;
-    }
-
+    // Tambahkan action baru
     UndoAction *a = &us->actions[us->count++];
     a->type = type;
     a->offset = offset;
     a->len = len;
-    a->text = calloc(len + 1, sizeof(char));
-    memcpy(a->text, text, len);
-    a->text[len] = '\0';
+    a->text = malloc(len + 1);
+    if (a->text) {
+        memcpy(a->text, text, len);
+        a->text[len] = '\0';
+    }
     a->timestamp_ms = ts;
-    us->current++;
+    us->current = us->count;
 }
 
 /**

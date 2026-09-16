@@ -164,13 +164,6 @@ char *FloatPrompt_update_and_render(BufManager *bufmgr, FloatPrompt *fp, Font fo
     GuiSetFont(font);
     GuiSetStyle(DEFAULT, TEXT_SIZE, (int)current_font_size);
 
-    if (IsKeyPressed(KEY_ESCAPE)) {
-        fp->is_active = false;
-        fp->edit_mode = false;
-        bufmgr->mode = WRITE;
-        return nullptr;
-    }
-
     // Hitung fuzzy matching (Jika ada items)
     const int MAX_MATCHES = 100;
     int matches[MAX_MATCHES];
@@ -195,8 +188,15 @@ char *FloatPrompt_update_and_render(BufManager *bufmgr, FloatPrompt *fp, Font fo
         snprintf(list_buf, sizeof(list_buf), "%s", fp->input_buf);
     }
 
+    if (IsKeyPressed(KEY_ESCAPE)) {
+        fp->is_active = false;
+        fp->edit_mode = false;
+        bufmgr->mode = WRITE;
+        return nullptr;
+    }
+
     // Navigasi Keyboard (Atas/Bawah)
-    if (IsKeyPressed(KEY_DOWN)) {
+    if (IsKeyPressed(KEY_DOWN) || IsKeyPressedRepeat(KEY_DOWN)) {
         if (fp->selected_idx < max_idx) {
             fp->selected_idx++;
             if (fp->selected_idx >= fp->scroll_offset + max_visible) {
@@ -205,7 +205,7 @@ char *FloatPrompt_update_and_render(BufManager *bufmgr, FloatPrompt *fp, Font fo
         }
     }
 
-    if (IsKeyPressed(KEY_UP)) {
+    if (IsKeyPressed(KEY_UP) || IsKeyPressedRepeat(KEY_UP)) {
         if (fp->selected_idx > 0) {
             fp->selected_idx--;
             if (fp->selected_idx < fp->scroll_offset) {

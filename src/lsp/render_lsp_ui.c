@@ -57,17 +57,20 @@ static float get_lsp_cursor_x(Font font, Buffer *buf, float text_x) {
  */
 void draw_diagnostic_bar(BufManager *bufmgr, Font font) {
     EditorLayout Layout = get_editor_layout(bufmgr);
+
+    int editor_x = Layout.editor_x;
+    int editor_w = Layout.editor_w;
+
     int panel_y = Layout.win_h - STATUS_H - DIAG_PANEL_H;
     float current_font_x = (float)font.baseSize;
 
     // Geser X ke Layout.editor_x dan gunakan lebar Layout.editor_w
-    DrawRectangle(Layout.editor_x, panel_y, Layout.editor_w, DIAG_PANEL_H, g_theme.bg_sidebar);
-    DrawLine(Layout.editor_x, panel_y, Layout.editor_x + Layout.editor_w, panel_y,
-             g_theme.line_num);
+    DrawRectangle(editor_x, panel_y, editor_w, DIAG_PANEL_H, g_theme.bg_sidebar);
+    DrawLine(editor_x, panel_y, editor_x + editor_w, panel_y, g_theme.line_num);
 
     Buffer *buf = BufManager_getactive(bufmgr);
     if (!buf) {
-        Vector2 pos = {(float)(Layout.editor_x + PAD_X), (float)(panel_y + 4)};
+        Vector2 pos = {(float)(editor_x + PAD_X), (float)(panel_y + 4)};
         DrawTextEx(font, "No diagnostics", pos, current_font_x, 1.0f, g_theme.comment);
         return;
     }
@@ -86,7 +89,7 @@ void draw_diagnostic_bar(BufManager *bufmgr, Font font) {
             buf->diagnostic = nullptr;
         }
 
-        Vector2 pos = {(float)(Layout.editor_x + PAD_X), (float)(panel_y + 4)};
+        Vector2 pos = {(float)(editor_x + PAD_X), (float)(panel_y + 4)};
         DrawTextEx(font, "No diagnostics", pos, current_font_x, 1.0f, g_theme.comment);
         return;
     }
@@ -107,7 +110,7 @@ void draw_diagnostic_bar(BufManager *bufmgr, Font font) {
     snprintf(msg, sizeof(msg), "[Ln %d, Col %d] %s", active_item->start_line + 1,
              active_item->start_char + 1, active_item->message);
 
-    Vector2 pos = {(float)(Layout.editor_x + PAD_X), (float)(panel_y + 4)};
+    Vector2 pos = {(float)(editor_x + PAD_X), (float)(panel_y + 4)};
 
     DrawTextEx(font, msg, pos, current_font_x, 1.0f, color);
 }
@@ -167,13 +170,19 @@ void render_lsp_completion_ui(BufManager *bufmgr, Font font) {
         }
     }
 
+    // Ekstrak ke Variable local
+    int win_w = Layout.win_w;
+    int win_h = Layout.win_h;
+    int editor_y = Layout.editor_y;
+    int text_screen_x = Layout.text_screen_x;
+
     float box_w = max_label_width + 24.0f;
-    float max_box_w = Layout.win_w * 0.6f;
+    float max_box_w = win_w * 0.6f;
     if (box_w > max_box_w) box_w = max_box_w;
 
     // HITUNG POSISI KURSOR & KOTAK
-    float cursor_screen_x = get_lsp_cursor_x(font, buf, (float)Layout.text_screen_x);
-    float cursor_screen_y = Layout.editor_y + PAD_Y + ((int)buf->cursor.y - buf->scroll_y) * LINE_H;
+    float cursor_screen_x = get_lsp_cursor_x(font, buf, (float)text_screen_x);
+    float cursor_screen_y = editor_y + PAD_Y + ((int)buf->cursor.y - buf->scroll_y) * LINE_H;
 
     float item_h = current_font_x + 8.0f;
     int max_visible = 7;
@@ -188,14 +197,14 @@ void render_lsp_completion_ui(BufManager *bufmgr, Font font) {
     float box_x = cursor_screen_x;
     float box_y;
 
-    float min_x = (float)Layout.text_screen_x;
+    float min_x = (float)text_screen_x;
     if (box_x < min_x) {
         box_x = min_x;
     }
 
     // Penanda di atas atau bawah, agar Completion dan Signature tidak tumpang tindih
     bool place_below = true;
-    if (cursor_screen_y + LINE_H + 2.0f + box_h > Layout.win_h - STATUS_H) {
+    if (cursor_screen_y + LINE_H + 2.0f + box_h > win_h - STATUS_H) {
         place_below = false;
     }
 
@@ -208,13 +217,13 @@ void render_lsp_completion_ui(BufManager *bufmgr, Font font) {
         g_lsp_ui.completion_side = POPUP_ABOVE;
     }
 
-    if (box_x + box_w > Layout.win_w - 10.0f) {
-        box_x = Layout.win_w - box_w - 10.0f;
+    if (box_x + box_w > win_w - 10.0f) {
+        box_x = win_w - box_w - 10.0f;
     }
 
     Rectangle box = {box_x, box_y, box_w, box_h};
 
-    // RENDER UI (BACA DARI FILTERED)
+    // Render si Completion lsp
     DrawRectangleRounded(box, 0.05f, 4, g_theme.bg_card);
     DrawRectangleRoundedLines(box, 0.05f, 4, g_theme.border);
 

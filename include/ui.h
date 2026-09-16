@@ -65,7 +65,6 @@ typedef struct {
 } FloatPrompt;
 
 extern FloatPrompt g_prompt;
-
 EditorLayout get_editor_layout(BufManager *bufmgr);  // Layout manager
 
 void draw_status(BufManager *bufmgr, Font font);

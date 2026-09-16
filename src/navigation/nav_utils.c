@@ -74,14 +74,14 @@ void scroll_y_nav(BufManager *bufmgr, bool nav_up) {
     int max_scroll = total_lines - max_vis;
     if (max_scroll < 0) max_scroll = 0;
 
-    // 1. Geser kursor sesuai arah navigasi
+    // Geser kursor sesuai arah navigasi
     if (nav_up) {
         Nav_move_up(buf);
     } else {
         Nav_move_down(buf);
     }
 
-    // 2. Adjust Viewport (scroll_y) agar SELALU mengikuti posisi kursor
+    // Adjust Viewport (scroll_y) agar SELALU mengikuti posisi kursor
     if ((int)buf->cursor.y < buf->scroll_y) {
         // Kursor keluar lewat atas viewport
         buf->scroll_y = (int)buf->cursor.y;
@@ -90,7 +90,7 @@ void scroll_y_nav(BufManager *bufmgr, bool nav_up) {
         buf->scroll_y = (int)buf->cursor.y - max_vis + 1;
     }
 
-    // 3. Clamp scroll_y agar tidak membal / out of bounds
+    // Clamp scroll_y agar tidak membal / out of bounds
     if (buf->scroll_y < 0) buf->scroll_y = 0;
     if (buf->scroll_y > max_scroll) buf->scroll_y = max_scroll;
 }
@@ -183,7 +183,8 @@ void Nav_goto_end_of_line(Buffer *buf) {
 /**
  * Fungsi untuk lompat 5 baris ke bawah
  */
-void Nav_jump_down(Buffer *buf) {
+void Nav_jump_down(BufManager *bufmgr) {
+    Buffer *buf = BufManager_getactive(bufmgr);
     if (buf) {
         if (buf->cursor.y + 5 <
             buf->lines.line_count) {  // Selama y + 5 masih di bawah line count, HAJARRRR
@@ -200,13 +201,28 @@ void Nav_jump_down(Buffer *buf) {
 
         buf->cursor.cursor_pos = buf->lines.offset[buf->cursor.y] + buf->cursor.x;
         free(text);
+
+        // Sinkronasi dengan viewport
+        EditorLayout layout = get_editor_layout(bufmgr);
+        int max_vis = layout.visible_lines;
+        int total_lines = (int)buf->lines.line_count;
+        int max_scroll = (total_lines > max_vis) ? (total_lines - max_vis) : 0;
+
+        // Jika kursor melompat melebihi batas bawah viewport
+        if ((int)buf->cursor.y >= buf->scroll_y + max_vis) {
+            buf->scroll_y = (int)buf->cursor.y - max_vis + 1;
+        }
+
+        if (buf->scroll_y > max_scroll) buf->scroll_y = max_scroll;
+        if (buf->scroll_y < 0) buf->scroll_y = 0;
     }
 }
 
 /**
  * Fungsi untuk Jump ke atas
  */
-void Nav_jump_up(Buffer *buf) {
+void Nav_jump_up(BufManager *bufmgr) {
+    Buffer *buf = BufManager_getactive(bufmgr);
     if (buf) {
         if (buf->cursor.y <= 5) {  // Jika kurang atau sama dengan 5 langsung set 0 aja
             buf->cursor.y = 0;
@@ -221,6 +237,13 @@ void Nav_jump_up(Buffer *buf) {
 
         buf->cursor.cursor_pos = buf->lines.offset[buf->cursor.y] + buf->cursor.x;
         free(text);
+
+        // Sinkronasi dengan Viewport
+        if ((int)buf->cursor.y < buf->scroll_y) {
+            buf->scroll_y = (int)buf->cursor.y;
+        }
+
+        if (buf->scroll_y < 0) buf->scroll_y = 0;
     }
 }
 
