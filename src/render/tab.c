@@ -325,7 +325,8 @@ void draw_tabs(BufManager *bufmgr, Font font) {
 /*
  * Render Status Mode
  */
-void render_top_right_state(BufManager *bufmgr, Font font) {
+void draw_all_top_bar(BufManager *bufmgr, Font font) {
+    draw_tabs(bufmgr, font);  // Draw Tabs dulu
     EditorLayout Layout = get_editor_layout(bufmgr);
     float font_size = (float)font.baseSize;
 
@@ -355,9 +356,10 @@ void render_top_right_state(BufManager *bufmgr, Font font) {
 
     Rectangle badge_rec = {badge_x, badge_y, badge_w, badge_h};
 
+    float pos_text = badge_rec.y + (badge_rec.height - font_size) / 2.0f;
     // Render Pill/Badge Mode
     DrawRectangleRounded(badge_rec, 0.3f, 4, mode_color);
-    DrawTextEx(font, mode_str, (Vector2){badge_x + 6.0f, badge_y + 4.0f}, font_size, 1.0f, BLACK);
+    DrawTextEx(font, mode_str, (Vector2){badge_x + 6.0f, pos_text}, font_size, 1.0f, BLACK);
 }
 
 /**

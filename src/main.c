@@ -27,8 +27,7 @@
 void render_all_ui(BufManager *bufmgr, Font font) {
     draw_file_manager(bufmgr, font);
     draw_editor(bufmgr, font);
-    render_top_right_state(bufmgr, font);
-    draw_tabs(bufmgr, font);
+    draw_all_top_bar(bufmgr, font);
     draw_diagnostic_bar(bufmgr, font);
     draw_status(bufmgr, font);
     draw_dialog_modal(bufmgr, font);

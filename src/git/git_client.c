@@ -145,6 +145,20 @@ static int credential_cb(git_credential **out, const char *url, const char *user
 
     if (allowed_types & GIT_CREDENTIAL_SSH_KEY) {
         if (git_credential_ssh_key_from_agent(out, username_from_url) == 0) return 0;
+
+        // Fallback
+        const char *home = getenv("HOME");
+        if (!home) home = getenv("USERPROFILE");
+
+        if (home) {
+            char pubkey[512], privkey[512];
+            snprintf(pubkey, sizeof(pubkey), "%s/.ssh/id_ed25519.pub", home);
+            snprintf(privkey, sizeof(privkey), "%s/.ssh/id_ed25519", home);
+
+            if (git_credential_ssh_key_new(out, username_from_url, pubkey, privkey, "") == 0) {
+                return 0;
+            }
+        }
     }
 
     return git_credential_default_new(out);
@@ -154,6 +168,11 @@ static int credential_cb(git_credential **out, const char *url, const char *user
  * Fungsi untuk Push ke Git [PRIVATE API]
  */
 bool GitPopup_push(const char *repo_path) {
+    if (!repo_path || !repo_path[0]) {
+        snprintf(git_popup.last_error, sizeof(git_popup.last_error), "Invalid repo path!");
+        return false;
+    }
+
     git_repository *repo = nullptr;
     if (git_repository_open_ext(&repo, repo_path, 0, nullptr) != 0) {
         snprintf(git_popup.last_error, sizeof(git_popup.last_error), "Gagal membuka repo!");
@@ -199,8 +218,8 @@ bool GitPopup_push(const char *repo_path) {
     char cmd[512];
     snprintf(cmd, sizeof(cmd), "git -C \"%s\" push origin %s > /dev/null 2>&1", repo_path,
              branch_name);
-    int sys_rc = system(cmd);
 
+    int sys_rc = system(cmd);
     if (sys_rc == 0) {
         git_popup.last_error[0] = '\0';
         return true;
@@ -223,6 +242,7 @@ static void *git_push_worker(void *arg) {
 
     g_push_result = ok ? 1 : -1;
     g_push_in_progress = false;  // Flag penanda selesai
+
     free(repo);
     return nullptr;
 }
@@ -231,15 +251,24 @@ static void *git_push_worker(void *arg) {
  * Fungsi untuk memanggil Push secara Async [PRIVATE API]
  */
 void GitPopup_push_async(const char *repo) {
-    if (g_push_in_progress) return;  // Mencegah spam klik tombol push
+    if (g_push_in_progress || !repo) return;  // Mencegah spam klik tombol push
 
     g_push_in_progress = true;
     g_push_result = 0;
 
     pthread_t thread;
     char *repo_copy = strdup(repo);
-    pthread_create(&thread, nullptr, git_push_worker, repo_copy);
-    pthread_detach(thread);  // Detach agar memori thread otomatis bersih saat selesai
+    if (!repo_copy) {
+        g_push_in_progress = false;
+        return;
+    }
+
+    if (pthread_create(&thread, nullptr, git_push_worker, repo_copy) != 0) {
+        g_push_in_progress = false;
+        free(repo_copy);
+    } else {
+        pthread_detach(thread);  // Detach agar memori thread otomatis bersih saat selesai
+    }
 }
 
 /**

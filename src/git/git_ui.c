@@ -18,7 +18,7 @@
 // Extern dari git_client.c
 extern bool GitPopup_stage(const char *repo);
 extern bool GitPopup_commit(const char *repo, const char *message);
-extern bool GitPopup_push_async(const char *repo);
+extern void GitPopup_push_async(const char *repo);
 extern bool GitPopup_is_pushing(void);
 
 static bool git_popup_just_opened = false;
