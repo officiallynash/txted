@@ -16,6 +16,12 @@
 #include "theme.h"
 #include "ui.h"
 
+/*
+ * Arsitekturnya agak ribet dan aneh. Tapi ini jalan yang terbaik
+ * kalau tidak dibuat seperti ini akan bentrok dengan state lain.
+ * Mungkin kedepannya akan di perbaiki lagi.
+ */
+
 static float dialog_scroll_y = 0.0f;  // Menyimpan offset scroll dialog
 
 /* =============================
@@ -57,24 +63,36 @@ extern void Nav_paste(BufManager *bufmgr, Font font);
 extern void Nav_redo(BufManager *bufmgr, Font);
 extern void Nav_undo(BufManager *bufmgr, Font font);
 
+/**
+ * Fungsi untuk show help di Menu Action
+ */
 void Nav_show_help(BufManager *bufmgr, Font font) {
     (void)font;
     bufmgr->mode = POPUP;
     UI_open_dialog(bufmgr, DIALOG_HELP);
 }
 
+/**
+ * Fungsi untuk Show About
+ */
 void Nav_show_about(BufManager *bufmgr, Font font) {
     (void)font;
     bufmgr->mode = POPUP;
     UI_open_dialog(bufmgr, DIALOG_ABOUT);
 }
 
+/**
+ * Fungsi untuk open GitUI
+ */
 void Nav_open_git(BufManager *bufmgr, Font font) {
     (void)font;
     bufmgr->mode = POPUP;
     GitPopup_open(bufmgr);
 }
 
+/**
+ * Fungsi untuk show FM
+ */
 void Nav_show_fm(BufManager *bufmgr, Font font) {
     (void)font;
     if (!HAS_FLAG(bufmgr->win_flags, TXTED_SHOW_FM)) {
@@ -100,13 +118,15 @@ static MenuItem file_items[] = {
     {"Exit", "Ctrl+Q", Nav_exit},
 };
 
-static MenuItem edit_items[] = {{"Undo", "Ctrl+Z", Nav_undo},
-                                {"Redo", "Ctrl+R", Nav_redo},
-                                {"Cut", "Ctrl+X", Nav_cut},
-                                {"Copy", "Ctrl+C", Nav_copy},
-                                {"Paste", "Ctrl+V", Nav_paste}};
+static MenuItem edit_items[] = {
+    {"Undo", "Ctrl+Z", Nav_undo}, {"Redo", "Ctrl+R", Nav_redo},   {"Cut", "Ctrl+X", Nav_cut},
+    {"Copy", "Ctrl+C", Nav_copy}, {"Paste", "Ctrl+V", Nav_paste},
+};
 
-static MenuItem help_items[] = {{"Help", "", Nav_show_help}, {"About", "", Nav_show_about}};
+static MenuItem help_items[] = {
+    {"Help", "", Nav_show_help},
+    {"About", "", Nav_show_about},
+};
 
 /**
  * Render Dropdown Items

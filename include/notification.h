@@ -20,6 +20,6 @@ extern NotificationManager notif;  // Global instance
 void Notif_init(void);
 void Notif_show(const char *msg, NotifType type, float duration_sec);
 void Notif_update(float delta_time);
-void Notif_draw(BufManager *bufmgr, Font font);
+void draw_notification(BufManager *bufmgr, Font font);
 
 #endif

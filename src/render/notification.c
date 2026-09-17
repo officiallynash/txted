@@ -1,12 +1,13 @@
-#include "buffer_manager.h"
 /*
  * TxtEd - Simple Text Editor
  * Copyright (c) 2026 Nash
  * SPDX-License-Identifier: MIT
  */
+#include "notification.h"
+
 #include <string.h>
 
-#include "notification.h"
+#include "buffer_manager.h"
 #include "theme.h"
 #include "ui.h"
 
@@ -62,7 +63,7 @@ void Notif_update(float delta_time) {
 /**
  * Render Notification [PUBLIC API]
  */
-void Notif_draw(BufManager *bufmgr, Font font) {
+void draw_notification(BufManager *bufmgr, Font font) {
     if (!notif.active) return;
 
     EditorLayout layout = get_editor_layout(bufmgr);

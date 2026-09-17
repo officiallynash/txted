@@ -13,10 +13,9 @@
 #include "lsp_server.h"
 #include "raylib.h"
 
-// LSP Ui state tidak memakai Bitwise demi menghindari
-// Boilerplate atau ketidak keterbacaan kodenya
-// Selain itu penulisan dan untuk pengecekean setiap flag
-// akan semakin ribet jika memakai bitwise
+// Deskripsi Bitwise operation untuk pengganti
+// Flag yang memakai bool dari stdbool
+// Walaupun agak "ribet" tapi ini untuk menghemat memori
 constexpr uint8_t LSP_ENABLE = 1 << 0;
 constexpr uint8_t LSP_VISIBLE = 1 << 1;
 constexpr uint8_t LSP_REQUEST_PENDING = 1 << 2;

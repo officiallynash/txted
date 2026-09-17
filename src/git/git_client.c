@@ -7,6 +7,7 @@
 
 #include <git2.h>
 #include <pthread.h>
+#include <stdatomic.h>
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdio.h>
@@ -17,6 +18,8 @@
 #include "git2/credential.h"
 #include "git2/errors.h"
 #include "git2/global.h"
+#include "git2/remote.h"
+#include "git2/repository.h"
 #include "notification.h"
 
 GitStatus git = {};
@@ -192,6 +195,7 @@ bool GitPopup_push(const char *repo_path) {
     git_remote *remote = nullptr;
     if (git_remote_lookup(&remote, repo, "origin") != 0) {
         snprintf(git_popup.last_error, sizeof(git_popup.last_error), "Remote 'origin' tidak ada!");
+
         git_repository_free(repo);
         return false;
     }
@@ -240,8 +244,8 @@ static void *git_push_worker(void *arg) {
     // Jalankan push (blocking cuma terjadi di background thread ini)
     bool ok = GitPopup_push(repo);
 
-    g_push_result = ok ? 1 : -1;
-    g_push_in_progress = false;  // Flag penanda selesai
+    atomic_store_explicit(&g_push_result, ok ? 1 : -1, memory_order_release);
+    atomic_store_explicit(&g_push_in_progress, false, memory_order_release);
 
     free(repo);
     return nullptr;
@@ -251,20 +255,21 @@ static void *git_push_worker(void *arg) {
  * Fungsi untuk memanggil Push secara Async [PRIVATE API]
  */
 void GitPopup_push_async(const char *repo) {
-    if (g_push_in_progress || !repo) return;  // Mencegah spam klik tombol push
+    if (atomic_load_explicit(&g_push_in_progress, memory_order_acquire) || !repo)
+        return;  // Mencegah spam klik tombol push
 
-    g_push_in_progress = true;
-    g_push_result = 0;
+    atomic_store_explicit(&g_push_in_progress, true, memory_order_release);
+    atomic_store_explicit(&g_push_result, 0, memory_order_release);
 
     pthread_t thread;
     char *repo_copy = strdup(repo);
     if (!repo_copy) {
-        g_push_in_progress = false;
+        atomic_store_explicit(&g_push_in_progress, false, memory_order_release);
         return;
     }
 
     if (pthread_create(&thread, nullptr, git_push_worker, repo_copy) != 0) {
-        g_push_in_progress = false;
+        atomic_store_explicit(&g_push_in_progress, false, memory_order_release);
         free(repo_copy);
     } else {
         pthread_detach(thread);  // Detach agar memori thread otomatis bersih saat selesai
@@ -274,7 +279,9 @@ void GitPopup_push_async(const char *repo) {
 /**
  * Fungsi penanda Push [PRIVATE API]
  */
-bool GitPopup_is_pushing(void) { return g_push_in_progress; }
+bool GitPopup_is_pushing(void) {
+    return atomic_load_explicit(&g_push_in_progress, memory_order_acquire);
+}
 
 /**
  * Fungsi internal untuk cek file recursive di dalam folder [PRIVATE API]
@@ -508,9 +515,9 @@ const char *Git_folder_mark(const char *dir_path) {
  * Fungsi untuk Refresh UI Git
  */
 void GitStatus_update(BufManager *bufmgr, float dt) {
-    int result = g_push_result;
+    int result = atomic_load_explicit(&g_push_result, memory_order_acquire);
     if (result != 0) {
-        g_push_result = 0;
+        atomic_store_explicit(&g_push_result, 0, memory_order_release);
         if (result == 1) {
             Notif_show("Push ke remote berhasil!", NOTIF_SUCCESS, 3.0f);
         } else {

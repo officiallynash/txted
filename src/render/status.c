@@ -37,7 +37,8 @@ void draw_status(BufManager *bufmgr, Font font) {
         return;
     }
 
-    const char *text = HAS_FLAG(buf->buf_flags, BUF_IS_DIRTY) ? "[*]" : "";
+    // Cek apakah file is dirty (di ubah)
+    const char *is_dirty = HAS_FLAG(buf->buf_flags, BUF_IS_DIRTY) ? "[*]" : "";
 
     // Format Teks Kiri
     char left[256] = {0};
@@ -45,16 +46,16 @@ void draw_status(BufManager *bufmgr, Font font) {
     if (git.is_repo) {
         if (mark[0]) {
             snprintf(left, sizeof(left), "File: %s %s[%s] | Branch: %s%s ",
-                     buf->filename ? buf->filename : "Untitled", text, mark, git.branch,
+                     buf->filename ? buf->filename : "Untitled", is_dirty, mark, git.branch,
                      git.has_changes ? "*" : "");
         } else {
             snprintf(left, sizeof(left), "File: %s %s | Branch: %s%s ",
-                     buf->filename ? buf->filename : "Untitled", text, git.branch,
+                     buf->filename ? buf->filename : "Untitled", is_dirty, git.branch,
                      git.has_changes ? "*" : "");
         }
     } else {
         snprintf(left, sizeof(left), "File: %s %s ", buf->filename ? buf->filename : "Untitled",
-                 text);
+                 is_dirty);
     }
 
     // Render Teks Kiri (Posisi Y Dinamis)

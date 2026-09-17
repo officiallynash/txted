@@ -30,8 +30,9 @@ void render_all_ui(BufManager *bufmgr, Font font) {
     draw_all_top_bar(bufmgr, font);
     draw_diagnostic_bar(bufmgr, font);
     draw_status(bufmgr, font);
+
+    draw_gitpopup(bufmgr, font);
     draw_dialog_modal(bufmgr, font);
-    GitPopup_render(bufmgr, font);
 
     // Jika LSP aktif, Kita tampilkan lsp
     if (HAS_FLAG(g_lsp_ui.lsp_flag, LSP_ENABLE)) {
@@ -41,7 +42,7 @@ void render_all_ui(BufManager *bufmgr, Font font) {
     }
 
     // Draw notifikasi paling atas
-    Notif_draw(bufmgr, font);
+    draw_notification(bufmgr, font);
 }
 
 // Pintu masuk aplikasi

@@ -63,7 +63,7 @@ void Git_fetch_file_async(const char *repo_path, const char *file_path, Buffer *
 
 void GitPopup_open(BufManager *bufmgr);
 void GitPopup_close(BufManager *bufmgr);
-void GitPopup_render(BufManager *bufmgr, Font font);
+void draw_gitpopup(BufManager *bufmgr, Font font);
 void Git_global_init(void);
 void Git_global_shutdown(void);
 

@@ -424,7 +424,6 @@ void draw_editor(BufManager *bufmgr, Font font) {
             /* ------------------------------------------------------------- *
              * RENDER INLINE GHOST TEXT
              * ------------------------------------------------------------- */
-            // render.c pada blok Inline Ghost Text
             if (git.is_repo) {
                 if (y == buf->cursor.y && buf->line_git && y < buf->meta_capacity) {
                     LineGitMeta meta = buf->line_git[y];

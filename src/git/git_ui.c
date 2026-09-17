@@ -1,4 +1,3 @@
-#include "result.h"
 /*
  * TxtEd - Simple Text Editor
  * Copyright (c) 2026 Nash
@@ -12,6 +11,7 @@
 #include "buffer_manager.h"
 #include "git_client.h"
 #include "notification.h"
+#include "result.h"
 #include "theme.h"
 #include "ui.h"
 
@@ -27,8 +27,12 @@ static bool git_popup_just_opened = false;
  * Fungsi untuk membuka GitUi
  */
 void GitPopup_open(BufManager *bufmgr) {
+    // Set ke flags Show Git
     SET_FLAG(bufmgr->win_flags, TXTED_SHOW_GIT);
+
+    // Focus mode ke Popup
     bufmgr->mode = POPUP;
+
     git_popup.edit_message = true;
     git_popup.selected = 0;
     git_popup.list_scroll = 0.0f;
@@ -42,6 +46,8 @@ void GitPopup_open(BufManager *bufmgr) {
  */
 void GitPopup_close(BufManager *bufmgr) {
     git_popup.edit_message = false;
+
+    // Hapus flag show git
     CLR_FLAG(bufmgr->win_flags, TXTED_SHOW_GIT);
 }
 
@@ -71,7 +77,7 @@ static bool DrawButton(Font font, const char *text, Rectangle rect, Color base_c
 /**
  * Fungsi utama untuk Render GitUi
  */
-void GitPopup_render(BufManager *bufmgr, Font font) {
+void draw_gitpopup(BufManager *bufmgr, Font font) {
     if (!HAS_FLAG(bufmgr->win_flags, TXTED_SHOW_GIT)) return;
     EditorLayout Layout = get_editor_layout(bufmgr);
 
@@ -84,8 +90,8 @@ void GitPopup_render(BufManager *bufmgr, Font font) {
     DrawRectangle(0, 0, win_w, win_h, (Color){0, 0, 0, 140});
 
     // Box
-    float box_w = 480.0f;
-    float box_h = 410.0f;
+    float box_w = 500.0f;
+    float box_h = 420.0f;
     Rectangle box = {(win_w - box_w) / 2.0f, (win_h - box_h) / 3.0f, box_w, box_h};
 
     DrawRectangleRounded(box, 0.04f, 4, g_theme.bg_card);
