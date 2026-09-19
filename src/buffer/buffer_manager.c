@@ -25,6 +25,7 @@
 static void BufManager_set_workspace(BufManager *bufmgr, const char *any_path) {
     if (!bufmgr || !any_path) return;
 
+    // Ambil project Root
     char *root = Fs_find_project_root(any_path);
     if (!root) {
         root = Fs_dirname(any_path);  // Pastikan Fs_dirname mengembalikan string malloc
@@ -68,6 +69,7 @@ BufManager *BufManager_init(void) {
     bufmgr->fm_width_ratio = 0.20f;
     bufmgr->path_root = nullptr;
     bufmgr->win_flags = 0;
+    bufmgr->prompt = calloc(1, sizeof(FloatPrompt));
 
     // Default mode it Write
     bufmgr->mode = WRITE;
@@ -107,9 +109,11 @@ void BufManager_newtab(BufManager *bufmgr, const char *filename) {
     bufmgr->active_idx = (int)bufmgr->num_tabs;
     bufmgr->num_tabs++;
 
+    // Jika path root tidak kosong, set ke workspace
     if (!bufmgr->path_root && filename) {
         BufManager_set_workspace(bufmgr, filename);
     }
+
     // Sinkronasi dengan Git Blame dan Diff, jika Path itu Repo
     if (git.is_repo && buf && buf->path) {
         // Jalankan secara async
@@ -140,6 +144,8 @@ void BufManager_open(BufManager *bufmgr, const char *filename) {
     if (!bufmgr->path_root && filename) {
         BufManager_set_workspace(bufmgr, filename);
     }
+
+    // Git
     Buffer *active = BufManager_getactive(bufmgr);
     // Hanya ambil Blame dan Diff bila Path adalah Repo
     if (git.is_repo && active && active->path) {
@@ -227,6 +233,7 @@ void BufManager_destroy(BufManager *bufmgr) {
         Clipboard_free(bufmgr->clp);
         bufmgr->clp = nullptr;
     }
+    if (bufmgr->prompt) free(bufmgr->prompt);
 
     if (bufmgr->path_root != nullptr) free(bufmgr->path_root);
     bufmgr->active_idx = -1;

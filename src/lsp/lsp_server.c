@@ -38,6 +38,7 @@ static volatile bool running = false;
 // Mutex Guard
 static pthread_mutex_t diag_mutex = PTHREAD_MUTEX_INITIALIZER;
 static pthread_mutex_t pending_mutex = PTHREAD_MUTEX_INITIALIZER;
+static pthread_mutex_t write_mutex = PTHREAD_MUTEX_INITIALIZER;
 static pthread_cond_t pending_cond = PTHREAD_COND_INITIALIZER;
 
 // Simple pending response (hanya 1 request aktif untuk completion)
@@ -53,8 +54,12 @@ static void lsp_send_raw(const char *json) {
     size_t body_len = strlen(json);
 
     int len = snprintf(header, sizeof(header), "Content-Length: %zu\r\n\r\n", body_len);
+
+    // Pakai Mutex agar lebih safe
+    pthread_mutex_lock(&write_mutex);
     write(stdin_fd, header, len);
     write(stdin_fd, json, body_len);
+    pthread_mutex_unlock(&write_mutex);
 }
 
 /**
@@ -78,6 +83,7 @@ static void free_one_diagnostic_list(DiagnosticList *dl) {
         free(dl->items[i].message);
         free(dl->items[i].source);
     }
+
     free(dl->items);
     dl->items = nullptr;
     dl->count = 0;
@@ -621,12 +627,16 @@ HoverInfo lsp_hover(const char *uri, int line, int character) {
                         if (cJSON_IsString(v)) s = v->valuestring;
                     }
                     if (s) {
-                        size_t remaining = total - strlen(hover.contents) - 1;
-                        if (hover.contents[0]) {
-                            strncat(hover.contents, "\n", remaining);
-                            remaining = total - strlen(hover.contents) - 1;
+                        size_t curr_len = strlen(hover.contents);
+                        if (curr_len < total) {
+                            size_t remaining = total - curr_len;
+                            if (curr_len > 0) {
+                                strncat(hover.contents, "\n", remaining);
+                                curr_len++;
+                                remaining = (curr_len < total) ? (total - curr_len) : 0;
+                            }
+                            strncat(hover.contents, s, remaining);
                         }
-                        strncat(hover.contents, s, remaining);
                     }
                 }
             }
@@ -1195,7 +1205,7 @@ void lsp_free_completion(CompletionList *list) {
  */
 void lsp_stop(void) {
     if (!running) return;
-    lsp_clear_all_diagnostics();
+    running = false;
 
     if (stdin_fd >= 0) {
         int shutdown_id = next_id();
@@ -1214,16 +1224,15 @@ void lsp_stop(void) {
         stdin_fd = -1;
     }
 
-    running = false;
-    if (stdout_fd >= 0) {
-        close(stdout_fd);
-        stdout_fd = -1;
-    }
-
     if (lsp_pid > 0) {
         waitpid(lsp_pid, nullptr, 0);
         lsp_pid = -1;
     }
 
     pthread_join(reader_thread, nullptr);
+    if (stdout_fd >= 0) {
+        close(stdout_fd);
+        stdout_fd = -1;
+    }
+    lsp_clear_all_diagnostics();
 }

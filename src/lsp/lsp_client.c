@@ -6,6 +6,7 @@
 #include <cJSON.h>
 #include <ctype.h>
 #include <limits.h>
+#include <pthread.h>
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdio.h>
@@ -24,9 +25,82 @@
 #include "result.h"
 #include "rope.h"
 
+// Struct untuk transport lsp did change
+typedef struct {
+    char uri[512];
+    int version;
+    char *text;
+} LspUpdate;
+
+// Internal state
 float lsp_debounce_timer = 0.0f;  // Debounce
 LspUiState g_lsp_ui = {};
-extern int compare_scores(const void *a, const void *b);  // compare_scores (completion.c)
+
+extern int calculate_score(const char *query, const char *label);  // Deklarasi awal
+
+/**
+ * Fungsi untuk membandingkan score untuk qsort [PRIVATE API]
+ */
+int compare_scores(const void *a, const void *b) {
+    FilteredItem *itemA = (FilteredItem *)a;
+    FilteredItem *itemB = (FilteredItem *)b;
+    return itemB->score - itemA->score;  // Descending (tertinggi di atas)
+}
+
+/**
+ * Fungsi untuk memfilter dan mengurutkan completion [PRIVATE API]
+ */
+void filter_and_sort_completion(CompletionList *list, const char *query) {
+    FilteredItem filtered[256] = {};
+    int filtered_count = 0;
+
+    for (size_t i = 0; i < list->count && filtered_count < 256; i++) {
+        int score = calculate_score(query, list->items[i].label);
+        if (score >= 0) {
+            filtered[filtered_count].item = &list->items[i];
+            filtered[filtered_count].score = score;
+            filtered_count++;
+        }
+    }
+
+    // Sort daftar pilihan berdasarkan score tertinggi!
+    qsort(filtered, filtered_count, sizeof(FilteredItem), compare_scores);
+}
+
+/**
+ * Mengambil item completion aktif sesuai urutan hasil Filter & Sort [PUBLIC API]
+ */
+CompletionItem *lsp_get_selected_item(const char *current_word) {
+    if (!HAS_FLAG(g_lsp_ui.lsp_flag, LSP_HAS_COMP) || g_lsp_ui.completion.count == 0)
+        return nullptr;
+
+    FilteredItem filtered[256] = {};
+    int total_items = 0;
+
+    for (size_t i = 0; i < g_lsp_ui.completion.count && total_items < 256; i++) {
+        const char *label = g_lsp_ui.completion.items[i].label;
+        if (!label) continue;
+
+        int score = calculate_score(current_word, label);
+        if (score >= 0) {
+            filtered[total_items].item = &g_lsp_ui.completion.items[i];
+            filtered[total_items].score = score;
+            total_items++;
+        }
+    }
+
+    if (total_items == 0) return nullptr;
+
+    if (current_word[0] != '\0') {
+        qsort(filtered, total_items, sizeof(FilteredItem), compare_scores);
+    }
+
+    if (g_lsp_ui.selected_index < 0 || g_lsp_ui.selected_index >= total_items) {
+        return nullptr;
+    }
+
+    return filtered[g_lsp_ui.selected_index].item;
+}
 
 /**
  * Fungsi Scoring Pintar (Exact Case Bonus + Fuzzy)
@@ -225,6 +299,24 @@ void lsp_ui_set_document(const char *uri, const char *language_id, const char *t
     SET_FLAG(g_lsp_ui.lsp_flag, LSP_REQUEST_PENDING);
 }
 
+/*
+ * Fungsi untuk worker thread LSP
+ */
+void *Lsp_update_worker(void *args) {
+    LspUpdate *lsp = (LspUpdate *)args;
+
+    // Kirim lsp did change
+    lsp_did_change(lsp->uri, lsp->text, lsp->version);
+
+    // Free lsp
+    if (lsp) {
+        free(lsp->text);
+        free(lsp);
+    }
+
+    return nullptr;
+}
+
 /**
  * Fungsi untuk update LSP UI [PUBLIC API]
  */
@@ -265,6 +357,8 @@ void lsp_ui_update(BufManager *bufmgr, float dt) {
     // Ekseskusi Request LSP (Saat Debounce Selesai)
     if (HAS_FLAG(g_lsp_ui.lsp_flag, LSP_REQUEST_PENDING)) {
         CLR_FLAG(g_lsp_ui.lsp_flag, LSP_REQUEST_PENDING);
+
+        // Set document ke LSP lebih baik di main thread
         if (buf->path) {
             char *uri = Path_to_uri((char *)buf->path);
             if (uri) {
@@ -287,7 +381,23 @@ void lsp_ui_update(BufManager *bufmgr, float dt) {
         if (g_lsp_ui.uri[0] != '\0') {
             Bytes text = String_get(buf->str, 0, rope_len);
             if (text.data) {
-                lsp_did_change(g_lsp_ui.uri, (const char *)text.data, buf->lsp_version);
+                // Buat malloc
+                LspUpdate *lsp = malloc(sizeof(LspUpdate));
+                snprintf(lsp->uri, sizeof(lsp->uri), "%s", g_lsp_ui.uri);
+                lsp->version = buf->lsp_version;
+                lsp->text = strdup((char *)text.data);
+
+                // Init Thread worker
+                pthread_t thread;
+                pthread_attr_t attr;
+                pthread_attr_init(&attr);
+                pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED);
+
+                if (pthread_create(&thread, &attr, Lsp_update_worker, lsp) != 0) {
+                    free(lsp->text);
+                    free(lsp);
+                }
+                pthread_attr_destroy(&attr);
 
                 buf->lsp_version++;  // Update lsp Version
                 Bytes_free(&text);

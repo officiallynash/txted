@@ -14,6 +14,7 @@
 
 #include "buffer.h"
 #include "buffer_manager.h"
+#include "editor.h"
 #include "result.h"
 #include "theme.h"
 #include "ui.h"
@@ -22,7 +23,6 @@
 // Ini jauh lebih typesafe daripada sekedar define
 constexpr size_t MAX_SEARCH_HIT = 100;
 
-FloatPrompt g_prompt = {};  // Deklarasi awal g_prompt nantinya buat di extern
 extern void render_all_ui(BufManager *bufmgr, Font font);  // Didefinisikan di main.c
 // Calculate score for fuzzy matching (LSP_UI)
 extern int calculate_score(const char *query, const char *label);
@@ -156,7 +156,8 @@ bool GuiCustomInputBox(Rectangle bounds, char *text, int textSize, bool *editMod
  * Layout modal, tinggi item suggestion, dan clipping text disinkronkan penuh dengan ukuran font
  * dinamis.
  */
-char *FloatPrompt_update_and_render(BufManager *bufmgr, FloatPrompt *fp, Font font) {
+char *FloatPrompt_update_and_render(BufManager *bufmgr, Font font) {
+    FloatPrompt *fp = bufmgr->prompt;
     if (!fp->is_active) return nullptr;
 
     float current_font_size = (float)font.baseSize;
@@ -330,23 +331,23 @@ char *FloatPrompt_update_and_render(BufManager *bufmgr, FloatPrompt *fp, Font fo
 /**
  * Fungsi untuk meminta input dari pengguna [PUBLIC API]
  */
-char *FloatPrompt_ask(FloatPrompt *fp, const char *msg, const char *default_val, int icon_id,
-                      Font font, BufManager *bufmgr) {
-    fp->items = nullptr;
-    fp->item_count = 0;
-    fp->selected_idx = 0;
+char *FloatPrompt_ask(BufManager *bufmgr, const char *msg, const char *default_val, int icon_id,
+                      Font font) {
+    bufmgr->prompt->items = nullptr;
+    bufmgr->prompt->item_count = 0;
+    bufmgr->prompt->selected_idx = 0;
 
-    FloatPrompt_open(fp, msg, default_val, icon_id);
+    FloatPrompt_open(bufmgr->prompt, msg, default_val, icon_id);
     char *result = nullptr;
 
-    while (fp->is_active && !WindowShouldClose()) {
+    while (bufmgr->prompt->is_active && !WindowShouldClose()) {
         BeginDrawing();
         ClearBackground(g_theme.bg_editor);
 
         render_all_ui(bufmgr, font);
 
         // Render overlay popup
-        result = FloatPrompt_update_and_render(bufmgr, fp, font);
+        result = FloatPrompt_update_and_render(bufmgr, font);
         EndDrawing();
 
         if (result != nullptr) break;
@@ -358,21 +359,20 @@ char *FloatPrompt_ask(FloatPrompt *fp, const char *msg, const char *default_val,
 /**
  * Fungsi Baru (Prompt Universal dengan Box Suggestion!) [PUBLIC API]
  */
-char *FloatPrompt_ask_with_items(FloatPrompt *fp, const char *msg, const char *default_val,
-                                 int icon_id, Font font, BufManager *bufmgr, PromptItem *items,
-                                 size_t item_count) {
-    fp->items = items;
-    fp->item_count = item_count;
-    fp->selected_idx = 0;
+char *FloatPrompt_ask_with_items(BufManager *bufmgr, const char *msg, const char *default_val,
+                                 int icon_id, Font font, PromptItem *items, size_t item_count) {
+    bufmgr->prompt->items = items;
+    bufmgr->prompt->item_count = item_count;
+    bufmgr->prompt->selected_idx = 0;
 
-    FloatPrompt_open(fp, msg, default_val, icon_id);
+    FloatPrompt_open(bufmgr->prompt, msg, default_val, icon_id);
     char *result = nullptr;
 
-    while (fp->is_active && !WindowShouldClose()) {
+    while (bufmgr->prompt->is_active && !WindowShouldClose()) {
         BeginDrawing();
         ClearBackground(g_theme.bg_editor);
         render_all_ui(bufmgr, font);
-        result = FloatPrompt_update_and_render(bufmgr, fp, font);
+        result = FloatPrompt_update_and_render(bufmgr, font);
         EndDrawing();
         if (result != nullptr) break;
     }
@@ -418,7 +418,7 @@ char *SearchPrompt_ask(BufManager *bufmgr, Font font) {
     Buffer *buf = BufManager_getactive(bufmgr);
     if (!buf) return nullptr;
 
-    FloatPrompt *fp = &g_prompt;
+    FloatPrompt *fp = bufmgr->prompt;
     FloatPrompt_open(fp, "Search", "", ICON_LENS);
 
     // Alokasi statis untuk hit pencarian
@@ -453,7 +453,7 @@ char *SearchPrompt_ask(BufManager *bufmgr, Font font) {
         ClearBackground(g_theme.bg_editor);
         render_all_ui(bufmgr, font);
 
-        result = FloatPrompt_update_and_render(bufmgr, fp, font);
+        result = FloatPrompt_update_and_render(bufmgr, font);
         EndDrawing();
 
         if (result != nullptr) {
@@ -463,6 +463,7 @@ char *SearchPrompt_ask(BufManager *bufmgr, Font font) {
                 fp->selected_idx < (int)fp->item_count) {
                 Buffer_goto_search_hit(bufmgr, &hits[fp->selected_idx]);
             }
+
             free(result);
             break;
         }

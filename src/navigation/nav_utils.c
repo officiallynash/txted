@@ -53,6 +53,7 @@ void Nav_move_down(Buffer *buf) {
         size_t end = (buf->cursor.y + 1 < buf->lines.line_count)
                          ? buf->lines.offset[buf->cursor.y + 1]
                          : rope_len;
+
         size_t max_x = end > start ? end - start : 0;
         if (max_x > 0 && buf->cursor.y + 1 < buf->lines.line_count) max_x--;
         if (buf->cursor.x > max_x) buf->cursor.x = max_x;
@@ -186,15 +187,15 @@ void Nav_goto_end_of_line(Buffer *buf) {
 void Nav_jump_down(BufManager *bufmgr) {
     Buffer *buf = BufManager_getactive(bufmgr);
     if (buf) {
-        if (buf->cursor.y + 5 <
-            buf->lines.line_count) {  // Selama y + 5 masih di bawah line count, HAJARRRR
+        if (buf->cursor.y + 5 < buf->lines.line_count) {
+            // Selama y + 5 masih di bawah line count, HAJARRRR
             buf->cursor.y += 5;
         } else {  // Kalau tidak cukup line count dikurang 1
             buf->cursor.y = buf->lines.line_count - 1;
         }
 
-        char *text =
-            Buffer_get_line_text(buf, buf->cursor.y);  // Pakai line text aja biar mudah HAHAHAHA
+        // Pakai line text aja biar mudah HAHAHAHA
+        char *text = Buffer_get_line_text(buf, buf->cursor.y);
         size_t line_len = text ? strlen(text) : 0;
 
         if (buf->cursor.x > line_len) buf->cursor.x = line_len;
@@ -258,8 +259,7 @@ void Nav_create_folder(BufManager *bufmgr, Font font) {
         // Pesan
         char msg[128] = {0};
         snprintf(msg, sizeof(msg), "Folder name (%s)", pretty_name);
-        char *folder_name =
-            FloatPrompt_ask(&g_prompt, (const char *)msg, "", ICON_FOLDER, font, bufmgr);
+        char *folder_name = FloatPrompt_ask(bufmgr, (const char *)msg, "", ICON_FOLDER, font);
 
         if (folder_name) {
             int result = mkdir(folder_name, 0777);
@@ -287,8 +287,8 @@ void Nav_open_file(BufManager *bufmgr, Font font) {
     Scan_project_files(".", file_list);
 
     char *selected =
-        FloatPrompt_ask_with_items(&g_prompt, "Open File (Search File)", "", ICON_FILE_OPEN, font,
-                                   bufmgr, file_list->items, file_list->item_count);
+        FloatPrompt_ask_with_items(bufmgr, "Open File (Search File)", "", ICON_FILE_OPEN, font,
+                                   file_list->items, file_list->item_count);
     if (selected != nullptr) {
         BufManager_open(bufmgr, selected);
         bufmgr->mode = WRITE;
@@ -325,7 +325,7 @@ void Nav_create_new_file(BufManager *bufmgr, Font font) {
     // Pesan
     char msg[128] = {0};
     snprintf(msg, sizeof(msg), "Nama File baru (%s)", pretty_name);
-    char *filename = FloatPrompt_ask(&g_prompt, (const char *)msg, "", ICON_FILE, font, bufmgr);
+    char *filename = FloatPrompt_ask(bufmgr, (const char *)msg, "", ICON_FILE, font);
     if (filename) {
         Result result = Fs_create(filename);
         if (result.type == RESULT_ERR) {
@@ -349,7 +349,7 @@ void Nav_create_new_file(BufManager *bufmgr, Font font) {
 void Nav_save_as(BufManager *bufmgr, Font font) {
     Buffer *buf = BufManager_getactive(bufmgr);
 
-    char *filename = FloatPrompt_ask(&g_prompt, "Nama File baru", "", ICON_FILE_SAVE, font, bufmgr);
+    char *filename = FloatPrompt_ask(bufmgr, "Nama File baru", "", ICON_FILE_SAVE, font);
     if (filename) {
         Buffer_save(buf, filename);
         bufmgr->mode = WRITE;
@@ -365,7 +365,7 @@ void Nav_save(BufManager *bufmgr, Font font) {
 
     if (buf->path == nullptr) {
         bufmgr->mode = POPUP;
-        char *filename = FloatPrompt_ask(&g_prompt, "Nama File", "", ICON_FILE_SAVE, font, bufmgr);
+        char *filename = FloatPrompt_ask(bufmgr, "Nama File", "", ICON_FILE_SAVE, font);
 
         if (filename) {
             Buffer_save(buf, filename);

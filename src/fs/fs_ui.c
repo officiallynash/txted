@@ -17,6 +17,7 @@
 #include "fs.h"
 #include "git_client.h"
 #include "result.h"
+#include "settings_txted.h"
 #include "theme.h"
 #include "ui.h"
 
@@ -43,6 +44,7 @@ static char g_active_file_path[512] = {0};
 static char g_loaded_root_path[512] = "";
 
 // State untuk Navigasi Keyboard
+// Karena ini lokal lebih baik terpisah dari BufManager
 static int g_fm_selected_index = 0;
 static FileNode *g_visible_nodes[1024];  // Max node yang tampil/visible
 static int g_visible_count = 0;
@@ -207,14 +209,15 @@ FileNode *FileNode_build(const char *rootpath, const char *name) {
  * Disesuaikan agar tinggi item, indentasi, dan posisi vertikal fleksibel terhadap ukuran font
  * dinamis.
  */
-static void draw_file_node_recursive(FileNode *node, Font font, EditorLayout L, int depth,
-                                     float *current_y, Vector2 mouse_pos, BufManager *bufmgr) {
+static void draw_file_node_recursive(FileNode *node, Font font, int depth, float *current_y,
+                                     Vector2 mouse_pos, BufManager *bufmgr) {
     if (!node) return;
 
-    int fm_y = L.fm_y;
-    int fm_x = L.fm_x;
-    int fm_h = L.fm_h;
-    int fm_w = L.fm_w;
+    EditorLayout layout = get_editor_layout(bufmgr);
+    int fm_y = layout.fm_y;
+    int fm_x = layout.fm_x;
+    int fm_h = layout.fm_h;
+    int fm_w = layout.fm_w;
 
     float current_font_size = (float)font.baseSize;
     // Item height disesuaikan dengan tinggi font ditambah vertical padding
@@ -315,7 +318,7 @@ static void draw_file_node_recursive(FileNode *node, Font font, EditorLayout L, 
 
     if (node->is_directory && node->is_expanded) {
         for (int i = 0; i < node->child_count; i++) {
-            draw_file_node_recursive(node->children[i], font, L, depth + 1, current_y, mouse_pos,
+            draw_file_node_recursive(node->children[i], font, depth + 1, current_y, mouse_pos,
                                      bufmgr);
         }
     }
@@ -369,6 +372,11 @@ void draw_file_manager(BufManager *bufmgr, Font font) {
     float current_font_size = (float)font.baseSize;
     float item_h = current_font_size + 6.0f;
 
+    /**
+     * Navigation, Harusnya memang terpisah, tetapi jika untuk file manager di bentuk dengan struct
+     * akan kelihatan ribet, jadi lebih baik kita masukin ke dalam draw saja,
+     * terlebih untuk mempersingkat fungsi yang di panggil di main.c
+     */
     // Safety clamp untuk selected index
     if (g_fm_selected_index >= g_visible_count) g_fm_selected_index = g_visible_count - 1;
     if (g_fm_selected_index < 0) g_fm_selected_index = 0;
@@ -387,21 +395,6 @@ void draw_file_manager(BufManager *bufmgr, Font font) {
         else if (key == KEY_UP || IsKeyPressedRepeat(KEY_UP)) {
             if (g_fm_selected_index > 0) {
                 g_fm_selected_index--;
-            }
-        }
-        // Panah Kanan / Expand Folder
-        else if (key == KEY_RIGHT || key == KEY_L) {
-            FileNode *sel = g_visible_nodes[g_fm_selected_index];
-            if (sel->is_directory && !sel->is_expanded) {
-                sel->is_expanded = true;
-                if (!sel->is_loaded) FileNode_load_children(sel);
-            }
-        }
-        // Panah Kiri / Collapse Folder
-        else if (key == KEY_LEFT || key == KEY_H) {
-            FileNode *sel = g_visible_nodes[g_fm_selected_index];
-            if (sel->is_directory && sel->is_expanded) {
-                sel->is_expanded = false;
             }
         }
         // Enter / Space untuk Buka File atau Expand Folder
@@ -428,6 +421,15 @@ void draw_file_manager(BufManager *bufmgr, Font font) {
             // Untuk kembali ke Write dan tutup si FM
             bufmgr->mode = WRITE;
             CLR_FLAG(bufmgr->win_flags, TXTED_SHOW_FM);
+        }
+
+        // Ctrl + Panah kiri untuk pindah ke mode Write tanpa menutup FM
+        if (IsKeyDown(KEY_RIGHT_CONTROL) || IsKeyDown(KEY_LEFT_CONTROL)) {
+            if (default_settings.fm_pos == FM_LEFT && IsKeyPressed(KEY_RIGHT)) {
+                bufmgr->mode = WRITE;
+            } else if (default_settings.fm_pos == FM_RIGHT && IsKeyPressed(KEY_LEFT)) {
+                bufmgr->mode = WRITE;
+            }
         }
     }
 
@@ -460,13 +462,16 @@ void draw_file_manager(BufManager *bufmgr, Font font) {
         }
     }
 
-    EditorLayout L = get_editor_layout(bufmgr);
+    /**
+     * Draw dan Mouse Configuration
+     */
+    EditorLayout layout = get_editor_layout(bufmgr);
     Vector2 mouse_pos = GetMousePosition();
 
-    int fm_w = L.fm_w;
-    int fm_h = L.fm_h;
-    int fm_x = L.fm_x;
-    int fm_y = L.fm_y;
+    int fm_w = layout.fm_w;
+    int fm_h = layout.fm_h;
+    int fm_x = layout.fm_x;
+    int fm_y = layout.fm_y;
 
     DrawRectangle(fm_x, fm_y, fm_w, fm_h, g_theme.bg_sidebar);
     DrawLine(fm_x + fm_w - 1, fm_y, fm_x + fm_w - 1, fm_y + fm_h, g_theme.border);
@@ -488,11 +493,11 @@ void draw_file_manager(BufManager *bufmgr, Font font) {
     }
 
     if (scissor_h > 0) {
-        BeginScissorMode(fm_x, (int)content_start_y, L.fm_w - 1, scissor_h);
+        BeginScissorMode(fm_x, (int)content_start_y, fm_w - 1, scissor_h);
 
         if (g_fm_root) {
             for (int i = 0; i < g_fm_root->child_count; i++) {
-                draw_file_node_recursive(g_fm_root->children[i], font, L, 0, &current_y, mouse_pos,
+                draw_file_node_recursive(g_fm_root->children[i], font, 0, &current_y, mouse_pos,
                                          bufmgr);
             }
         }

@@ -12,6 +12,7 @@
 
 #include "buffer.h"
 #include "buffer_manager.h"
+#include "editor.h"
 #include "settings_txted.h"
 
 // Karena float harus di deklarasikan dari awal
@@ -39,32 +40,6 @@ typedef struct {
     int visible_lines;           // Visible Lines
 } EditorLayout;
 
-/**
- * Struct untuk membawa data dari Prompt
- */
-typedef struct {
-    char label[128];
-    char subtext[128];
-    int icon_id;
-} PromptItem;
-
-/**
- * Struct untuk konfigurasi FloatPrompt
- */
-typedef struct {
-    char label[64];
-    char input_buf[256];
-    int icon_id;
-
-    PromptItem *items;
-    size_t item_count;
-    int selected_idx;
-    int scroll_offset;
-    bool is_active;
-    bool edit_mode;
-} FloatPrompt;
-
-extern FloatPrompt g_prompt;
 EditorLayout get_editor_layout(BufManager *bufmgr);  // Layout manager
 
 void draw_status(BufManager *bufmgr, Font font);
@@ -77,14 +52,13 @@ void Draw_confirm_exit(BufManager *bufmgr, Font font);
 void draw_all_top_bar(BufManager *bufmgr, Font font);
 
 // Pop up
-char *FloatPrompt_ask(FloatPrompt *fp, const char *msg, const char *default_val, int icon_id,
-                      Font font, BufManager *bufmgr);
+char *FloatPrompt_ask(BufManager *bufmgr, const char *msg, const char *default_val, int icon_id,
+                      Font font);
 char *SearchPrompt_ask(BufManager *bufmgr, Font font);
 void Buffer_goto_search_hit(BufManager *bufmgr, const SearchHitBuffer *hit);
 
 // Pop up dengan box suggestion
-char *FloatPrompt_ask_with_items(FloatPrompt *fp, const char *msg, const char *default_val,
-                                 int icon_id, Font font, BufManager *bufmgr, PromptItem *items,
-                                 size_t item_count);
+char *FloatPrompt_ask_with_items(BufManager *bufmgr, const char *msg, const char *default_val,
+                                 int icon_id, Font font, PromptItem *items, size_t item_count);
 
 #endif

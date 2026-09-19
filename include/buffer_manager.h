@@ -10,6 +10,7 @@
 #include <stdint.h>
 
 #include "buffer.h"
+#include "editor.h"
 
 // define max tab
 constexpr int MAX_TABS = 7;
@@ -50,6 +51,7 @@ typedef struct BufManager {
     char *path_root;        // Menyimpan path root, untuk kebutuhan workspace
     uint8_t win_flags;      // Flag untuk menampung state window, misal minta exit, dll
     FocusMode mode;
+    FloatPrompt *prompt;
 } BufManager;
 
 BufManager *BufManager_init(void);

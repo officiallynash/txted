@@ -22,12 +22,14 @@
 #include "git2/repository.h"
 #include "notification.h"
 
+// Internal state
 GitStatus git = {};
 GitPopup git_popup = {};
 float GitStatus_timer = 0.0f;
 static _Atomic bool g_push_in_progress = false;
 static _Atomic int g_push_result = 0;
 
+// Struct pembantu untuk async git fetch
 typedef struct {
     char *repo_path;
     char *file_path;
@@ -144,6 +146,7 @@ bool GitPopup_commit(const char *repo_path, const char *message) {
  */
 static int credential_cb(git_credential **out, const char *url, const char *username_from_url,
                          unsigned int allowed_types, void *payload) {
+    // Kita kasih void dikarenakan url dan payload tidak terpakai
     (void)url, (void)payload;
 
     if (allowed_types & GIT_CREDENTIAL_SSH_KEY) {
@@ -656,6 +659,7 @@ void Git_global_shutdown(void) { git_libgit2_shutdown(); }
  */
 static void *git_fetch_worker(void *arg) {
     GitFetchArgs *args = (GitFetchArgs *)arg;
+
     if (args) {
         Git_fetch_file_diff(args->repo_path, args->file_path, args->buf);
         Git_fetch_file_blame(args->repo_path, args->file_path, args->buf);
@@ -664,6 +668,7 @@ static void *git_fetch_worker(void *arg) {
         free(args->file_path);
         free(args);
     }
+
     return nullptr;
 }
 

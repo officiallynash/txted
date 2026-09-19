@@ -79,12 +79,12 @@ static bool DrawButton(Font font, const char *text, Rectangle rect, Color base_c
  */
 void draw_gitpopup(BufManager *bufmgr, Font font) {
     if (!HAS_FLAG(bufmgr->win_flags, TXTED_SHOW_GIT)) return;
-    EditorLayout Layout = get_editor_layout(bufmgr);
+    EditorLayout layout = get_editor_layout(bufmgr);
 
     float current_font_size = (float)font.baseSize;
     const char *repo = bufmgr->path_root;
-    int win_w = Layout.win_w;
-    int win_h = Layout.win_h;
+    int win_w = layout.win_w;
+    int win_h = layout.win_h;
 
     // Dim background (overlay)
     DrawRectangle(0, 0, win_w, win_h, (Color){0, 0, 0, 140});
