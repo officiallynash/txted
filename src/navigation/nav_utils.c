@@ -14,6 +14,7 @@
 
 #include "buffer.h"
 #include "buffer_manager.h"
+#include "editor.h"
 #include "fs.h"
 #include "notification.h"
 #include "raygui.h"
@@ -22,6 +23,7 @@
 #include "ui.h"
 
 extern char *format_pretty_path(const char *path);  // (fs.c)
+extern void PromptBuffer_destroy(BufManager *bufmgr);
 
 /**
  * Fungsi untuk navigasi atas
@@ -251,23 +253,21 @@ void Nav_jump_up(BufManager *bufmgr) {
 /**
  * Fungsi untuk membuat folder
  */
-void Nav_create_folder(BufManager *bufmgr, Font font) {
+void Nav_create_folder(BufManager *bufmgr, char *folder_name) {
     char *cwd = getcwd(nullptr, 0);
     if (cwd) {
-        char *pretty_name = format_pretty_path(cwd);  // Current directory
+        // Guard jika nullptr atau asal pencet
+        if (!folder_name) {
+            Notif_show("Tidak ada nama Folder!", NOTIF_INFO, 3.0f);
+            bufmgr->mode = WRITE;
+            return;
+        }
 
-        // Pesan
-        char msg[128] = {0};
-        snprintf(msg, sizeof(msg), "Folder name (%s)", pretty_name);
-        char *folder_name = FloatPrompt_ask(bufmgr, (const char *)msg, "", ICON_FOLDER, font);
-
-        if (folder_name) {
-            int result = mkdir(folder_name, 0777);
-            if (result == 0) {
-                Notif_show("Folder berhasil dibuat!", NOTIF_SUCCESS, 3.0f);
-            } else {
-                Notif_show("Gagal membuat folder!", NOTIF_ERROR, 3.0f);
-            }
+        int result = mkdir(folder_name, 0777);
+        if (result == 0) {
+            Notif_show("Folder berhasil dibuat!", NOTIF_SUCCESS, 3.0f);
+        } else {
+            Notif_show("Gagal membuat folder!", NOTIF_ERROR, 3.0f);
         }
 
         bufmgr->mode = WRITE;
@@ -275,27 +275,16 @@ void Nav_create_folder(BufManager *bufmgr, Font font) {
         // Safety free
         free(cwd);
         free(folder_name);
-        free(pretty_name);
     }
 }
 
 /**
  * Open File
  */
-void Nav_open_file(BufManager *bufmgr, Font font) {
-    FileList *file_list = FileList_init(128);
-    Scan_project_files(".", file_list);
-
-    char *selected =
-        FloatPrompt_ask_with_items(bufmgr, "Open File (Search File)", "", ICON_FILE_OPEN, font,
-                                   file_list->items, file_list->item_count);
-    if (selected != nullptr) {
-        BufManager_open(bufmgr, selected);
-        bufmgr->mode = WRITE;
-        free(selected);
-    }
-
-    FileList_free(file_list);
+void Nav_open_file(BufManager *bufmgr, char *filename) {
+    BufManager_open(bufmgr, filename);
+    free(filename);
+    bufmgr->mode = WRITE;
 }
 
 /**
@@ -317,64 +306,68 @@ void Nav_exit(BufManager *bufmgr, Font font) {
 /**
  * Create New File
  */
-void Nav_create_new_file(BufManager *bufmgr, Font font) {
+void Nav_create_new_file(BufManager *bufmgr, char *filename) {
     char *cwd = getcwd(nullptr, 0);
     if (cwd == nullptr) return;
-    char *pretty_name = format_pretty_path(cwd);  // Current directory
 
-    // Pesan
-    char msg[128] = {0};
-    snprintf(msg, sizeof(msg), "Nama File baru (%s)", pretty_name);
-    char *filename = FloatPrompt_ask(bufmgr, (const char *)msg, "", ICON_FILE, font);
-    if (filename) {
-        Result result = Fs_create(filename);
-        if (result.type == RESULT_ERR) {
-            Notif_show(result.data, NOTIF_ERROR, 3.0f);
-        } else {
-            BufManager_newtab(bufmgr, result.data);
-        }
-
+    if (!filename) {
+        // Guard jika kepencet enter
+        Notif_show("Nama file tidak boleh kosong!", NOTIF_INFO, 3.0f);
         bufmgr->mode = WRITE;
-        // Free semua Heap
-        free(filename);
-        free(cwd);
-        free(pretty_name);
-        Result_free(&result);
+        return;
     }
+
+    Result result = Fs_create(filename);
+    if (result.type == RESULT_ERR) {
+        Notif_show(result.data, NOTIF_ERROR, 3.0f);
+    } else {
+        BufManager_newtab(bufmgr, result.data);
+    }
+
+    // Free semua Heap
+    free(filename);
+    free(cwd);
+    Result_free(&result);
+    // Ini diluar aja.
+    bufmgr->mode = WRITE;
 }
 
 /**
  * Save As
  */
-void Nav_save_as(BufManager *bufmgr, Font font) {
+void Nav_save_as(BufManager *bufmgr, char *filename) {
     Buffer *buf = BufManager_getactive(bufmgr);
 
-    char *filename = FloatPrompt_ask(bufmgr, "Nama File baru", "", ICON_FILE_SAVE, font);
-    if (filename) {
-        Buffer_save(buf, filename);
+    if (!filename) {
+        Notif_show("Nama file tidak boleh kosong!", NOTIF_INFO, 3.0f);
         bufmgr->mode = WRITE;
-        free(filename);
+        return;
     }
+
+    // Default ke mode Write
+    Buffer_save(buf, filename);
+    free(filename);
+    bufmgr->mode = WRITE;
 }
 
 /**
  * Save
  */
-void Nav_save(BufManager *bufmgr, Font font) {
+void Nav_save(BufManager *bufmgr, char *filename) {
     Buffer *buf = BufManager_getactive(bufmgr);
 
-    if (buf->path == nullptr) {
-        bufmgr->mode = POPUP;
-        char *filename = FloatPrompt_ask(bufmgr, "Nama File", "", ICON_FILE_SAVE, font);
-
-        if (filename) {
-            Buffer_save(buf, filename);
-            bufmgr->mode = WRITE;
-            free(filename);
-        }
-    } else {
-        Buffer_save(buf, nullptr);
+    // Jika kepencet mending kasih notif
+    if (!filename) {
+        Notif_show("Nama file tidak boleh kosong!", NOTIF_INFO, 3.0f);
+        bufmgr->mode = WRITE;
+        return;
     }
+
+    Buffer_save(buf, filename);
+    free(filename);
+
+    // Default
+    bufmgr->mode = WRITE;
 }
 
 /**
@@ -449,3 +442,72 @@ void Nav_undo(BufManager *bufmgr, Font font) {
     if (!buf) return;
     Buffer_undo(buf);
 }
+
+/**
+ * Config untuk Float Prompt
+ */
+
+void prompt_ui_config(BufManager *bufmgr, PromptType type) {
+    bufmgr->mode = POPUP;
+    bufmgr->prompt->is_active = true;
+    bufmgr->prompt->edit_mode = true;
+    bufmgr->prompt->selected_idx = 0;
+    bufmgr->prompt->type = type;
+
+    const char *label = "";
+    switch (type) {
+        case PROMPT_TYPE_SAVE: {
+            bufmgr->prompt->icon_id = ICON_FILE_SAVE;
+            label = "Nama file:";
+            break;
+        }
+        case PROMPT_TYPE_OPEN_FILE: {
+            bufmgr->prompt->icon_id = ICON_FILE_OPEN;
+            label = "Open file:";
+            break;
+        }
+        case PROMPT_TYPE_NEW_FILE: {
+            bufmgr->prompt->icon_id = ICON_FILE;
+            label = "New File:";
+            break;
+        }
+        case PROMPT_SAVE_AS: {
+            bufmgr->prompt->icon_id = ICON_FILE_SAVE;
+            label = "Nama file baru:";
+            break;
+        }
+        case PROMPT_TYPE_SEARCH: {
+            bufmgr->prompt->icon_id = ICON_LENS_BIG;
+            label = "Search:";
+            break;
+        }
+        case PROMPT_TYPE_NEW_FOLDER: {
+            bufmgr->prompt->icon_id = ICON_FOLDER_ADD;
+            label = "Nama folder:";
+            break;
+        }
+    }
+
+    snprintf(bufmgr->prompt->label, sizeof(bufmgr->prompt->label), "%s", label);
+
+    // Alokasi fresh
+    bufmgr->prompt->prb = PromptBuffer_init();
+}
+
+void FloatPrompt_execute(BufManager *bufmgr, char *text) {
+    if (bufmgr->prompt->type == PROMPT_TYPE_NEW_FILE) {
+        Nav_create_new_file(bufmgr, text);
+    } else if (bufmgr->prompt->type == PROMPT_TYPE_SAVE) {
+        Nav_save(bufmgr, text);
+    } else if (bufmgr->prompt->type == PROMPT_SAVE_AS) {
+        Nav_save_as(bufmgr, text);
+    } else if (bufmgr->prompt->type == PROMPT_TYPE_NEW_FOLDER) {
+        Nav_create_folder(bufmgr, text);
+    } else if (bufmgr->prompt->type == PROMPT_TYPE_OPEN_FILE) {
+        Nav_open_file(bufmgr, text);
+    }
+
+    // State akhir
+    bufmgr->prompt->is_active = false;
+    bufmgr->prompt->edit_mode = false;
+};

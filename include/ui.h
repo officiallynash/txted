@@ -10,7 +10,6 @@
 #include <stdbool.h>
 #include <stddef.h>
 
-#include "buffer.h"
 #include "buffer_manager.h"
 #include "editor.h"
 #include "settings_txted.h"
@@ -50,15 +49,16 @@ void handle_input(BufManager *bufmgr, Font font);
 void handle_mouse_input(BufManager *bufmgr, Font font);
 void Draw_confirm_exit(BufManager *bufmgr, Font font);
 void draw_all_top_bar(BufManager *bufmgr, Font font);
+void draw_prompt_ui(BufManager *bufmgr, Font font);
 
-// Pop up
-char *FloatPrompt_ask(BufManager *bufmgr, const char *msg, const char *default_val, int icon_id,
-                      Font font);
-char *SearchPrompt_ask(BufManager *bufmgr, Font font);
-void Buffer_goto_search_hit(BufManager *bufmgr, const SearchHitBuffer *hit);
-
-// Pop up dengan box suggestion
-char *FloatPrompt_ask_with_items(BufManager *bufmgr, const char *msg, const char *default_val,
-                                 int icon_id, Font font, PromptItem *items, size_t item_count);
+/*
+ * Karena PromptBuffer ini juga untuk Git UI akan lebih bijak di taruh disini
+ * Kalau di taruh di editor.h nanti kena cross include dengan BufManager
+ */
+PromptBuffer *PromptBuffer_init(void);
+void PromptBuffer_insert(PromptBuffer *prb, size_t pos_idx, const char *ch);
+void PromptBuffer_delete(PromptBuffer *prb, size_t pos_idx);
+char *PromptBuffer_get(PromptBuffer *prb);
+void PromptBuffer_destroy(BufManager *bufmgr);
 
 #endif

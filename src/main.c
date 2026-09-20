@@ -33,6 +33,7 @@ void render_all_ui(BufManager *bufmgr, Font font) {
 
     draw_gitpopup(bufmgr, font);
     draw_dialog_modal(bufmgr, font);
+    draw_prompt_ui(bufmgr, font);
 
     // Jika LSP aktif, Kita tampilkan lsp
     if (HAS_FLAG(g_lsp_ui.lsp_flag, LSP_ENABLE)) {

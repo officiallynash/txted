@@ -253,6 +253,7 @@ FileList *FileList_init(size_t capacity) {
         free(list);
         return nullptr;
     }
+
     list->item_count = 0;
     list->capacity = (capacity > 0) ? capacity : 128;
     return list;

@@ -7,6 +7,17 @@
 #define EDITOR_H
 #include <stddef.h>
 
+#include "rope.h"
+
+/**
+ * Struct untuk menampung Prompt Buffer
+ */
+typedef struct {
+    String *str;
+    size_t len;  // Kasih manual di struct agar lebih efisien
+    size_t cursor_pos;
+} PromptBuffer;
+
 /**
  * Struct untuk membawa data dari Prompt
  */
@@ -17,19 +28,30 @@ typedef struct {
 } PromptItem;
 
 /**
+ * Enum untuk PromptType, aku rasa lebih efisien memakai Enum daripada Bitwise Flag.
+ */
+typedef enum {
+    PROMPT_TYPE_SAVE,
+    PROMPT_SAVE_AS,
+    PROMPT_TYPE_OPEN_FILE,
+    PROMPT_TYPE_NEW_FILE,
+    PROMPT_TYPE_NEW_FOLDER,
+    PROMPT_TYPE_SEARCH
+} PromptType;
+
+/**
  * Struct untuk konfigurasi FloatPrompt
  */
 typedef struct FloatPrompt {
     char label[64];
-    char input_buf[256];
     int icon_id;
 
-    PromptItem *items;
-    size_t item_count;
     int selected_idx;
     int scroll_offset;
     bool is_active;
     bool edit_mode;
+    PromptType type;
+    PromptBuffer *prb;
 } FloatPrompt;
 
 #endif

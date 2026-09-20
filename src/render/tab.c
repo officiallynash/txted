@@ -11,6 +11,7 @@
 #include "buffer.h"
 #include "buffer_manager.h"
 #include "git_client.h"
+#include "editor.h"
 #include "raygui.h"
 #include "result.h"
 #include "theme.h"
@@ -21,7 +22,6 @@
  * kalau tidak dibuat seperti ini akan bentrok dengan state lain.
  * Mungkin kedepannya akan di perbaiki lagi.
  */
-
 static float dialog_scroll_y = 0.0f;  // Menyimpan offset scroll dialog
 
 /* =============================
@@ -50,18 +50,14 @@ static void UI_open_dialog(BufManager *bufmgr, DialogState state) {
 /* ------------------------------- *
  * Extern Function
  * ------------------------------- */
-extern void Nav_create_folder(BufManager *bufmgr, Font font);
-extern void Nav_open_file(BufManager *bufmgr, Font font);
 extern void Nav_exit(BufManager *bufmgr, Font font);
-extern void Nav_save_as(BufManager *bufmgr, Font font);
-extern void Nav_save(BufManager *bufmgr, Font font);
-extern void Nav_create_new_file(BufManager *bufmgr, Font font);
 extern void Nav_close_tab(BufManager *bufmgr, Font font);
 extern void Nav_copy(BufManager *bufmgr, Font font);
 extern void Nav_cut(BufManager *bufmgr, Font font);
 extern void Nav_paste(BufManager *bufmgr, Font font);
 extern void Nav_redo(BufManager *bufmgr, Font);
 extern void Nav_undo(BufManager *bufmgr, Font font);
+extern void prompt_ui_config(BufManager *bufmgr, PromptType type);
 
 /**
  * Fungsi untuk show help di Menu Action
@@ -104,15 +100,44 @@ void Nav_show_fm(BufManager *bufmgr, Font font) {
     }
 }
 
+void Create_new_file(BufManager *bufmgr, Font font) {
+    (void)font;
+    prompt_ui_config(bufmgr, PROMPT_TYPE_NEW_FILE);
+}
+
+void open_file(BufManager *bufmgr, Font font) {
+    (void) font;
+    prompt_ui_config(bufmgr, PROMPT_TYPE_OPEN_FILE);
+}
+
+void save_file(BufManager *bufmgr, Font font) {
+    (void)font;
+    Buffer *buf = BufManager_getactive(bufmgr);
+    if (!buf->path) {
+        prompt_ui_config(bufmgr, PROMPT_TYPE_SAVE);
+    } else {
+        Buffer_save(buf, nullptr);
+    }
+}
+
+void save_as(BufManager *bufmgr, Font font) {
+    (void)font;
+    prompt_ui_config(bufmgr, PROMPT_SAVE_AS);
+}
+
+void create_folder(BufManager *bufmgr, Font font) {
+    (void)font;
+    prompt_ui_config(bufmgr, PROMPT_TYPE_NEW_FOLDER);
+}
 /**
  * Menu items
  */
 static MenuItem file_items[] = {
-    {"New File", "Ctrl+N", Nav_create_new_file},
-    {"Open File", "Ctrl+O", Nav_open_file},
-    {"Save File", "Ctrl+S", Nav_save},
-    {"Save As", "Ctrl+Shift+S", Nav_save_as},
-    {"Create Folder", "Ctrl+P", Nav_create_folder},
+    {"New File", "Ctrl+N", Create_new_file},
+    {"Open File", "Ctrl+O", open_file},
+    {"Save File", "Ctrl+S", save_file},
+    {"Save As", "Ctrl+Shift+S", save_as},
+    {"Create Folder", "Ctrl+P", create_folder},
     {"File Manager", "Ctrl + F", Nav_show_fm},
     {"Git Panel", "Ctrl + G", Nav_open_git},
     {"Exit", "Ctrl+Q", Nav_exit},

@@ -14,6 +14,7 @@
 
 #include "buffer.h"
 #include "buffer_manager.h"
+#include "editor.h"
 #include "git_client.h"
 #include "lsp_server.h"
 #include "lsp_ui.h"
@@ -27,16 +28,10 @@ extern int calculate_score(const char *query, const char *label);  // Extern (ls
 extern void Nav_move_left(Buffer *buf);                            // Nav_move_left (nav_utils.c)
 extern void Nav_move_right(Buffer *buf);                           // Nav_move_right (nav_utils.c)
 extern void Nav_mouse_scroll(BufManager *bufmgr, float wheel);     // Nav_mouse_scroll (nav_utils.c)
-extern void Nav_goto_end_of_line(Buffer *buf);                 // Nav_goto_end_of_line (nav_utils.c)
-extern void Nav_jump_down(BufManager *bufmgr);                 // Nav_jump_down (nav_utils.c)
-extern void Nav_jump_up(BufManager *bufmgr);                   // Nav_jump_up (nav_utils.c)
-extern void Nav_create_folder(BufManager *bufmgr, Font font);  // Nav_create_folder (nav_utils.c)
-extern void Nav_open_file(BufManager *bufmgr, Font font);      // Nav_Open_file (nav_utils.c)
-extern void Nav_exit(BufManager *bufmgr, Font font);           // Nav_exit (nav_utils.c)
-extern void Nav_save_as(BufManager *bufmgr, Font font);        // Nav_save_as (nav_utils.c)
-extern void Nav_save(BufManager *bufmgr, Font font);           // Nav_save (nav_utils.c)
-extern void Nav_create_new_file(BufManager *bufmgr,
-                                Font font);                 // Nav_create_new_file (nav_utils.c)
+extern void Nav_goto_end_of_line(Buffer *buf);              // Nav_goto_end_of_line (nav_utils.c)
+extern void Nav_jump_down(BufManager *bufmgr);              // Nav_jump_down (nav_utils.c)
+extern void Nav_jump_up(BufManager *bufmgr);                // Nav_jump_up (nav_utils.c)
+extern void Nav_exit(BufManager *bufmgr, Font font);        // Nav_exit (nav_utils.c)
 extern void Nav_close_tab(BufManager *bufmgr, Font font);   // Nav_close_tab (nav_utils.c)
 extern void Nav_copy(BufManager *bufmgr, Font font);        // Nav_copy (nav_utils.c)
 extern void Nav_cut(BufManager *bufmgr, Font font);         // Nav_cut (nav_utils.c)
@@ -44,6 +39,7 @@ extern void Nav_paste(BufManager *bufmgr, Font font);       // Nav_paste (nav_ut
 extern void Nav_redo(BufManager *bufmgr, Font font);        // Nav_redo (nav_utils.c)
 extern void Nav_undo(BufManager *bufmgr, Font font);        // Nav_undo (nav_utils.c)
 extern void scroll_y_nav(BufManager *bufmgr, bool nav_up);  // scroll_y
+extern void prompt_ui_config(BufManager *bufmgr, PromptType type);
 
 static bool is_mouse_scroll = false;
 
@@ -509,26 +505,27 @@ void handle_input(BufManager *bufmgr, Font font) {
          * Save As (CTRL + SHIFT + S)
          * -------------------- */
         if (!is_shift && IsKeyPressed(KEY_S)) {
-            Nav_save(bufmgr, font);
+            if (!buf->path) {
+                prompt_ui_config(bufmgr, PROMPT_TYPE_SAVE);
+            } else {
+                Buffer_save(buf, nullptr);
+            }
         } else if (is_shift && IsKeyPressed(KEY_S)) {
-            bufmgr->mode = POPUP;
-            Nav_save_as(bufmgr, font);
+            prompt_ui_config(bufmgr, PROMPT_SAVE_AS);
         }
 
         /* -------------------- *
          * CTRL + P (Create Folder)
          * -------------------- */
         if (IsKeyPressed(KEY_P)) {
-            bufmgr->mode = POPUP;
-            Nav_create_folder(bufmgr, font);
+            prompt_ui_config(bufmgr, PROMPT_TYPE_NEW_FOLDER);
         }
 
         /* -------------------- *
          * CTRL + N (Create New File)
          * -------------------- */
         if (IsKeyPressed(KEY_N)) {
-            bufmgr->mode = POPUP;
-            Nav_create_new_file(bufmgr, font);
+            prompt_ui_config(bufmgr, PROMPT_TYPE_NEW_FILE);
         }
 
         /* -------------------- *
@@ -563,17 +560,14 @@ void handle_input(BufManager *bufmgr, Font font) {
          * Fuzzy Search (Ctrl + B)
          * -------------------- */
         if (IsKeyPressed(KEY_B)) {
-            bufmgr->mode = POPUP;
-            SearchPrompt_ask(bufmgr, font);
-            return;
+            prompt_ui_config(bufmgr, PROMPT_TYPE_SEARCH);
         }
 
         /* -------------------- *
          * Open file
          * -------------------- */
         if (IsKeyPressed(KEY_O)) {
-            bufmgr->mode = POPUP;
-            Nav_open_file(bufmgr, font);
+            prompt_ui_config(bufmgr, PROMPT_TYPE_OPEN_FILE);
         }
 
         /* -------------------- *
