@@ -11,7 +11,6 @@
 #include "buffer.h"
 #include "buffer_manager.h"
 #include "git_client.h"
-#include "editor.h"
 #include "raygui.h"
 #include "result.h"
 #include "theme.h"

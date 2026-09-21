@@ -18,13 +18,12 @@
 
 #include "fs.h"
 #include "git_client.h"
-#include "lsp_config.h"
-#include "lsp_server.h"
-#include "lsp_ui.h"
+#include "lsp.h"
 #include "notification.h"
 #include "result.h"
 #include "rope.h"
 #include "syntax.h"
+#include "types.h"
 #include "undo.h"
 
 extern void sync_cursor_line_from_pos(Buffer *buf);  // didefinisikan di navigation.c

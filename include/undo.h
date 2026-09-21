@@ -5,46 +5,13 @@
  */
 #ifndef UNDO_H
 #define UNDO_H
-
-#include <stdbool.h>
 #include <stddef.h>
 
-constexpr int UNDO_MAX_ACTIONS = 1000;
-constexpr int UNDO_TIMEOUT = 500;
-
-/**
- * Enum untuk penanda aksi insert atau delete
- */
-typedef enum { UNDO_INSERT, UNDO_DELETE } UndoType;
-
-/**
- * Struct untuk konfigurasi Undo
- */
-typedef struct {
-    UndoType type;
-    size_t offset;
-    size_t len;
-    char *text;
-
-    long timestamp_ms;
-} UndoAction;
-
-/**
- * Struct untuk Stack Undo
- */
-typedef struct {
-    UndoAction *actions;
-    size_t count;
-    size_t capacity;
-    size_t current;
-    bool is_undoing;
-} UndoStack;
+#include "types.h"
 
 void Undo_init(UndoStack *us);
 void Undo_free(UndoStack *us);
-
 void Undo_push(UndoStack *us, UndoType type, size_t offset, const char *text, size_t len);
-
 bool Undo_pop(UndoStack *us, UndoAction *out);
 bool Redo_pop(UndoStack *us, UndoAction *out);
 

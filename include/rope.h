@@ -5,19 +5,9 @@
  */
 #ifndef ROPE_H
 #define ROPE_H
-
 #include <stddef.h>
-#include <stdint.h>
 
-typedef struct String String;
-
-/**
- * Struct untuk membungkus ketika String_get
- */
-typedef struct {
-    unsigned char *data;
-    size_t len;
-} Bytes;
+#include "types.h"
 
 String *String_new();
 void String_insert(String **str, size_t index, const char *text, size_t len);

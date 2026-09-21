@@ -5,8 +5,7 @@
  */
 #include <raylib.h>
 
-#include "buffer_manager.h"
-#include "settings_txted.h"
+#include "theme.h"
 #include "ui.h"
 
 /**

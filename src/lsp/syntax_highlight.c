@@ -8,7 +8,6 @@
 #include <string.h>
 #include <tree_sitter/api.h>
 
-#include "lsp_config.h"
 #include "notification.h"
 #include "syntax.h"
 

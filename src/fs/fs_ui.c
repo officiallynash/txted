@@ -12,12 +12,10 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
-#include "buffer.h"
 #include "buffer_manager.h"
 #include "fs.h"
 #include "git_client.h"
 #include "result.h"
-#include "settings_txted.h"
 #include "theme.h"
 #include "ui.h"
 
@@ -492,6 +490,7 @@ void draw_file_manager(BufManager *bufmgr, Font font) {
         ensure_node_visible(g_fm_selected_index, header_h, item_h, (float)scissor_h);
     }
 
+    // Draw item dari File Manager
     if (scissor_h > 0) {
         BeginScissorMode(fm_x, (int)content_start_y, fm_w - 1, scissor_h);
 
@@ -521,6 +520,7 @@ void draw_file_manager(BufManager *bufmgr, Font font) {
         }
     }
 
+    // Scroll bar
     if (max_scroll > 0) {
         float thumb_h = (view_h / total_content_h) * view_h;
         if (thumb_h < 14.0f) thumb_h = 14.0f;
@@ -531,11 +531,13 @@ void draw_file_manager(BufManager *bufmgr, Font font) {
         DrawRectangleRounded(scrollbar_rect, 0.5f, 4, g_theme.border);
     }
 
+    // Kalau File Manager aktif kasih Border menyala
     if (bufmgr->mode == FILE_MANAGER) {
         Rectangle fm_rect = {(float)fm_x, (float)fm_y, (float)fm_w, (float)fm_h - DIAG_PANEL_H};
         DrawRectangleLinesEx(fm_rect, 1.5f, g_theme.cursor);
     }
 
+    // Garis pembatas dengan Diagnostic dan Status Bar
     float ws_y = fm_y + fm_h - DIAG_PANEL_H;
     DrawLine(fm_x, (int)ws_y, fm_x + fm_w - 1, (int)ws_y, g_theme.line_num);
 }

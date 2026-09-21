@@ -552,12 +552,18 @@ void format_time_ago(const char *author, double last_edited, char *out_str, size
 
     if (diff < 60) {
         snprintf(out_str, max_len, "@%s, just now", name);
-    } else if (diff < 3600) {
+    } else if (diff < 3'600) {  // < 1 jam
         snprintf(out_str, max_len, "@%s, %dm ago", name, (int)(diff / 60));
-    } else if (diff < 86400) {
-        snprintf(out_str, max_len, "@%s, %dh ago", name, (int)(diff / 3600));
-    } else {
-        snprintf(out_str, max_len, "@%s, %dd ago", name, (int)(diff / 86400));
+    } else if (diff < 86'400) {  // < 1 hari
+        snprintf(out_str, max_len, "@%s, %dh ago", name, (int)(diff / 3'600));
+    } else if (diff < 2'592'000) {  // < 30 hari (1 bulan)
+        snprintf(out_str, max_len, "@%s, %dd ago", name, (int)(diff / 86'400));
+    } else if (diff < 31'536'000) {  // < 365 hari (1 tahun)
+        int months = (int)(diff / 2'592'000);
+        snprintf(out_str, max_len, "@%s, %dmo ago", name, months);
+    } else {  // >= 1 tahun
+        int years = (int)(diff / 31'536'000);
+        snprintf(out_str, max_len, "@%s, %dy ago", name, years);
     }
 }
 

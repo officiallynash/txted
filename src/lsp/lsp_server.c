@@ -3,8 +3,6 @@
  * Copyright (c) 2026 Nash
  * SPDX-License-Identifier: MIT
  */
-#include "lsp_server.h"
-
 #include <asm-generic/errno.h>
 #include <fcntl.h>
 #include <limits.h>
@@ -19,6 +17,7 @@
 #include <unistd.h>
 
 #include "cJSON.h"
+#include "lsp.h"
 
 constexpr size_t MAX_DIAG_DOCS = 16;
 

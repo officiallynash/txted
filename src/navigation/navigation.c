@@ -14,13 +14,14 @@
 
 #include "buffer.h"
 #include "buffer_manager.h"
-#include "editor.h"
 #include "git_client.h"
-#include "lsp_server.h"
-#include "lsp_ui.h"
+#include "lsp.h"
 #include "notification.h"
 #include "raygui.h"
 #include "result.h"
+#include "rope.h"
+#include "theme.h"
+#include "types.h"
 #include "ui.h"
 
 extern bool Is_active_menu(void);  // Check if active menu is open (tab.c)

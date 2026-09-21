@@ -6,9 +6,9 @@
 #include <raylib.h>
 #include <stdio.h>
 
-#include "buffer.h"
+#include "buffer_manager.h"
 #include "git_client.h"
-#include "lsp_ui.h"
+#include "lsp.h"
 #include "result.h"
 #include "theme.h"
 #include "ui.h"

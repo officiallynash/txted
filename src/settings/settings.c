@@ -1,4 +1,3 @@
-#include "buffer_manager.h"
 /*
  * TxtEd - Simple Text Editor
  * Copyright (c) 2026 Nash
@@ -11,7 +10,7 @@
 
 #include "raygui.h"
 #include "raylib.h"
-#include "settings_txted.h"
+#include "theme.h"
 #include "ui.h"
 
 extern void Theme_init(const char *filename);  // Extern Theme init (theme.c)

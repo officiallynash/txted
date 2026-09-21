@@ -6,31 +6,11 @@
 #ifndef FS_H
 #define FS_H
 
-#include <stdbool.h>
+#include <raylib.h>
 #include <stddef.h>
-#include <stdint.h>
 
 #include "result.h"
-#include "ui.h"
-
-/**
- * Struct untuk File List (Fuzzi search)
- */
-typedef struct {
-    PromptItem *items;
-    size_t item_count;
-    size_t capacity;
-} FileList;
-
-/**
- * Struct untuk membawa data ke Buffer
- */
-typedef struct {
-    char *full_path;
-    uint8_t *data;
-    size_t size;
-    bool is_success;
-} FileData;
+#include "types.h"
 
 Result Fs_open(const char *filename);
 Result Fs_savefile(const char *path, const char *data, size_t len);

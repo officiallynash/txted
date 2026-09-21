@@ -8,8 +8,8 @@
 
 #include <stdbool.h>
 
-#include "buffer_manager.h"
 #include "raylib.h"
+#include "types.h"
 
 typedef enum { NOTIF_INFO, NOTIF_SUCCESS, NOTIF_WARNING, NOTIF_ERROR } NotifType;
 typedef struct NotificationManager NotificationManager;

@@ -14,12 +14,13 @@
 #include "buffer.h"
 #include "buffer_manager.h"
 #include "git_client.h"
-#include "lsp_ui.h"
+#include "lsp.h"
 #include "raylib.h"
 #include "result.h"
 #include "rope.h"
 #include "syntax.h"
 #include "theme.h"
+#include "types.h"
 #include "ui.h"
 
 /**
@@ -424,6 +425,7 @@ void draw_editor(BufManager *bufmgr, Font font) {
             /* ------------------------------------------------------------- *
              * RENDER INLINE GHOST TEXT
              * ------------------------------------------------------------- */
+            // Ghost teks hanya tampil jika len dari rope + git host kurang dari win_w
             if (git.is_repo) {
                 if (y == buf->cursor.y && buf->line_git && y < buf->meta_capacity) {
                     LineGitMeta meta = buf->line_git[y];
@@ -442,10 +444,21 @@ void draw_editor(BufManager *bufmgr, Font font) {
 
                         format_time_ago(who, time_to_show, ghost_str, sizeof(ghost_str));
 
+                        // Hitung X awal teks ghost (ujung kode + margin 32px)
                         float line_w = get_text_column_x(font, expanded_text, strlen(expanded_text),
                                                          (float)text_x);
-                        DrawTextEx(font, ghost_str, (Vector2){line_w + 32.0f, (float)py},
-                                   current_font_x, 1.0f, g_theme.text_muted);
+                        float ghost_x = line_w + 32.0f;
+
+                        // Hitung lebar teks ghost itu sendiri
+                        float ghost_w = MeasureTextEx(font, ghost_str, current_font_x, 1.0f).x;
+
+                        // Cek apakah X akhir ghost text masih muat di dalam batas kanan editor
+                        // Beri sisa padding (misal 16px) biar gak terlalu mepet scrollbar/ujung
+                        // layar
+                        if ((ghost_x + ghost_w) < (float)(editor_x + editor_w - 16)) {
+                            DrawTextEx(font, ghost_str, (Vector2){ghost_x, (float)py},
+                                       current_font_x, 1.0f, g_theme.text_muted);
+                        }
                     }
                 }
             }

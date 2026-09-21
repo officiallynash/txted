@@ -14,7 +14,6 @@
 
 #include "buffer.h"
 #include "buffer_manager.h"
-#include "editor.h"
 #include "fs.h"
 #include "notification.h"
 #include "raygui.h"
@@ -23,7 +22,6 @@
 #include "ui.h"
 
 extern char *format_pretty_path(const char *path);  // (fs.c)
-extern void PromptBuffer_destroy(BufManager *bufmgr);
 
 /**
  * Fungsi untuk navigasi atas
@@ -446,7 +444,6 @@ void Nav_undo(BufManager *bufmgr, Font font) {
 /**
  * Config untuk Float Prompt
  */
-
 void prompt_ui_config(BufManager *bufmgr, PromptType type) {
     bufmgr->mode = POPUP;
     bufmgr->prompt->is_active = true;
@@ -454,47 +451,62 @@ void prompt_ui_config(BufManager *bufmgr, PromptType type) {
     bufmgr->prompt->selected_idx = 0;
     bufmgr->prompt->type = type;
 
-    const char *label = "";
+    // Pretty cwd hanya aktif jika ada path_root
+    char *pretty_cwd = bufmgr->path_root ? format_pretty_path(bufmgr->path_root) : strdup("Root");
+
     switch (type) {
         case PROMPT_TYPE_SAVE: {
             bufmgr->prompt->icon_id = ICON_FILE_SAVE;
-            label = "Nama file:";
+            snprintf(bufmgr->prompt->label, sizeof(bufmgr->prompt->label), "Filename (%s)",
+                     pretty_cwd);
             break;
         }
         case PROMPT_TYPE_OPEN_FILE: {
             bufmgr->prompt->icon_id = ICON_FILE_OPEN;
-            label = "Open file:";
+            snprintf(bufmgr->prompt->label, sizeof(bufmgr->prompt->label), "Open file (%s)",
+                     pretty_cwd);
             break;
         }
         case PROMPT_TYPE_NEW_FILE: {
             bufmgr->prompt->icon_id = ICON_FILE;
-            label = "New File:";
+            snprintf(bufmgr->prompt->label, sizeof(bufmgr->prompt->label), "New file (%s)",
+                     pretty_cwd);
             break;
         }
         case PROMPT_SAVE_AS: {
             bufmgr->prompt->icon_id = ICON_FILE_SAVE;
-            label = "Nama file baru:";
+            snprintf(bufmgr->prompt->label, sizeof(bufmgr->prompt->label), "New filename (%s)",
+                     pretty_cwd);
             break;
         }
         case PROMPT_TYPE_SEARCH: {
+            // Search biar lebih informatif di kasih nama file
             bufmgr->prompt->icon_id = ICON_LENS_BIG;
-            label = "Search:";
+            Buffer *buf = BufManager_getactive(bufmgr);
+            snprintf(bufmgr->prompt->label, sizeof(bufmgr->prompt->label), "Search (%s)",
+                     buf->filename);
             break;
         }
         case PROMPT_TYPE_NEW_FOLDER: {
             bufmgr->prompt->icon_id = ICON_FOLDER_ADD;
-            label = "Nama folder:";
+            snprintf(bufmgr->prompt->label, sizeof(bufmgr->prompt->label), "New folder name (%s)",
+                     pretty_cwd);
             break;
         }
     }
 
-    snprintf(bufmgr->prompt->label, sizeof(bufmgr->prompt->label), "%s", label);
-
     // Alokasi fresh
     bufmgr->prompt->prb = PromptBuffer_init();
+
+    // Free si pretty_cwd
+    if (pretty_cwd) free(pretty_cwd);
 }
 
+/**
+ * Fungsi untuk execute dari Float Prompt
+ */
 void FloatPrompt_execute(BufManager *bufmgr, char *text) {
+    // Eksekusi berdasarkan prompt type
     if (bufmgr->prompt->type == PROMPT_TYPE_NEW_FILE) {
         Nav_create_new_file(bufmgr, text);
     } else if (bufmgr->prompt->type == PROMPT_TYPE_SAVE) {
@@ -506,8 +518,8 @@ void FloatPrompt_execute(BufManager *bufmgr, char *text) {
     } else if (bufmgr->prompt->type == PROMPT_TYPE_OPEN_FILE) {
         Nav_open_file(bufmgr, text);
     }
-
+    // Untuk prompt type ga perlu di set lagi ke awal. karena sudah aman ketika declare
     // State akhir
     bufmgr->prompt->is_active = false;
     bufmgr->prompt->edit_mode = false;
-};
+}

@@ -11,8 +11,7 @@
 
 #include "buffer.h"
 #include "buffer_manager.h"
-#include "lsp_server.h"
-#include "lsp_ui.h"
+#include "lsp.h"
 #include "result.h"
 #include "theme.h"
 #include "ui.h"

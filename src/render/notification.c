@@ -7,7 +7,6 @@
 
 #include <string.h>
 
-#include "buffer_manager.h"
 #include "theme.h"
 #include "ui.h"
 

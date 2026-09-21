@@ -15,7 +15,6 @@
 
 #include "buffer.h"
 #include "buffer_manager.h"
-#include "editor.h"
 #include "fs.h"
 #include "result.h"
 #include "rope.h"
@@ -26,7 +25,7 @@
     do {                                   \
         if (open_file_list) {              \
             FileList_free(open_file_list); \
-            open_file_list = NULL;         \
+            open_file_list = nullptr;      \
         }                                  \
         last_q[0] = '\0';                  \
         search_items_count = 0;            \

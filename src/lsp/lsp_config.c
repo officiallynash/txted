@@ -3,14 +3,14 @@
  * Copyright (c) 2026 Nash
  * SPDX-License-Identifier: MIT
  */
-#include "lsp_config.h"
-
 #include <raylib.h>
 #include <stddef.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+
+#include "lsp.h"
 
 extern const TSLanguage *tree_sitter_c(void);  // Extern tree-sitter-c
 

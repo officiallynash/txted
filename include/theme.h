@@ -6,53 +6,12 @@
 #ifndef THEME_H
 #define THEME_H
 
-#include "raylib.h"
+#include <raylib.h>
 
-/**
- * Struct untuk konfigurasi theme
- */
-typedef struct {
-    // Canvas / Window
-    Color bg_main;     // Background editor utama
-    Color bg_sidebar;  // Sidebar / Panel
-    Color bg_editor;
-    Color bg_card;  // Modal / Pop-up card (LSP, Prompt)
-    Color border;   // Line/Border komponen UI
-    Color active_tab;
-    Color active_line;
-    Color line_active;
-    Color line_num;
-    Color backdrop;  // Transparan
+#include "types.h"
 
-    // Status & Feedback
-    Color selection;  // Highlight teks / item terpilih
-    Color cursor;     // Warna kursor
-    Color accent;     // Warna aksen/fokus utama
-
-    // Typography (Teks)
-    Color text_normal;     // Teks biasa
-    Color text_muted;      // Teks redup (sub-label, placeholder)
-    Color text_highlight;  // Teks saat di-hover/select
-
-    // Syntax
-    Color keyword;
-    Color type;
-    Color string;
-    Color function;
-    Color number;
-    Color comment;
-    Color method;
-    Color operator;
-    Color constant;
-
-    Color bracket_match;
-    Color bracket_match_bg;
-    // Notification / Status Colors
-    Color success;
-    Color warning;
-    Color error;
-    Color info;
-} UITheme;
+extern Settings default_settings;
+#define FONT_SIZE (float)default_settings.font_size
 
 // Global theme instance
 extern UITheme g_theme;
@@ -60,5 +19,8 @@ extern UITheme g_theme;
 // Directives API
 void Theme_init(const char *filename);  // Set tema bawaan (Misal: Dark Modern)
 void Theme_apply_raygui(void);          // Biar RayGUI otomatis ikut tema!
+
+void Settings_load(void);
+void Settings_apply(BufManager *bufmgr, Font *font);
 
 #endif  // THEME_H

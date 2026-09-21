@@ -7,46 +7,8 @@
 #define GIT_CLIENT_H
 
 #include <raylib.h>
-#include <stdbool.h>
 
-#include "buffer_manager.h"
-
-constexpr int MAX_FILE_GIT = 256;
-
-/**
- * Struct untuk menampung Status dari File
- */
-typedef struct {
-    char path[512];
-    char mark[4];
-} GitFileStatus;
-
-/**
- * Struct untuk menampung Git
- */
-typedef struct {
-    char author[64];
-    char branch[128];
-    bool is_repo;
-    bool has_changes;
-    int modified;
-    int untracked;
-
-    // File status
-    GitFileStatus files[MAX_FILE_GIT];
-    int file_count;
-} GitStatus;
-
-/**
- * Struct untuk GitPopup
- */
-typedef struct {
-    char message[256];
-    char last_error[256];
-    int selected;
-    float list_scroll;
-    bool edit_message;
-} GitPopup;
+#include "types.h"
 
 // Extern Git Status, GitPopup dan Timer
 extern GitStatus git;

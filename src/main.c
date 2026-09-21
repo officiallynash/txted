@@ -13,11 +13,10 @@
 #include "buffer_manager.h"
 #include "fs.h"
 #include "git_client.h"
-#include "lsp_ui.h"
+#include "lsp.h"
 #include "notification.h"
 #include "raylib.h"
 #include "result.h"
-#include "settings_txted.h"
 #include "theme.h"
 #include "ui.h"
 
