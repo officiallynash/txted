@@ -5,7 +5,6 @@
  */
 #ifndef CLIPBOARD_H
 #define CLIPBOARD_H
-
 #include "types.h"
 
 Clipboard *Clipboard_init();                       // Inisiasi Clipboard

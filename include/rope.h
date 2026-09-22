@@ -5,8 +5,6 @@
  */
 #ifndef ROPE_H
 #define ROPE_H
-#include <stddef.h>
-
 #include "types.h"
 
 String *String_new();

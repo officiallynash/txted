@@ -5,12 +5,8 @@
  */
 #ifndef BUFFER_H
 #define BUFFER_H
-
-#include <stdbool.h>
 #include <stddef.h>
-#include <stdint.h>
 
-#include "clipboard.h"
 #include "types.h"
 
 Buffer *Buffer_new();
@@ -19,7 +15,7 @@ void Buffer_insert(Buffer *buf, size_t pos_idx, const char *ch);
 void Buffer_delete(Buffer *buf, size_t pos_idx);
 void Buffer_save(Buffer *buf, const char *filename);
 void Get_selected_position(Buffer *buf, size_t *start, size_t *len);
-char *Buffer_get_line_text(Buffer *buf, size_t y);
+size_t Buffer_get_line_text(Buffer *buf, size_t y, char *buffer, size_t buffer_len);
 void Buffer_free(Buffer *buf);
 char *Path_to_uri(const char *path);
 void Buffer_get_current_word(Buffer *buf, char *out_str, size_t max_len);

@@ -59,35 +59,30 @@ extern void Nav_undo(BufManager *bufmgr, Font font);
 extern void prompt_ui_config(BufManager *bufmgr, PromptType type);
 
 /**
- * Fungsi untuk show help di Menu Action
+ * Fungsi Wrapper untuk Dropdown Menu
  */
+// Show help
 void Nav_show_help(BufManager *bufmgr, Font font) {
     (void)font;
     bufmgr->mode = POPUP;
     UI_open_dialog(bufmgr, DIALOG_HELP);
 }
 
-/**
- * Fungsi untuk Show About
- */
+// Show about
 void Nav_show_about(BufManager *bufmgr, Font font) {
     (void)font;
     bufmgr->mode = POPUP;
     UI_open_dialog(bufmgr, DIALOG_ABOUT);
 }
 
-/**
- * Fungsi untuk open GitUI
- */
+// Open Git
 void Nav_open_git(BufManager *bufmgr, Font font) {
     (void)font;
     bufmgr->mode = POPUP;
     GitPopup_open(bufmgr);
 }
 
-/**
- * Fungsi untuk show FM
- */
+// Show FM
 void Nav_show_fm(BufManager *bufmgr, Font font) {
     (void)font;
     if (!HAS_FLAG(bufmgr->win_flags, TXTED_SHOW_FM)) {
@@ -99,16 +94,19 @@ void Nav_show_fm(BufManager *bufmgr, Font font) {
     }
 }
 
+// New file
 void Create_new_file(BufManager *bufmgr, Font font) {
     (void)font;
     prompt_ui_config(bufmgr, PROMPT_TYPE_NEW_FILE);
 }
 
+// Open File
 void open_file(BufManager *bufmgr, Font font) {
-    (void) font;
+    (void)font;
     prompt_ui_config(bufmgr, PROMPT_TYPE_OPEN_FILE);
 }
 
+// Save File
 void save_file(BufManager *bufmgr, Font font) {
     (void)font;
     Buffer *buf = BufManager_getactive(bufmgr);
@@ -119,27 +117,26 @@ void save_file(BufManager *bufmgr, Font font) {
     }
 }
 
+// Save As
 void save_as(BufManager *bufmgr, Font font) {
     (void)font;
     prompt_ui_config(bufmgr, PROMPT_SAVE_AS);
 }
 
+// New Folder
 void create_folder(BufManager *bufmgr, Font font) {
     (void)font;
     prompt_ui_config(bufmgr, PROMPT_TYPE_NEW_FOLDER);
 }
+
 /**
  * Menu items
  */
 static MenuItem file_items[] = {
-    {"New File", "Ctrl+N", Create_new_file},
-    {"Open File", "Ctrl+O", open_file},
-    {"Save File", "Ctrl+S", save_file},
-    {"Save As", "Ctrl+Shift+S", save_as},
-    {"Create Folder", "Ctrl+P", create_folder},
-    {"File Manager", "Ctrl + F", Nav_show_fm},
-    {"Git Panel", "Ctrl + G", Nav_open_git},
-    {"Exit", "Ctrl+Q", Nav_exit},
+    {"New File", "Ctrl+N", Create_new_file},    {"Open File", "Ctrl+O", open_file},
+    {"Save File", "Ctrl+S", save_file},         {"Save As", "Ctrl+Shift+S", save_as},
+    {"Create Folder", "Ctrl+P", create_folder}, {"File Manager", "Ctrl + F", Nav_show_fm},
+    {"Git Panel", "Ctrl + G", Nav_open_git},    {"Exit", "Ctrl+Q", Nav_exit},
 };
 
 static MenuItem edit_items[] = {

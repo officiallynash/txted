@@ -30,6 +30,7 @@ static void BufManager_set_workspace(BufManager *bufmgr, const char *any_path) {
     if (!root) {
         root = Fs_dirname(any_path);  // Pastikan Fs_dirname mengembalikan string malloc
     }
+    // Jika root lagi2 bernilai null kembali aja
     if (!root) return;
 
     if (bufmgr->path_root && strcmp(bufmgr->path_root, root) == 0) {
@@ -37,12 +38,13 @@ static void BufManager_set_workspace(BufManager *bufmgr, const char *any_path) {
         return;
     }
 
-    free(bufmgr->path_root);
+    free(bufmgr->path_root);  // Bersihkan dulu si path_root biar ga nimpa memory garbage
     bufmgr->path_root = strdup(root);
 
     if (chdir(bufmgr->path_root) != 0) {
         Notif_show("Tidak bisa ke Workspace", NOTIF_WARNING, 3.0f);
     }
+
     GitStatus_refresh(bufmgr->path_root, &git);
 
     // Ambil active buffer & validasi path sebelum memanggil git fetch

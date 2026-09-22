@@ -12,6 +12,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <strings.h>
 #include <unistd.h>
 
 #include "buffer.h"
@@ -36,6 +37,17 @@ LspUiState g_lsp_ui = {};
 
 extern int calculate_score(const char *query, const char *label);  // Deklarasi awal
 
+/**
+ * Fungsi pengganti strcasestr
+ */
+static const char *my_strcasestr(const char *haystack, const char *needle, size_t needle_len) {
+    if (!*needle) return haystack;
+    for (; *haystack; haystack++) {
+        if (strncasecmp(haystack, needle, needle_len) == 0) return haystack;
+    }
+
+    return nullptr;
+}
 /**
  * Fungsi untuk membandingkan score untuk qsort [PRIVATE API]
  */
@@ -110,6 +122,8 @@ int calculate_score(const char *query, const char *label) {
     size_t q_len = strlen(query);
     size_t l_len = strlen(label);
 
+    if (q_len > l_len) return -1;
+
     // Prefix Matching
     if (strncasecmp(label, query, q_len) == 0) {
         int base_score = 1000;
@@ -119,7 +133,7 @@ int calculate_score(const char *query, const char *label) {
     }
 
     // Substring Matching
-    char *found = strcasestr(label, query);
+    const char *found = my_strcasestr(label, query, q_len);
     if (found != nullptr) {
         int base_score = 500;
         if (strncmp(found, query, q_len) == 0) base_score += 250;
@@ -132,7 +146,6 @@ int calculate_score(const char *query, const char *label) {
     int score = 0;
     const char *q = query;
     const char *l = label;
-    bool is_first_char = true;
 
     while (*q && *l) {
         bool match = false;
@@ -146,13 +159,10 @@ int calculate_score(const char *query, const char *label) {
         }
 
         if (match) {
-            if (is_first_char || *(l - 1) == '_' || isupper((unsigned char)*l)) {
+            if (l == label || *(l - 1) == '_' || isupper((unsigned char)*l)) {
                 score += 40;
             }
             q++;
-            is_first_char = false;
-        } else {
-            is_first_char = false;
         }
         l++;
     }
@@ -208,9 +218,8 @@ void Ensure_lsp_init(LangConfig *lang, const char *filepath) {
         Notif_show("LSP server executable tidak ditemukan di PATH!", NOTIF_WARNING, 3.0f);
         return;
     }
-    if (g_lsp_ui.root_uri != nullptr) {
-        return;
-    }
+    // Jika g_lsp_ui sudah di deklarasikan root_uri berarti sudah aktif si LSP
+    if (g_lsp_ui.root_uri != nullptr) return;
 
     char *path_root = Fs_find_project_root(filepath);
     if (path_root) {
@@ -367,7 +376,7 @@ void lsp_ui_update(BufManager *bufmgr, float dt) {
                     Bytes_free(&text);
                 }
                 snprintf(g_lsp_ui.uri, sizeof(g_lsp_ui.uri), "%s", uri);
-                free(uri);
+                free(uri);  // Safety free
             }
         }
 
@@ -465,7 +474,8 @@ void lsp_ui_update(BufManager *bufmgr, float dt) {
             } else {
                 CLR_FLAG(g_lsp_ui.lsp_flag, LSP_HAS_SIG);
             }
-            free(uri);
+
+            free(uri);  // Safety free
         }
     }
 
@@ -485,14 +495,12 @@ void lsp_ui_update(BufManager *bufmgr, float dt) {
                 CLR_FLAG(g_lsp_ui.lsp_flag, LSP_HAS_HOVE);
             }
 
-            free(uri);
+            free(uri);  // Safety free
         }
     }
 
     // Auto hide jika sudah pindah baris
     if (HAS_FLAG(g_lsp_ui.lsp_flag, LSP_VISIBLE) && HAS_FLAG(g_lsp_ui.lsp_flag, LSP_HAS_COMP)) {
-        if (buf->cursor.y != (size_t)g_lsp_ui.last_line) {
-            lsp_ui_hide();
-        }
+        if (buf->cursor.y != (size_t)g_lsp_ui.last_line) lsp_ui_hide();
     }
 }

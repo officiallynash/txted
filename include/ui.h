@@ -5,10 +5,6 @@
  */
 #ifndef UI_H
 #define UI_H
-
-#include <raylib.h>
-#include <stddef.h>
-
 #include "types.h"
 
 EditorLayout get_editor_layout(BufManager *bufmgr);  // Layout manager
@@ -25,7 +21,6 @@ void draw_prompt_ui(BufManager *bufmgr, Font font);
 
 /*
  * Karena PromptBuffer ini juga untuk Git UI akan lebih bijak di taruh disini
- * Kalau di taruh di editor.h nanti kena cross include dengan BufManager
  */
 PromptBuffer *PromptBuffer_init(void);
 void PromptBuffer_insert(PromptBuffer *prb, size_t pos_idx, const char *ch);

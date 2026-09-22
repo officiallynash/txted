@@ -72,7 +72,9 @@ int main(int argc, char *argv[]) {
         BufManager_newtab(bufmgr, nullptr); /* tab awal */
     }
 
-    Font font;  // Inisiasi Font, karena font di Apply di Settings
+    // Inisiasi Font, karena font di Apply di Settings
+    Font font;
+
     // Apply settings
     Settings_apply(bufmgr, &font);  // Passing font ke Apply pakai &
 

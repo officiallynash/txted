@@ -5,9 +5,6 @@
  */
 #ifndef SYNTAX_H
 #define SYNTAX_H
-#include <tree_sitter/api.h>
-#include <tree_sitter/tree-sitter-c.h>
-
 #include "types.h"
 
 SyntaxState *Syntax_init(LangConfig *lang);

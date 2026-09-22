@@ -5,10 +5,6 @@
  */
 #ifndef FS_H
 #define FS_H
-
-#include <raylib.h>
-#include <stddef.h>
-
 #include "result.h"
 #include "types.h"
 

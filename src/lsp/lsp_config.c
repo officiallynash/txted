@@ -27,12 +27,13 @@ char *find_executable_in_path(const char *exec_name) {
         while (dir != nullptr) {
             snprintf(full_path, sizeof(full_path), "%s/%s", dir, exec_name);
             if (access(full_path, X_OK) == 0) {
-                free(path_copy);
+                free(path_copy);  //  Safety free
                 return strdup(full_path);
             }
             dir = strtok(nullptr, ":");
         }
-        free(path_copy);
+
+        free(path_copy);  // Safety free
     }
     return nullptr;
 }

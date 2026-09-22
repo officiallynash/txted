@@ -153,7 +153,7 @@ void draw_prompt_ui(BufManager *bufmgr, Font font) {
     const char *current_text = allocated_text ? allocated_text : "";
 
     // =========================================================================
-    // POPULASI ITEMS DAN HITUNG MATCHES TERLEBIH DAHULU!
+    // Item untuk Search dan Open dan Hitung Matches
     // =========================================================================
     static FileList *open_file_list = NULL;
     static PromptItem search_items[MAX_SEARCH_HIT];
@@ -208,7 +208,7 @@ void draw_prompt_ui(BufManager *bufmgr, Font font) {
     int max_idx = (match_count > 0) ? (int)match_count - 1 : 0;
 
     // =========================================================================
-    // HITUNG LAYOUT UKURAN MODAL (SEKARANG MATCH_COUNT SUDAH VALID!)
+    // Layout Modal
     // =========================================================================
     EditorLayout layout = get_editor_layout(bufmgr);
 
@@ -279,7 +279,7 @@ void draw_prompt_ui(BufManager *bufmgr, Font font) {
                g_theme.text_normal);
 
     // =========================================================================
-    // RENDER SUGGESTION ITEMS LIST
+    // Rendering Suggestion Jika ada yang Match
     // =========================================================================
     if (match_count > 0) {
         float start_y = input_rect.y + input_rect.height + 8.0f;
@@ -322,7 +322,7 @@ void draw_prompt_ui(BufManager *bufmgr, Font font) {
     }
 
     // =========================================================================
-    // ACTION HANDLERS (ENTER / ESC / NAV)
+    // Handling untuk keyboard dan Mouse
     // =========================================================================
     if (enter_pressed) {
         if (bufmgr->prompt->type == PROMPT_TYPE_OPEN_FILE) {

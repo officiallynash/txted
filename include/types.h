@@ -40,23 +40,23 @@ constexpr size_t GUTTER_W = 50;
 // Daftar semua Flag di Struct Buffer Manager
 // Kita gunakan Bitwise untuk menghemat memory
 // Selain itu untuk mempercepat Toggle ketika perpindahan Flag
-constexpr uint8_t TXTED_REQ_EXIT = (1 << 0);
-constexpr uint8_t TXTED_EXIT = (1 << 1);
-constexpr uint8_t TXTED_SHOW_FM = (1 << 2);
-constexpr uint8_t TXTED_SHOW_HELP = (1 << 3);
-constexpr uint8_t TXTED_SHOW_GIT = (1 << 4);
+constexpr uint8_t TXTED_REQ_EXIT = (1U << 0);
+constexpr uint8_t TXTED_EXIT = (1U << 1);
+constexpr uint8_t TXTED_SHOW_FM = (1U << 2);
+constexpr uint8_t TXTED_SHOW_HELP = (1U << 3);
+constexpr uint8_t TXTED_SHOW_GIT = (1U << 4);
 
 // Deskripsi Bitwise operation untuk pengganti
 // Flag yang memakai bool dari stdbool
 // Walaupun agak "ribet" tapi ini untuk menghemat memori
-constexpr uint8_t LSP_ENABLE = 1 << 0;
-constexpr uint8_t LSP_VISIBLE = 1 << 1;
-constexpr uint8_t LSP_REQUEST_PENDING = 1 << 2;
-constexpr uint8_t LSP_HAS_COMP = 1 << 3;
-constexpr uint8_t LSP_HAS_SIG = 1 << 4;
-constexpr uint8_t LSP_SIG_PENDING = 1 << 5;
-constexpr uint8_t LSP_HAS_HOVE = 1 << 6;
-constexpr uint8_t LSP_HOV_PENDING = 1 << 7;
+constexpr uint8_t LSP_ENABLE = (1U << 0);
+constexpr uint8_t LSP_VISIBLE = (1U << 1);
+constexpr uint8_t LSP_REQUEST_PENDING = (1U << 2);
+constexpr uint8_t LSP_HAS_COMP = (1U << 3);
+constexpr uint8_t LSP_HAS_SIG = (1U << 4);
+constexpr uint8_t LSP_SIG_PENDING = (1U << 5);
+constexpr uint8_t LSP_HAS_HOVE = (1U << 6);
+constexpr uint8_t LSP_HOV_PENDING = (1U << 7);
 constexpr float LSP_DEBOUNCE_DELAY = 0.20f;
 
 // Undo
@@ -64,9 +64,9 @@ constexpr int UNDO_MAX_ACTIONS = 1000;
 constexpr int UNDO_TIMEOUT = 500;
 
 // Flag untuk penanda Buf Flag
-constexpr uint8_t BUF_IS_DIRTY = (1 << 0);
-constexpr uint8_t BUF_IS_DRAGGING = (1 << 1);
-constexpr uint8_t BUF_IS_SELECT = (1 << 2);
+constexpr uint8_t BUF_IS_DIRTY = (1U << 0);
+constexpr uint8_t BUF_IS_DRAGGING = (1U << 1);
+constexpr uint8_t BUF_IS_SELECT = (1U << 2);
 
 /**
  * Enum untuk penanda aksi insert atau delete

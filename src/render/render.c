@@ -36,18 +36,26 @@ typedef struct {
  * Fungsi untuk expands Tab
  */
 static void expand_tabs(const char *src, char *dst, size_t dst_size, int tab_size) {
+    if (!src || !dst || dst_size == 0) return;
+    if (tab_size <= 0) tab_size = 4;  // Fallback ke default jika tab_size invalid
+
     size_t j = 0;
-    for (size_t i = 0; src[i] != '\0' && j < dst_size - 1; i++) {
+    // Cadangkan 1 byte terakhir untuk null-terminator '\0'
+    size_t max_j = dst_size - 1;
+
+    for (size_t i = 0; src[i] != '\0' && j < max_j; i++) {
         if (src[i] == '\t') {
-            // Hitung berapa spasi yang dibutuhkan untuk menyamai batas tab stop berikutnya
-            int spaces = tab_size - (j % tab_size);
-            for (int k = 0; k < spaces && j < dst_size - 1; k++) {
+            int spaces = tab_size - (int)(j % (size_t)tab_size);
+
+            while (spaces > 0 && j < max_j) {
                 dst[j++] = ' ';
+                spaces--;
             }
         } else {
             dst[j++] = src[i];
         }
     }
+
     dst[j] = '\0';
 }
 
@@ -74,13 +82,14 @@ static Color Get_token_color(const char *capture_name) {
 /**
  * Fungsi utama untuk menggambar baris dengan highlight
  */
-static void Draw_line_highlighted(Font font, const char *line_text, Vector2 pos,
+static void Draw_line_highlighted(Font font, const char *line_text, size_t len, Vector2 pos,
                                   HighlightToken *tokens, int token_count, size_t line_start_byte) {
-    size_t len = strlen(line_text);
     float current_x = pos.x;
     float current_font_size = (float)font.baseSize;
     float space_w = MeasureTextEx(font, " ", current_font_size, 1.0f).x;
     int col_visual = 0;
+    // Alokasi awal agar ga terus2an panggil MeasureText
+    float glyph_w = MeasureTextEx(font, "A", current_font_size, 1.0f).x;
 
     for (size_t i = 0; i < len; i++) {
         size_t current_byte = line_start_byte + i;
@@ -102,7 +111,8 @@ static void Draw_line_highlighted(Font font, const char *line_text, Vector2 pos,
         } else {
             char chunk[2] = {line_text[i], '\0'};
             DrawTextEx(font, chunk, (Vector2){current_x, pos.y}, current_font_size, 1.0f, color);
-            current_x += MeasureTextEx(font, chunk, current_font_size, 1.0f).x;
+            current_x += glyph_w;
+
             col_visual++;
         }
     }
@@ -115,11 +125,11 @@ static void find_matching_brackets(Buffer *buf, BracketMatch *b1, BracketMatch *
     b1->found = false;
     b2->found = false;
 
-    char *line = Buffer_get_line_text(buf, buf->cursor.y);
-    if (!line) return;
+    char lines[1024];
+    size_t line_len = Buffer_get_line_text(buf, buf->cursor.y, lines, sizeof(lines));
+    if (line_len == 0) return;
 
-    size_t len = strlen(line);
-    if (len > 0 && line[len - 1] == '\n') len--;
+    if (line_len > 0 && lines[line_len - 1] == '\n') line_len--;
 
     // Cek posisi kursor saat ini DAN 1 posisi di sebelah kiri kursor
     size_t check_cols[2] = {buf->cursor.x, (buf->cursor.x > 0) ? buf->cursor.x - 1 : 0};
@@ -129,8 +139,8 @@ static void find_matching_brackets(Buffer *buf, BracketMatch *b1, BracketMatch *
 
     for (int i = 0; i < 2; i++) {
         size_t col = check_cols[i];
-        if (col < len) {
-            char ch = line[col];
+        if (col < line_len) {
+            char ch = lines[col];
             if (ch == '(' || ch == '{' || ch == '[' || ch == ')' || ch == '}' || ch == ']' ||
                 ch == '<' || ch == '>') {
                 c = ch;
@@ -140,7 +150,6 @@ static void find_matching_brackets(Buffer *buf, BracketMatch *b1, BracketMatch *
             }
         }
     }
-    free(line);
 
     if (!col_found) return;
 
@@ -154,11 +163,12 @@ static void find_matching_brackets(Buffer *buf, BracketMatch *b1, BracketMatch *
     if (c == '(' || c == '{' || c == '[' || c == '<') {
         char match_c = (c == '(') ? ')' : (c == '{') ? '}' : (c == '[') ? ']' : '>';
         int depth = 1;
+        char l[1024];
 
         for (size_t y = buf->cursor.y; y < buf->lines.line_count; y++) {
-            char *l = Buffer_get_line_text(buf, y);
-            if (!l) continue;
-            size_t l_len = strlen(l);
+            size_t l_len = Buffer_get_line_text(buf, y, l, sizeof(l));
+            if (l_len == 0) continue;
+
             if (l_len > 0 && l[l_len - 1] == '\n') l_len--;
 
             size_t start_x = (y == buf->cursor.y) ? target_col + 1 : 0;
@@ -171,12 +181,10 @@ static void find_matching_brackets(Buffer *buf, BracketMatch *b1, BracketMatch *
                         b2->x = x;
                         b2->y = y;
                         b2->found = true;
-                        free(l);
                         return;
                     }
                 }
             }
-            free(l);
         }
     }
     /* ------------------------------------------------------------- *
@@ -185,11 +193,12 @@ static void find_matching_brackets(Buffer *buf, BracketMatch *b1, BracketMatch *
     else if (c == ')' || c == '}' || c == ']' || c == '>') {
         char match_c = (c == ')') ? '(' : (c == '}') ? '{' : (c == ']') ? '[' : '<';
         int depth = 1;
+        char l[1024];
 
         for (int y = (int)buf->cursor.y; y >= 0; y--) {
-            char *l = Buffer_get_line_text(buf, (size_t)y);
-            if (!l) continue;
-            size_t l_len = strlen(l);
+            size_t l_len = Buffer_get_line_text(buf, (size_t)y, l, sizeof(l));
+            if (l_len == 0) continue;
+
             if (l_len > 0 && l[l_len - 1] == '\n') l_len--;
 
             int start_x = (y == (int)buf->cursor.y) ? (int)target_col - 1 : (int)l_len - 1;
@@ -202,12 +211,10 @@ static void find_matching_brackets(Buffer *buf, BracketMatch *b1, BracketMatch *
                         b2->x = (size_t)x;
                         b2->y = (size_t)y;
                         b2->found = true;
-                        free(l);
                         return;
                     }
                 }
             }
-            free(l);
         }
     }
 }
@@ -215,16 +222,19 @@ static void find_matching_brackets(Buffer *buf, BracketMatch *b1, BracketMatch *
 /**
  * Hitung posisi X piksel dari kolom berbasis teks (Sama persis seperti kursor)
  */
-static float get_text_column_x(Font font, const char *text, size_t target_col, float start_x) {
+static float get_text_column_x(Font font, const char *text, size_t len, size_t target_col,
+                               float start_x) {
     if (!text) return start_x;
 
-    size_t len = strlen(text);
     if (len > 0 && text[len - 1] == '\n') len--;
     if (target_col > len) target_col = len;
 
     float current_x = start_x;
     float current_font_x = (float)font.baseSize;  // Pakai float dari fontsize Base
     float space_w = MeasureTextEx(font, " ", current_font_x, 1.0f).x;
+
+    // Alokasi awal
+    float glyph_w = MeasureTextEx(font, "A", current_font_x, 1.0f).x;
     int col_visual = 0;
 
     for (size_t i = 0; i < target_col; i++) {
@@ -233,9 +243,7 @@ static float get_text_column_x(Font font, const char *text, size_t target_col, f
             current_x += space_w * spaces;
             col_visual += spaces;
         } else {
-            char ch[2] = {text[i], '\0'};
-
-            current_x += MeasureTextEx(font, ch, current_font_x, 1.0f).x;
+            current_x += glyph_w;
             col_visual++;
         }
     }
@@ -265,6 +273,15 @@ void draw_editor(BufManager *bufmgr, Font font) {
     int editor_h = Layout.editor_h;
     int editor_w = Layout.editor_w;
     int gutter_screen_x = Layout.gutter_screen_x;
+
+    // Memamaksimalkan pemanggilan URI dan diagnostic sekali aja kali ya
+    if (HAS_FLAG(g_lsp_ui.lsp_flag, LSP_ENABLE) && buf->path) {
+        // Diagnostic aktif ketika lsp aktif dan ada path-nya
+        char *path_uri = Path_to_uri(buf->path);  // Path to Uri
+
+        if (path_uri) buf->diagnostic = lsp_get_diagnostics(path_uri);
+        free(path_uri);  // Langsung free
+    }
 
     /* Buka Scissor cuma untuk area antara TAB dan STATUS BAR */
     BeginScissorMode(editor_x, editor_y, editor_w, editor_h);
@@ -304,6 +321,9 @@ void draw_editor(BufManager *bufmgr, Font font) {
         }
     }
 
+    // State stack teks
+    char text[1024];
+
     for (size_t y = first; y < last; y++) {
         int py = editor_y + PAD_Y + (int)(y - first) * LINE_H;
 
@@ -340,11 +360,10 @@ void draw_editor(BufManager *bufmgr, Font font) {
         DrawTextEx(font, num_str, num_pos, current_font_x, 1.0f, num_color);
 
         /* Teks Editor */
-        char *text = Buffer_get_line_text(buf, y);
-        if (text) {
-            size_t len = strlen(text);
-            if (len > 0 && text[len - 1] == '\n') text[len - 1] = '\0';
-            if (len > 0 && text[len - 1] == '\r') text[len - 1] = '\0';
+        size_t len = Buffer_get_line_text(buf, y, text, sizeof(text));
+        if (len > 0) {
+            if (text[len - 1] == '\n') text[len - 1] = '\0';
+            if (text[len - 1] == '\r') text[len - 1] = '\0';
 
             char expanded_text[2048] = {0};
             expand_tabs(text, expanded_text, sizeof(expanded_text), 4);
@@ -372,14 +391,13 @@ void draw_editor(BufManager *bufmgr, Font font) {
 
                     // Jika char_end mencakup '\n' di akhir baris, potong agar seleksi
                     // tidak kebablasan
-                    size_t text_raw_len = strlen(text);
-                    if (text_raw_len > 0 && text[text_raw_len - 1] == '\n') {
-                        if (char_end > text_raw_len - 1) char_end = text_raw_len - 1;
+                    if (len > 0 && text[len - 1] == '\n') {
+                        if (char_end > len - 1) char_end = len - 1;
                     }
 
                     // helper yang SAMA DENGAN KURSOR untuk menghitung X1 dan X2
-                    float x1 = get_text_column_x(font, text, char_start, (float)text_x);
-                    float x2 = get_text_column_x(font, text, char_end, (float)text_x);
+                    float x1 = get_text_column_x(font, text, len, char_start, (float)text_x);
+                    float x2 = get_text_column_x(font, text, len, char_end, (float)text_x);
 
                     // Tambah ekstra lebar 8px jika seleksi mencakup newline (pindah baris)
                     if (sel_end >= line_end && y + 1 < buf->lines.line_count) {
@@ -403,7 +421,7 @@ void draw_editor(BufManager *bufmgr, Font font) {
 
                 // Cek Kurung Pertama (b1)
                 if (y == b1.y) {
-                    float x1 = get_text_column_x(font, text, b1.x, (float)text_x);
+                    float x1 = get_text_column_x(font, text, len, b1.x, (float)text_x);
                     Rectangle r1 = {x1, (float)py, space_w, (float)LINE_H};
                     DrawRectangleRounded(r1, 0.2f, 4, match_bg);
                     DrawRectangleRoundedLines(r1, 0.2f, 4, g_theme.keyword);
@@ -412,7 +430,7 @@ void draw_editor(BufManager *bufmgr, Font font) {
                 // Cek Kurung Kedua (b2) - Dibuat 'if' terpisah agar kurung sebaris ter-render
                 // dua-duanya
                 if (y == b2.y) {
-                    float x2 = get_text_column_x(font, text, b2.x, (float)text_x);
+                    float x2 = get_text_column_x(font, text, len, b2.x, (float)text_x);
                     Rectangle r2 = {x2, (float)py, space_w, (float)LINE_H};
                     DrawRectangleRounded(r2, 0.2f, 4, match_bg);
                     DrawRectangleRoundedLines(r2, 0.2f, 4, g_theme.keyword);
@@ -420,7 +438,7 @@ void draw_editor(BufManager *bufmgr, Font font) {
             }
 
             // Render teks dengan highlight [RENDER UTAMA]
-            Draw_line_highlighted(font, text, pos, tokens, token_count, buf->lines.offset[y]);
+            Draw_line_highlighted(font, text, len, pos, tokens, token_count, buf->lines.offset[y]);
 
             /* ------------------------------------------------------------- *
              * RENDER INLINE GHOST TEXT
@@ -445,8 +463,8 @@ void draw_editor(BufManager *bufmgr, Font font) {
                         format_time_ago(who, time_to_show, ghost_str, sizeof(ghost_str));
 
                         // Hitung X awal teks ghost (ujung kode + margin 32px)
-                        float line_w = get_text_column_x(font, expanded_text, strlen(expanded_text),
-                                                         (float)text_x);
+                        float line_w = get_text_column_x(font, expanded_text, len,
+                                                         strlen(expanded_text), (float)text_x);
                         float ghost_x = line_w + 32.0f;
 
                         // Hitung lebar teks ghost itu sendiri
@@ -466,54 +484,43 @@ void draw_editor(BufManager *bufmgr, Font font) {
             /* ------------------------------------------------------------- *
              * Render Squiggly / Underline Diagnostics
              * ------------------------------------------------------------- */
-            if (HAS_FLAG(g_lsp_ui.lsp_flag, LSP_ENABLE) &&
-                buf->path) {  // Diagnostic aktif ketika lsp aktif dan ada path-nya
-                char *uri = Path_to_uri(buf->path);  // Path to Uri
-                buf->diagnostic = lsp_get_diagnostics(uri);
+            if (buf->diagnostic && buf->diagnostic->count > 0) {
+                for (size_t i = 0; i < buf->diagnostic->count; i++) {
+                    DiagnosticItem *item = &buf->diagnostic->items[i];
 
-                if (buf->diagnostic && buf->diagnostic->count > 0) {
-                    for (size_t i = 0; i < buf->diagnostic->count; i++) {
-                        DiagnosticItem *item = &buf->diagnostic->items[i];
+                    // Cek apakah baris ini masuk dalam range diagnostik
+                    if ((size_t)item->start_line <= y && y <= (size_t)item->end_line) {
+                        size_t col_start = (y == (size_t)item->start_line) ? item->start_char : 0;
+                        size_t col_end = (y == (size_t)item->end_line) ? item->end_char : len;
 
-                        // Cek apakah baris ini masuk dalam range diagnostik
-                        if ((size_t)item->start_line <= y && y <= (size_t)item->end_line) {
-                            size_t col_start =
-                                (y == (size_t)item->start_line) ? item->start_char : 0;
-                            size_t col_end = (y == (size_t)item->end_line) ? item->end_char : len;
-
-                            // Jika range-nya 0 karakter, beri minimal 1 karakter agar garis
-                            // kelihatan
-                            if (col_start == col_end && col_start < len) {
-                                col_end = col_start + 1;
-                            }
-
-                            float x1 = get_text_column_x(font, text, col_start, (float)text_x);
-                            float x2 = get_text_column_x(font, text, col_end, (float)text_x);
-
-                            // Tentukan warna garis sesuai severity
-                            Color diag_color = g_theme.error;  // Fallback / Error (Severity 1)
-                            if (item->severity == 2) {
-                                diag_color = g_theme.warning;  // Warning
-                            } else if (item->severity >= 3) {
-                                // Info / Hint (Pakai warna g_theme yang sesuai)
-                                diag_color = g_theme.info;
-                            }
-
-                            // Gambar garis bawah tipis tepat di bawah teks
-                            int line_y =
-                                py + (int)current_font_x;  // + 1 aja kali ya biar ga ada jarak
-                            int line_w = (int)(x2 - x1);
-                            if (line_w <= 0)
-                                line_w = (int)MeasureTextEx(font, " ", current_font_x, 1.0f).x;
-
-                            DrawRectangle((int)x1, line_y, line_w, 1, diag_color);
+                        // Jika range-nya 0 karakter, beri minimal 1 karakter agar garis
+                        // kelihatan
+                        if (col_start == col_end && col_start < len) {
+                            col_end = col_start + 1;
                         }
+
+                        float x1 = get_text_column_x(font, text, len, col_start, (float)text_x);
+                        float x2 = get_text_column_x(font, text, len, col_end, (float)text_x);
+
+                        // Tentukan warna garis sesuai severity
+                        Color diag_color = g_theme.error;  // Fallback / Error (Severity 1)
+                        if (item->severity == 2) {
+                            diag_color = g_theme.warning;  // Warning
+                        } else if (item->severity >= 3) {
+                            // Info / Hint (Pakai warna g_theme yang sesuai)
+                            diag_color = g_theme.info;
+                        }
+
+                        // Gambar garis bawah tipis tepat di bawah teks
+                        int line_y = py + (int)current_font_x;  // + 1 aja kali ya biar ga ada jarak
+                        int line_w = (int)(x2 - x1);
+                        if (line_w <= 0)
+                            line_w = (int)MeasureTextEx(font, " ", current_font_x, 1.0f).x;
+
+                        DrawRectangle((int)x1, line_y, line_w, 1, diag_color);
                     }
                 }
-                free(uri);  // Hapus heap dari Uri
             }
-
-            free(text);
         }
     }
 
@@ -521,12 +528,12 @@ void draw_editor(BufManager *bufmgr, Font font) {
      * Cursor
      * ---------------- */
     if (bufmgr->mode == WRITE && buf->cursor.y >= first && buf->cursor.y < last) {
-        char *cur = Buffer_get_line_text(buf, buf->cursor.y);
+        char cur[1024];
+        size_t clen = Buffer_get_line_text(buf, buf->cursor.y, cur, sizeof(cur));
         float cx_float = (float)text_x;
 
-        if (cur) {
-            size_t clen = strlen(cur);
-            if (clen > 0 && cur[clen - 1] == '\n') clen--;
+        if (clen > 0) {
+            if (cur[clen - 1] == '\n') clen--;
 
             size_t target_x = buf->cursor.x;
             if (target_x > clen) target_x = clen;
@@ -546,7 +553,6 @@ void draw_editor(BufManager *bufmgr, Font font) {
                     col_visual++;
                 }
             }
-            free(cur);
         }
 
         int cx = (int)cx_float;

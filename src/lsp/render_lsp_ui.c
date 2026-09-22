@@ -5,6 +5,7 @@
  */
 #include <raylib.h>
 #include <stdbool.h>
+#include <stddef.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -24,16 +25,18 @@ extern void lsp_clear_all_diagnostics(void);  // Clear Diagnostic [lsp_client.c]
 // Helper internal
 static float get_lsp_cursor_x(Font font, Buffer *buf, float text_x) {
     if (!buf) return text_x;
-    char *line_text = Buffer_get_line_text(buf, buf->cursor.y);
-    if (!line_text) return text_x;
+    char line_text[1024];
+    size_t len = Buffer_get_line_text(buf, buf->cursor.y, line_text, sizeof(line_text));
+    if (len == 0) return text_x;
 
     float current_x = text_x;
     float current_font_x = (float)font.baseSize;  // Dinamis mengikuti font
-    float space_w = MeasureTextEx(font, " ", current_font_x, 1.0f).x;
     size_t target_col = buf->cursor.x;
-    size_t len = strlen(line_text);
     if (target_col > len) target_col = len;
 
+    // Declare glyph_w dan Space w
+    float glyph_w = MeasureTextEx(font, "A", current_font_x, 1.0f).x;
+    float space_w = MeasureTextEx(font, " ", current_font_x, 1.0f).x;
     int col_visual = 0;
     for (size_t i = 0; i < target_col; i++) {
         if (line_text[i] == '\t') {
@@ -41,13 +44,11 @@ static float get_lsp_cursor_x(Font font, Buffer *buf, float text_x) {
             current_x += space_w * spaces;
             col_visual += spaces;
         } else {
-            char ch[2] = {line_text[i], '\0'};
-            current_x += MeasureTextEx(font, ch, current_font_x, 1.0f).x;
+            current_x += glyph_w;
             col_visual++;
         }
     }
 
-    free(line_text);
     return current_x;
 }
 

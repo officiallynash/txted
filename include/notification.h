@@ -5,10 +5,6 @@
  */
 #ifndef NOTIFICATION_H
 #define NOTIFICATION_H
-
-#include <stdbool.h>
-
-#include "raylib.h"
 #include "types.h"
 
 typedef enum { NOTIF_INFO, NOTIF_SUCCESS, NOTIF_WARNING, NOTIF_ERROR } NotifType;

@@ -5,8 +5,6 @@
  */
 #include "result.h"
 
-#include <unistd.h>
-
 /**
  * Fungsi untuk membuat Result OK
  */

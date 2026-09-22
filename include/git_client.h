@@ -5,9 +5,6 @@
  */
 #ifndef GIT_CLIENT_H
 #define GIT_CLIENT_H
-
-#include <raylib.h>
-
 #include "types.h"
 
 // Extern Git Status, GitPopup dan Timer

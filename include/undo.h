@@ -5,8 +5,6 @@
  */
 #ifndef UNDO_H
 #define UNDO_H
-#include <stddef.h>
-
 #include "types.h"
 
 void Undo_init(UndoStack *us);

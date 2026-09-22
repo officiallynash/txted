@@ -30,8 +30,8 @@ extern void Nav_move_left(Buffer *buf);                            // Nav_move_l
 extern void Nav_move_right(Buffer *buf);                           // Nav_move_right (nav_utils.c)
 extern void Nav_mouse_scroll(BufManager *bufmgr, float wheel);     // Nav_mouse_scroll (nav_utils.c)
 extern void Nav_goto_end_of_line(Buffer *buf);              // Nav_goto_end_of_line (nav_utils.c)
-extern void Nav_jump_down(BufManager *bufmgr);              // Nav_jump_down (nav_utils.c)
-extern void Nav_jump_up(BufManager *bufmgr);                // Nav_jump_up (nav_utils.c)
+extern void Nav_jump_down(Buffer *buf, int visible_lines);  // Nav_jump_down (nav_utils.c)
+extern void Nav_jump_up(Buffer *buf, int visible_lines);    // Nav_jump_up (nav_utils.c)
 extern void Nav_exit(BufManager *bufmgr, Font font);        // Nav_exit (nav_utils.c)
 extern void Nav_close_tab(BufManager *bufmgr, Font font);   // Nav_close_tab (nav_utils.c)
 extern void Nav_copy(BufManager *bufmgr, Font font);        // Nav_copy (nav_utils.c)
@@ -39,8 +39,10 @@ extern void Nav_cut(BufManager *bufmgr, Font font);         // Nav_cut (nav_util
 extern void Nav_paste(BufManager *bufmgr, Font font);       // Nav_paste (nav_utils.c)
 extern void Nav_redo(BufManager *bufmgr, Font font);        // Nav_redo (nav_utils.c)
 extern void Nav_undo(BufManager *bufmgr, Font font);        // Nav_undo (nav_utils.c)
-extern void scroll_y_nav(BufManager *bufmgr, bool nav_up);  // scroll_y
+extern void Nav_move_up(Buffer *buf, int visible_lines);    // Move up (nav_utils.c)
+extern void Nav_move_down(Buffer *buf, int visible_lines);  // Move down (nav_utils.c)
 extern void prompt_ui_config(BufManager *bufmgr, PromptType type);
+extern void Buffer_clamp_scroll(Buffer *buf, int visible_lines);
 
 static bool is_mouse_scroll = false;
 
@@ -88,10 +90,10 @@ static void set_cursor_from_mouse(BufManager *bufmgr, Vector2 mouse, int scroll_
         buf->cursor.y = target_y;
 
         // Hitung Kolom Target (X)
-        char *line_text = Buffer_get_line_text(buf, target_y);
-        if (line_text) {
-            size_t len = strlen(line_text);
-            if (len > 0 && line_text[len - 1] == '\n') line_text[len - 1] = '\0';
+        char line_text[1024];
+        size_t len = Buffer_get_line_text(buf, target_y, line_text, sizeof(line_text));
+        if (len > 0) {
+            if (line_text[len - 1] == '\n') line_text[len - 1] = '\0';
 
             float space_w = MeasureTextEx(font, " ", FONT_SIZE, 1.0f).x;
             float click_x_rel = mouse.x - Layout.text_screen_x;
@@ -125,7 +127,6 @@ static void set_cursor_from_mouse(BufManager *bufmgr, Vector2 mouse, int scroll_
             buf->cursor.x = char_idx;
             buf->cursor.cursor_pos = buf->lines.offset[target_y] + buf->cursor.x;
 
-            free(line_text);
         } else {
             buf->cursor.x = 0;
             buf->cursor.cursor_pos = buf->lines.offset[target_y];
@@ -446,6 +447,8 @@ void handle_mouse_input(BufManager *bufmgr, Font font) {
  **/
 void handle_input(BufManager *bufmgr, Font font) {
     EditorLayout layout = get_editor_layout(bufmgr);
+    // Visible lines
+    int visible_lines = layout.visible_lines;
 
     Update_navigation_click(bufmgr, layout);
     if (bufmgr->mode != WRITE) return;
@@ -596,8 +599,8 @@ void handle_input(BufManager *bufmgr, Font font) {
         /* -------------------- *
          * Jump ke atas dan ke bawah
          * -------------------- */
-        if (IsKeyPressed(KEY_D)) Nav_jump_down(bufmgr);
-        if (IsKeyPressed(KEY_U)) Nav_jump_up(bufmgr);
+        if (IsKeyPressed(KEY_D)) Nav_jump_down(buf, visible_lines);
+        if (IsKeyPressed(KEY_U)) Nav_jump_up(buf, visible_lines);
 
         /* -------------------- *
          * Pindah ke FM Jika fm aktif
@@ -748,6 +751,7 @@ void handle_input(BufManager *bufmgr, Font font) {
      * -------------------- */
     if (IsKeyPressed(KEY_ENTER) || IsKeyPressed(KEY_KP_ENTER)) {
         Syntax_auto_indent(buf);
+        Buffer_clamp_scroll(buf, visible_lines);
     }
 
     /* -------------------- *
@@ -788,8 +792,7 @@ void handle_input(BufManager *bufmgr, Font font) {
      * -------------------- */
     if (IsKeyPressed(KEY_UP) || IsKeyPressedRepeat(KEY_UP)) {
         CHECK_SELECTION();
-        scroll_y_nav(bufmgr, true);
-        //        Nav_move_up(buf);
+        Nav_move_up(buf, visible_lines);
         SIGNATURE_HIDE();  // Auto hide
     }
 
@@ -798,8 +801,7 @@ void handle_input(BufManager *bufmgr, Font font) {
      * -------------------- */
     if (IsKeyPressed(KEY_DOWN) || IsKeyPressedRepeat(KEY_DOWN)) {
         CHECK_SELECTION();
-        scroll_y_nav(bufmgr, false);
-        // Nav_move_down(buf);
+        Nav_move_down(buf, visible_lines);
         SIGNATURE_HIDE();  // Auto hide
     }
 
@@ -809,7 +811,7 @@ void handle_input(BufManager *bufmgr, Font font) {
 sync_scroll:
     if (!is_mouse_scroll) {
         if ((int)buf->cursor.y < buf->scroll_y) buf->scroll_y = (int)buf->cursor.y;
-        if ((int)buf->cursor.y >= buf->scroll_y + layout.visible_lines)
-            buf->scroll_y = (int)buf->cursor.y - layout.visible_lines + 1;
+        if ((int)buf->cursor.y >= buf->scroll_y + visible_lines)
+            buf->scroll_y = (int)buf->cursor.y - visible_lines + 1;
     }
 }

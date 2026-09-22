@@ -5,9 +5,6 @@
  */
 #ifndef LSP_CONFIG_H
 #define LSP_CONFIG_H
-#include <raylib.h>
-#include <tree_sitter/api.h>
-
 #include "types.h"
 
 extern LspUiState g_lsp_ui;

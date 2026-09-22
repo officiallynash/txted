@@ -16,6 +16,7 @@
 #include <tree_sitter/api.h>
 #include <unistd.h>
 
+#include "clipboard.h"
 #include "fs.h"
 #include "git_client.h"
 #include "lsp.h"
@@ -210,9 +211,7 @@ static void sync_syntax_tree(Buffer *buf) {
     size_t rope_len = String_len(buf->str);
     Bytes full_text = String_get(buf->str, 0, rope_len);
     if (full_text.data) {
-        if (buf->state->tree) {
-            ts_tree_delete(buf->state->tree);
-        }
+        if (buf->state->tree) ts_tree_delete(buf->state->tree);
 
         buf->state->tree = ts_parser_parse_string(buf->state->parser, nullptr,
                                                   (const char *)full_text.data, (uint32_t)rope_len);
@@ -352,9 +351,7 @@ char Buffer_get_char_at(Buffer *buf, size_t line, size_t col) {
     Bytes b = String_get(buf->str, target_pos, 1);
 
     char c = '\0';
-    if (b.data && b.len > 0) {
-        c = ((char *)b.data)[0];
-    }
+    if (b.data && b.len > 0) c = ((char *)b.data)[0];
 
     Bytes_free(&b);
     return c;
@@ -464,9 +461,8 @@ Buffer *Buffer_open(const char *filename) {
                 lsp_did_change(uri, (const char *)full_text.data, new->lsp_version);
                 Bytes_free(&full_text);
             }
-
-            new->diagnostic = nullptr;
             // Diagnostic jalan kalau sudah ada editing aja kali ya HAHAH
+            new->diagnostic = nullptr;
 
             // Konsepnya itu terpusat di Draw Diagsnostic bar (render_lsp_ui.c) dan render.c
             sync_syntax_tree(new);  // Sync syntax
@@ -502,10 +498,12 @@ void Buffer_insert(Buffer *buf, size_t pos_idx, const char *ch) {
         Buffer_delete(buf, buf->cursor.cursor_pos);
         pos_idx = buf->cursor.cursor_pos;
     }
+
     // Save Line Count dan Original Y
     size_t old_line_count = buf->lines.line_count;
     size_t orig_y = buf->cursor.y;
 
+    // Push ke Undo
     Undo_push(&buf->undo, UNDO_INSERT, pos_idx, ch, text_len);
 
     // Insert ke rope
@@ -518,19 +516,19 @@ void Buffer_insert(Buffer *buf, size_t pos_idx, const char *ch) {
     size_t *nl_buf = newline_pos;
 
     for (size_t i = 0; i < text_len; ++i) {
-        if (ch[i] == '\n') {
-            if (newline_count >= 64 && !need_heap) {
-                /* fallback ke heap kalau terlalu banyak newline */
-                nl_buf = malloc(text_len * sizeof(size_t));
-                if (!nl_buf) {
-                    goto full_rebuild;
-                }
+        if (ch[i] != '\n') continue;
 
-                memcpy(nl_buf, newline_pos, 64 * sizeof(size_t));
-                need_heap = true;
+        if (newline_count >= 64 && !need_heap) {
+            /* fallback ke heap kalau terlalu banyak newline */
+            nl_buf = malloc(text_len * sizeof(size_t));
+            if (!nl_buf) {
+                goto full_rebuild;
             }
-            nl_buf[newline_count++] = i;
+
+            memcpy(nl_buf, newline_pos, 64 * sizeof(size_t));
+            need_heap = true;
         }
+        nl_buf[newline_count++] = i;
     }
 
     // Update LineIndex secara incremental
@@ -885,8 +883,8 @@ void Buffer_redo(Buffer *buf) {
 /**
  * Fungsi untuk mengambil text line berdasarkan y (line = y + 1) [PUBLIC API]
  */
-char *Buffer_get_line_text(Buffer *buf, size_t y) {
-    if (!buf || y >= buf->lines.line_count) return nullptr;
+size_t Buffer_get_line_text(Buffer *buf, size_t y, char *buffer, size_t buffer_len) {
+    if (!buf || y >= buf->lines.line_count) return 0;
 
     // Mencari indeks posisi awal dan akhir dari line
     size_t start = buf->lines.offset[y];
@@ -899,19 +897,16 @@ char *Buffer_get_line_text(Buffer *buf, size_t y) {
         end = rope_len;
     }
 
-    size_t length = end - start;  // Panjang teks
-
+    size_t length = end - start;                       // Panjang teks
+    if (length > buffer_len) length = buffer_len;      // Jika len lebih dari buffer_len
     Bytes data = String_get(buf->str, start, length);  // Ambil data dari buffer
-    if (!data.data) return nullptr;
+    if (!data.data) return 0;
 
-    char *result = calloc(length + 1, sizeof(char));
-    if (result) {
-        memcpy(result, data.data, length);
-        result[length] = '\0';
-    }
+    snprintf(buffer, buffer_len, "%s", data.data);
+    buffer[length] = '\0';
 
     Bytes_free(&data);  // Safety free
-    return result;
+    return length;
 }
 
 /**
@@ -984,13 +979,13 @@ void Buffer_free(Buffer *buf) {
 void Buffer_get_current_word(Buffer *buf, char *out_str, size_t max_len) {
     if (!buf || !out_str || max_len == 0) return;
     out_str[0] = '\0';
+    char lines[1024];
 
     // Ambil teks pada baris kursor saat ini
-    char *line_text = Buffer_get_line_text(buf, buf->cursor.y);
-    if (!line_text) return;
+    size_t line_len = Buffer_get_line_text(buf, buf->cursor.y, lines, sizeof(lines));
+    if (line_len == 0) return;
 
     size_t col = buf->cursor.x;
-    size_t line_len = strlen(line_text);
 
     // Pastikan batas kolom tidak melebihi panjang teks baris
     if (col > line_len) col = line_len;
@@ -998,7 +993,7 @@ void Buffer_get_current_word(Buffer *buf, char *out_str, size_t max_len) {
     // Mundur ke belakang dari posisi kursor untuk mencari awal kata
     size_t start = col;
     while (start > 0) {
-        char c = line_text[start - 1];
+        char c = lines[start - 1];
         if (!isalnum((unsigned char)c) && c != '_') {
             break;  // Stop jika bertemu spasi, simbol, atau operator
         }
@@ -1010,11 +1005,9 @@ void Buffer_get_current_word(Buffer *buf, char *out_str, size_t max_len) {
     if (word_len >= max_len) word_len = max_len - 1;
 
     if (word_len > 0) {
-        strncpy(out_str, line_text + start, word_len);
+        strncpy(out_str, lines + start, word_len);
         out_str[word_len] = '\0';
     }
-
-    free(line_text);  // Bersihkan alokasi memori dari Buffer_get_line_text
 }
 
 /**
@@ -1100,15 +1093,16 @@ int Buffer_search(Buffer *buf, const char *query, SearchHitBuffer *out, int max_
 
     int count = 0;
     size_t q_len = strlen(query);
+    char lines[1024];
 
     for (size_t y = 0; y < buf->lines.line_count && count < max_hits; y++) {
-        char *line = Buffer_get_line_text(buf, y);
-        if (!line) continue;
+        size_t line_len = Buffer_get_line_text(buf, y, lines, sizeof(lines));
+        if (line_len == 0) continue;
 
-        const char *p = line;
+        const char *p = lines;
         size_t line_start_byte = buf->lines.offset[y];
         while ((p = strcasestr(p, query)) != nullptr) {
-            size_t col = (size_t)(p - line);
+            size_t col = (size_t)(p - lines);
             uint32_t match_start_byte = (uint32_t)(line_start_byte + col);
             uint32_t match_end_byte = match_start_byte + (uint32_t)q_len;
 
@@ -1128,7 +1122,6 @@ int Buffer_search(Buffer *buf, const char *query, SearchHitBuffer *out, int max_
             p += (q_len > 0 ? q_len : 1);
             if (count >= max_hits) break;
         }
-        free(line);
     }
     return count;
 }
