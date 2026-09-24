@@ -19,8 +19,10 @@
 #include "result.h"
 #include "rope.h"
 #include "theme.h"
+#include "types.h"
 #include "ui.h"
 
+// Macro untuk hapus local list
 #define CLEANUP_LOCAL_LIST()               \
     do {                                   \
         if (open_file_list) {              \
@@ -80,17 +82,20 @@ void PromptBuffer_delete(PromptBuffer *prb, size_t pos_idx) {
 /**
  * Fungsi untuk GET DATA [PUBLIC API]
  */
-char *PromptBuffer_get(PromptBuffer *prb) {
-    if (!prb) return nullptr;
+size_t PromptBuffer_get(PromptBuffer *prb, char *outbuf, size_t out_buf_size) {
+    if (!prb || !outbuf || out_buf_size == 0) return 0;
 
     Bytes data = String_get(prb->str, 0, prb->len);
     if (data.data) {
-        char *result = strdup((const char *)data.data);
-        Bytes_free(&data);
-        return result;
-    }
+        size_t copy_len = (data.len < out_buf_size - 1) ? data.len : out_buf_size - 1;
+        memcpy(outbuf, data.data, copy_len);  // Cukup copy ke out buffer, anti malloc
+        outbuf[copy_len] = '\0';
 
-    return strdup("");
+        Bytes_free(&data);
+        return copy_len;  // Kembalikan copy len
+    }
+    outbuf[0] = '\0';
+    return 0;
 }
 
 /**
@@ -148,9 +153,10 @@ void draw_prompt_ui(BufManager *bufmgr, Font font) {
     PromptItem *items = nullptr;
     size_t items_count = 0;
 
-    // SAFE GET TEXT
-    char *allocated_text = PromptBuffer_get(prb);
-    const char *current_text = allocated_text ? allocated_text : "";
+    // SAFE GET TEXT no malloc club HAHA
+    char current_text[512] = {0};
+    size_t current_len = PromptBuffer_get(prb, current_text, sizeof(current_text));
+    (void)current_len;
 
     // =========================================================================
     // Item untuk Search dan Open dan Hitung Matches
@@ -165,15 +171,15 @@ void draw_prompt_ui(BufManager *bufmgr, Font font) {
         if (!open_file_list) {
             open_file_list = FileList_init(128);
             Scan_project_files(".", open_file_list);
-        }
-        if (open_file_list) {
+        } else {
             items = open_file_list->items;
             items_count = open_file_list->item_count;
         }
     } else if (bufmgr->prompt->type == PROMPT_TYPE_SEARCH) {
         Buffer *buf = BufManager_getactive(bufmgr);
 
-        if (strcmp(last_q, current_text) != 0) {
+        // Karena di search akan lebih bijak kita kasih flag likely, karena mostly ada hasilnya
+        if (strcmp(last_q, current_text) != 0) [[clang::likely]] {
             snprintf(last_q, sizeof(last_q), "%s", current_text);
 
             int n = 0;
@@ -198,9 +204,13 @@ void draw_prompt_ui(BufManager *bufmgr, Font font) {
     // Filter matching
     if (items != nullptr && items_count > 0) {
         for (size_t i = 0; i < items_count; i++) {
-            if (current_text[0] == '\0' || calculate_score(current_text, items[i].label) > 0) {
-                matches[match_count++] = (int)i;
-                if (match_count >= MAX_MATCHES) break;
+            if (current_text[0] == '\0' || calculate_score(current_text, items[i].label) > 0)
+                [[clang::likely]] {
+                if (match_count < MAX_MATCHES) {
+                    matches[match_count++] = (int)i;
+                } else {
+                    break;
+                }
             }
         }
     }
@@ -292,7 +302,7 @@ void draw_prompt_ui(BufManager *bufmgr, Font font) {
                                    modal_rect.width - 24.0f, item_h - 2.0f};
             PromptItem *item = &items[matches[item_idx]];
 
-            if (CheckCollisionPointRec(GetMousePosition(), item_rect)) {
+            if (CheckCollisionPointRec(GetMousePosition(), item_rect)) [[clang::unlikely]] {
                 bufmgr->prompt->selected_idx = item_idx;
                 if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) enter_pressed = true;
             }
@@ -325,28 +335,27 @@ void draw_prompt_ui(BufManager *bufmgr, Font font) {
     // Handling untuk keyboard dan Mouse
     // =========================================================================
     if (enter_pressed) {
-        if (bufmgr->prompt->type == PROMPT_TYPE_OPEN_FILE) {
-            if (match_count > 0 && bufmgr->prompt->selected_idx < (int)match_count) {
-                int original_idx = matches[bufmgr->prompt->selected_idx];
-                char *result = strdup(items[original_idx].label);
+        bool condition = match_count > 0 && bufmgr->prompt->selected_idx < (int)match_count;
+        if (bufmgr->prompt->type == PROMPT_TYPE_OPEN_FILE && condition) {
+            int original_idx = matches[bufmgr->prompt->selected_idx];
+            char *result = strdup(items[original_idx].label);
 
-                CLEANUP_LOCAL_LIST();
-                PromptBuffer_destroy(bufmgr);
-                FloatPrompt_execute(bufmgr, result);
-            }
-        } else if (bufmgr->prompt->type == PROMPT_TYPE_SEARCH) {
-            if (match_count > 0 && bufmgr->prompt->selected_idx < (int)match_count) {
-                int original_hit_idx = matches[bufmgr->prompt->selected_idx];
+            CLEANUP_LOCAL_LIST();
+            PromptBuffer_destroy(bufmgr);
+            FloatPrompt_execute(bufmgr, result);
 
-                // Ambil data hit sebelum prompt dibersihkan
-                SearchHitBuffer target_hit = hits[original_hit_idx];
+        } else if (bufmgr->prompt->type == PROMPT_TYPE_SEARCH && condition) {
+            int original_hit_idx = matches[bufmgr->prompt->selected_idx];
 
-                CLEANUP_LOCAL_LIST();
-                PromptBuffer_destroy(bufmgr);
+            // Ambil data hit sebelum prompt dibersihkan
+            SearchHitBuffer target_hit = hits[original_hit_idx];
 
-                // Panggil lompat ke baris pencarian
-                Buffer_goto_search_hit(bufmgr, &target_hit);
-            }
+            CLEANUP_LOCAL_LIST();
+            PromptBuffer_destroy(bufmgr);
+
+            // Panggil lompat ke baris pencarian
+            Buffer_goto_search_hit(bufmgr, &target_hit);
+
         } else {
             char *exec_text = strdup(current_text);
 
@@ -355,7 +364,6 @@ void draw_prompt_ui(BufManager *bufmgr, Font font) {
             FloatPrompt_execute(bufmgr, exec_text);
         }
 
-        if (allocated_text) free(allocated_text);
         return;
     }
 
@@ -366,13 +374,12 @@ void draw_prompt_ui(BufManager *bufmgr, Font font) {
         bufmgr->prompt->edit_mode = false;
         bufmgr->mode = WRITE;
 
-        if (allocated_text) free(allocated_text);
         return;
     }
 
     // Navigasi Keyboard
     if (IsKeyPressed(KEY_DOWN) || IsKeyPressedRepeat(KEY_DOWN)) {
-        if (bufmgr->prompt->selected_idx < max_idx) {
+        if (bufmgr->prompt->selected_idx < max_idx) [[clang::likely]] {
             bufmgr->prompt->selected_idx++;
             if (bufmgr->prompt->selected_idx >= bufmgr->prompt->scroll_offset + max_visible) {
                 bufmgr->prompt->scroll_offset++;
@@ -389,7 +396,7 @@ void draw_prompt_ui(BufManager *bufmgr, Font font) {
     }
 
     if (IsKeyPressed(KEY_UP) || IsKeyPressedRepeat(KEY_UP)) {
-        if (bufmgr->prompt->selected_idx > 0) {
+        if (bufmgr->prompt->selected_idx > 0) [[clang::likely]] {
             bufmgr->prompt->selected_idx--;
             if (bufmgr->prompt->selected_idx < bufmgr->prompt->scroll_offset) {
                 bufmgr->prompt->scroll_offset--;
@@ -410,7 +417,7 @@ void draw_prompt_ui(BufManager *bufmgr, Font font) {
 
     // Render Caret/Cursor
     if (((int)(GetTime() * 1.5f) % 2) == 0) {
-        char temp_buf[256] = {0};
+        char temp_buf[512] = {0};
         int cp = prb->cursor_pos;
 
         if (cp > (int)strlen(current_text)) {
@@ -427,8 +434,6 @@ void draw_prompt_ui(BufManager *bufmgr, Font font) {
 
         DrawRectangleRec((Rectangle){caret_x, caret_y, 2.0f, caret_h}, g_theme.cursor);
     }
-
-    if (allocated_text) free(allocated_text);
 }
 
 /**
@@ -437,8 +442,10 @@ void draw_prompt_ui(BufManager *bufmgr, Font font) {
 void Buffer_goto_search_hit(BufManager *bufmgr, const SearchHitBuffer *hit) {
     // Kita taruh goto ke lines disini ya
     // Karena untuk mengakomodasi Layout visible lines.
-    // Jika masih di search.c maka akan bentrok dengan Buffer.h
-    // Saling cross include si Header bahaya
+    // Jika masih di buffer.c maka akan bentrok dengan Buffer.h
+    // Saling cross include si Header bahaya selain itu
+    // untuk menjaga kesucian buffer.c dari BufManager
+
     Buffer *buf = BufManager_getactive(bufmgr);
     EditorLayout layout = get_editor_layout(bufmgr);  // ambil layout
 
@@ -446,6 +453,7 @@ void Buffer_goto_search_hit(BufManager *bufmgr, const SearchHitBuffer *hit) {
 
     buf->cursor.y = hit->line;
     buf->cursor.x = hit->col;
+    SET_FLAG(buf->buf_flags, BUF_IS_SEARCH);  // Set ke BUF IS SEARCH
 
     if (hit->line < buf->lines.line_count) {
         buf->cursor.cursor_pos = buf->lines.offset[hit->line] + hit->col;
@@ -459,6 +467,7 @@ void Buffer_goto_search_hit(BufManager *bufmgr, const SearchHitBuffer *hit) {
     // scroll biar kelihatan
     int vis = layout.visible_lines;
 
+    // Clamp scroll_y
     if ((int)buf->cursor.y < buf->scroll_y) buf->scroll_y = (int)buf->cursor.y;
     if ((int)buf->cursor.y >= buf->scroll_y + vis) buf->scroll_y = (int)buf->cursor.y - vis + 1;
 }

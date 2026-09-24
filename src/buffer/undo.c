@@ -87,7 +87,7 @@ void Undo_push(UndoStack *us, UndoType type, size_t offset, const char *text, si
         if (type == UNDO_INSERT && last->type == UNDO_INSERT &&
             last->offset + last->len == offset && (ts - last->timestamp_ms < UNDO_TIMEOUT)) {
             char *tmp = realloc(last->text, last->len + len + 1);
-            if (tmp) {
+            if (tmp) [[clang::likely]] {
                 last->text = tmp;
                 memcpy(last->text + last->len, text, len);
                 last->len += len;

@@ -21,6 +21,7 @@ char *Path_to_uri(const char *path);
 void Buffer_get_current_word(Buffer *buf, char *out_str, size_t max_len);
 char Buffer_get_char_at(Buffer *buf, size_t line, size_t col);
 void lsp_apply_completion(Buffer *buf, const CompletionItem *item);  // LSP
+size_t get_display_name(const char *filepath, char *out, size_t out_len);
 
 // Search
 int Buffer_search(Buffer *buf, const char *query, SearchHitBuffer *out, int max_hits);

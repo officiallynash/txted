@@ -29,6 +29,7 @@
 
 extern void sync_cursor_line_from_pos(Buffer *buf);  // didefinisikan di navigation.c
 extern void lsp_clear_all_diagnostics(void);         // Clear Diagnostic [lsp_client.c]
+extern const char *my_strcasestr(const char *haystack, const char *needle, size_t needle_len);
 
 /**
  * Line Index Init [PRIVATE API]
@@ -65,7 +66,7 @@ static void LineIndex_insert(LineIndex *li, const char *data, size_t len) {
 
         size_t idx = (size_t)(nl - data);
 
-        if (li->line_count >= li->capacity) {
+        if (li->line_count >= li->capacity) [[clang::unlikely]] {
             li->capacity *= 2;
             size_t *new_offset = realloc(li->offset, sizeof(size_t) * li->capacity);
             if (!new_offset) return;
@@ -210,27 +211,13 @@ static void sync_syntax_tree(Buffer *buf) {
 
     size_t rope_len = String_len(buf->str);
     Bytes full_text = String_get(buf->str, 0, rope_len);
-    if (full_text.data) {
+    if (full_text.data) [[clang::likely]] {
         if (buf->state->tree) ts_tree_delete(buf->state->tree);
 
         buf->state->tree = ts_parser_parse_string(buf->state->parser, nullptr,
                                                   (const char *)full_text.data, (uint32_t)rope_len);
         Bytes_free(&full_text);
     }
-}
-
-/**
- * Helper untuk mengambil Nama file dari Path [PRIVATE API]
- */
-static char *get_display_name(const char *filepath) {
-    if (!filepath) return "Untilted";
-    const char *slash = strrchr(filepath, '/');
-
-#if defined(_WIN32)
-    if (!slash) slash = strrchr(filepath, '\\');
-#endif
-
-    return strdup(slash ? (slash + 1) : filepath);
 }
 
 /**
@@ -289,7 +276,7 @@ static bool lsp_apply_text_edits(Buffer *buf, TextEditList *edits) {
         buf->lines = LineIndex_init();
         size_t rope_len = String_len(buf->str);
 
-        if (rope_len > 0) {
+        if (rope_len > 0) [[clang::likely]] {
             Bytes all = String_get(buf->str, 0, rope_len);
             if (all.data) {
                 LineIndex_insert(&buf->lines, (const char *)all.data, all.len);
@@ -358,6 +345,21 @@ char Buffer_get_char_at(Buffer *buf, size_t line, size_t col) {
 }
 
 /**
+ * Helper untuk mengambil Nama file dari Path [UBLIC API]
+ */
+size_t get_display_name(const char *filepath, char *out, size_t out_len) {
+    if (!filepath) return 0;
+    const char *slash = strrchr(filepath, '/');
+
+#if defined(_WIN32)
+    if (!slash) slash = strrchr(filepath, '\\');
+#endif
+
+    snprintf(out, out_len, "%s", slash ? (slash + 1) : filepath);
+    return strlen(out);
+}
+
+/**
  * Fungsi untuk membuat buffer baru [PUBLIC API]
  */
 Buffer *Buffer_new() {
@@ -370,7 +372,6 @@ Buffer *Buffer_new() {
     new_buffer->cursor = cursor;
     new_buffer->lines = LineIndex_init();
     new_buffer->path = nullptr;
-    new_buffer->filename = strdup("Untilted");
     new_buffer->buf_flags = 0;
     new_buffer->state = nullptr;
     new_buffer->language_id = nullptr;
@@ -408,10 +409,10 @@ Buffer *Buffer_open(const char *filename) {
     new = calloc(1, sizeof(Buffer));
     String *new_str = String_new();
     String_insert(&new_str, 0, (const char *)data->data, data->size);
+    new->str = new_str;  // Assign ke new->str
 
     // Setting default untuk cursor
     Position cursor = {.x = 0, .y = 0, .cursor_pos = 0};
-    new->str = new_str;
     new->cursor = cursor;
 
     // Setting untuk default line termasuk cache Offset atau start of line
@@ -420,8 +421,7 @@ Buffer *Buffer_open(const char *filename) {
     new->lines = lines;
 
     // Setting untuk path dan filename
-    new->path = strdup(data->full_path);
-    new->filename = strdup(get_display_name(new->path));
+    new->path = data->full_path;
     new->buf_flags = 0;
 
     new->scroll_y = 0;  // UI State
@@ -640,7 +640,7 @@ void Buffer_delete(Buffer *buf, size_t pos_idx) {
     bool contains_newline = false;
     Bytes del_bytes = String_get(buf->str, start_del, len);
 
-    if (del_bytes.data) {
+    if (del_bytes.data) [[clang::likely]] {
         Undo_push(&buf->undo, UNDO_DELETE, start_del, (const char *)del_bytes.data, len);
 
         for (size_t i = 0; i < len; i++) {
@@ -728,10 +728,7 @@ void Buffer_save(Buffer *buf, const char *filename) {
         if (result.type == RESULT_OK) {
             // Jaga2 untuk free buf path dan filename
             if (buf->path) free(buf->path);
-            if (buf->filename) free(buf->filename);
-
             buf->path = strdup(result.data);
-            buf->filename = strdup(get_display_name(buf->path));
 
             Result_free(&result);
         } else {
@@ -938,12 +935,6 @@ void Buffer_free(Buffer *buf) {
         buf->path = nullptr;
     }
 
-    // Filename
-    if (buf->filename != nullptr) {
-        free(buf->filename);
-        buf->filename = nullptr;
-    }
-
     // Index Line
     if (buf->lines.offset) {
         free(buf->lines.offset);
@@ -1093,7 +1084,7 @@ int Buffer_search(Buffer *buf, const char *query, SearchHitBuffer *out, int max_
 
     int count = 0;
     size_t q_len = strlen(query);
-    char lines[1024];
+    char lines[1024] = {0};
 
     for (size_t y = 0; y < buf->lines.line_count && count < max_hits; y++) {
         size_t line_len = Buffer_get_line_text(buf, y, lines, sizeof(lines));
@@ -1101,7 +1092,7 @@ int Buffer_search(Buffer *buf, const char *query, SearchHitBuffer *out, int max_
 
         const char *p = lines;
         size_t line_start_byte = buf->lines.offset[y];
-        while ((p = strcasestr(p, query)) != nullptr) {
+        while ((p = my_strcasestr(p, query, q_len)) != nullptr) {
             size_t col = (size_t)(p - lines);
             uint32_t match_start_byte = (uint32_t)(line_start_byte + col);
             uint32_t match_end_byte = match_start_byte + (uint32_t)q_len;

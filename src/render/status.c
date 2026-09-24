@@ -1,3 +1,4 @@
+#include <stddef.h>
 /*
  * TxtEd - Simple Text Editor
  * Copyright (c) 2026 Nash
@@ -6,6 +7,7 @@
 #include <raylib.h>
 #include <stdio.h>
 
+#include "buffer.h"
 #include "buffer_manager.h"
 #include "git_client.h"
 #include "lsp.h"
@@ -31,7 +33,7 @@ void draw_status(BufManager *bufmgr, Font font) {
     DrawRectangle(0, win_h - STATUS_H, win_w, STATUS_H, g_theme.bg_sidebar);
 
     Buffer *buf = BufManager_getactive(bufmgr);
-    if (!buf) {
+    if (!buf) [[clang::unlikely]] {
         Vector2 pos = {(float)PAD_X, text_y};
         DrawTextEx(font, "No buffer", pos, current_font_size, 1.0f, g_theme.text_normal);
         return;
@@ -43,19 +45,22 @@ void draw_status(BufManager *bufmgr, Font font) {
     // Format Teks Kiri
     char left[256] = {0};
     const char *mark = Git_file_mark(buf->path);
+
+    // Filename
+    char file[256] = {0};  // Ambil filename tanpa Malloc dan Strdup
+    size_t len = get_display_name(buf->path, file, sizeof(file));
+    char *filename = len > 0 ? file : "Untitled";
+
     if (git.is_repo) {
         if (mark[0]) {
-            snprintf(left, sizeof(left), "File: %s %s[%s] | Branch: %s%s ",
-                     buf->filename ? buf->filename : "Untitled", is_dirty, mark, git.branch,
-                     git.has_changes ? "*" : "");
+            snprintf(left, sizeof(left), "File: %s %s[%s] | Branch: %s%s ", filename, is_dirty,
+                     mark, git.branch, git.has_changes ? "*" : "");
         } else {
-            snprintf(left, sizeof(left), "File: %s %s | Branch: %s%s ",
-                     buf->filename ? buf->filename : "Untitled", is_dirty, git.branch,
-                     git.has_changes ? "*" : "");
+            snprintf(left, sizeof(left), "File: %s %s | Branch: %s%s ", filename, is_dirty,
+                     git.branch, git.has_changes ? "*" : "");
         }
     } else {
-        snprintf(left, sizeof(left), "File: %s %s ", buf->filename ? buf->filename : "Untitled",
-                 is_dirty);
+        snprintf(left, sizeof(left), "File: %s %s ", filename, is_dirty);
     }
 
     // Render Teks Kiri (Posisi Y Dinamis)

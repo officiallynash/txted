@@ -22,13 +22,14 @@ typedef struct SyntaxState SyntaxState;
 typedef struct DiagnosticList DiagnosticList;
 typedef struct FloatPrompt FloatPrompt;
 
-// define max tab
+// define max tab dan Max File GIT
 constexpr int MAX_TABS = 7;
 constexpr int MAX_FILE_GIT = 256;
 
 // Karena float harus di deklarasikan dari awal
 // Jadi ga bisa pakai constexpr,
 // Ya kita tahu bahwa font size itu dinamis berdasarkan settings
+// Untuk UI
 constexpr size_t TAB_H = 36;
 constexpr size_t STATUS_H = 26;
 constexpr size_t DIAG_PANEL_H = 26;
@@ -49,6 +50,7 @@ constexpr uint8_t TXTED_SHOW_GIT = (1U << 4);
 // Deskripsi Bitwise operation untuk pengganti
 // Flag yang memakai bool dari stdbool
 // Walaupun agak "ribet" tapi ini untuk menghemat memori
+// Untuk LSP_UI
 constexpr uint8_t LSP_ENABLE = (1U << 0);
 constexpr uint8_t LSP_VISIBLE = (1U << 1);
 constexpr uint8_t LSP_REQUEST_PENDING = (1U << 2);
@@ -67,6 +69,7 @@ constexpr int UNDO_TIMEOUT = 500;
 constexpr uint8_t BUF_IS_DIRTY = (1U << 0);
 constexpr uint8_t BUF_IS_DRAGGING = (1U << 1);
 constexpr uint8_t BUF_IS_SELECT = (1U << 2);
+constexpr uint8_t BUF_IS_SEARCH = (1U << 3);
 
 /**
  * Enum untuk penanda aksi insert atau delete
@@ -143,7 +146,6 @@ typedef struct {
  */
 typedef struct {
     char *path;
-    char *filename;
     char *language_id;
     String *str;
     SyntaxState *state;  // Tree-sitter

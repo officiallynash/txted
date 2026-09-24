@@ -40,7 +40,7 @@ extern int calculate_score(const char *query, const char *label);  // Deklarasi 
 /**
  * Fungsi pengganti strcasestr
  */
-static const char *my_strcasestr(const char *haystack, const char *needle, size_t needle_len) {
+const char *my_strcasestr(const char *haystack, const char *needle, size_t needle_len) {
     if (!*needle) return haystack;
     for (; *haystack; haystack++) {
         if (strncasecmp(haystack, needle, needle_len) == 0) return haystack;
@@ -415,21 +415,26 @@ void lsp_ui_update(BufManager *bufmgr, float dt) {
 
             char trigger_char = '\0';
             if (g_lsp_ui.last_character > 0) {
-                // Ambil 1 karakter tepat sebelum posisi kursor
-                char prev_c =
-                    Buffer_get_char_at(buf, g_lsp_ui.last_line, g_lsp_ui.last_character - 1);
+                // Hitung panjang prefix
+                size_t word_len = strlen(current_word);
 
-                // Cek apakah karakter tersebut merupakan trigger character LSP
-                if (prev_c == '.') {
-                    trigger_char = '.';
-                } else if (prev_c == '>' && g_lsp_ui.last_character > 1) {
-                    char prev_prev_c =
-                        Buffer_get_char_at(buf, g_lsp_ui.last_line, g_lsp_ui.last_character - 2);
-                    if (prev_prev_c == '-') {
-                        trigger_char = '>';  // Valid operator ->
+                if ((size_t)g_lsp_ui.last_character > word_len) {
+                    size_t trigger_col = (size_t)g_lsp_ui.last_character - word_len - 1;
+                    // Ambil 1 karakter tepat sebelum posisi kursor
+                    char prev_c = Buffer_get_char_at(buf, g_lsp_ui.last_line, trigger_col);
+
+                    // Cek apakah karakter tersebut merupakan trigger character LSP
+                    if (prev_c == '.') {
+                        trigger_char = '.';
+                    } else if (prev_c == '>' && trigger_col > 0) {
+                        char prev_prev_c =
+                            Buffer_get_char_at(buf, g_lsp_ui.last_line, trigger_col - 1);
+                        if (prev_prev_c == '-') {
+                            trigger_char = '>';  // Valid operator ->
+                        }
+                    } else if (prev_c == ':' || prev_c == '#') {
+                        trigger_char = prev_c;
                     }
-                } else if (prev_c == ':' || prev_c == '#') {
-                    trigger_char = prev_c;
                 }
             }
 

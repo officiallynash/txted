@@ -297,8 +297,12 @@ void draw_tabs(BufManager *bufmgr, Font font) {
         Buffer *buf = bufmgr->buf[i];
         if (!buf) continue;
 
+        char filename[256];  // Ambil filename tanpa Malloc dan Strdup
+        size_t len = get_display_name(buf->path, filename, sizeof(filename));
+        char *file = len > 0 ? filename : "Untitled";
+
         char text[128];
-        snprintf(text, sizeof(text), "%s%s", buf->filename ? buf->filename : "Untitled",
+        snprintf(text, sizeof(text), "%s%s", file,
                  HAS_FLAG(buf->buf_flags, BUF_IS_DIRTY) ? "[*]" : "");
 
         Vector2 nsize = MeasureTextEx(font, text, current_font_size, 1.0f);

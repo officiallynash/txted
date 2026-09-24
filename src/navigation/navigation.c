@@ -42,7 +42,6 @@ extern void Nav_undo(BufManager *bufmgr, Font font);        // Nav_undo (nav_uti
 extern void Nav_move_up(Buffer *buf, int visible_lines);    // Move up (nav_utils.c)
 extern void Nav_move_down(Buffer *buf, int visible_lines);  // Move down (nav_utils.c)
 extern void prompt_ui_config(BufManager *bufmgr, PromptType type);
-extern void Buffer_clamp_scroll(Buffer *buf, int visible_lines);
 
 static bool is_mouse_scroll = false;
 
@@ -64,7 +63,8 @@ static bool is_mouse_scroll = false;
         }                                               \
     } else {                                            \
         CLR_FLAG(buf->buf_flags, BUF_IS_SELECT);        \
-    }
+    }                                                   \
+    if (HAS_FLAG(buf->buf_flags, BUF_IS_SEARCH)) CLR_FLAG(buf->buf_flags, BUF_IS_SEARCH);
 
 /**
  * Mengatur kursor berdasarkan posisi mouse
@@ -90,9 +90,9 @@ static void set_cursor_from_mouse(BufManager *bufmgr, Vector2 mouse, int scroll_
         buf->cursor.y = target_y;
 
         // Hitung Kolom Target (X)
-        char line_text[1024];
+        char line_text[1024] = {0};
         size_t len = Buffer_get_line_text(buf, target_y, line_text, sizeof(line_text));
-        if (len > 0) {
+        if (len > 0) [[clang::likely]] {
             if (line_text[len - 1] == '\n') line_text[len - 1] = '\0';
 
             float space_w = MeasureTextEx(font, " ", FONT_SIZE, 1.0f).x;
@@ -751,7 +751,6 @@ void handle_input(BufManager *bufmgr, Font font) {
      * -------------------- */
     if (IsKeyPressed(KEY_ENTER) || IsKeyPressed(KEY_KP_ENTER)) {
         Syntax_auto_indent(buf);
-        Buffer_clamp_scroll(buf, visible_lines);
     }
 
     /* -------------------- *

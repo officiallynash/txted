@@ -38,8 +38,8 @@ static void BufManager_set_workspace(BufManager *bufmgr, const char *any_path) {
         return;
     }
 
-    free(bufmgr->path_root);  // Bersihkan dulu si path_root biar ga nimpa memory garbage
-    bufmgr->path_root = strdup(root);
+    free(bufmgr->path_root);   // Bersihkan dulu si path_root biar ga nimpa memory garbage
+    bufmgr->path_root = root;  // Langsung assign aja ga usah pakai lama
 
     if (chdir(bufmgr->path_root) != 0) {
         Notif_show("Tidak bisa ke Workspace", NOTIF_WARNING, 3.0f);
@@ -54,8 +54,6 @@ static void BufManager_set_workspace(BufManager *bufmgr, const char *any_path) {
         // Jalankan secara Async
         Git_fetch_file_async(bufmgr->path_root, active->path, active);
     }
-
-    free(root);  // Free agar tidak terjadi use after free
 }
 
 /**

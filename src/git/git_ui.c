@@ -8,7 +8,6 @@
 #include <stdio.h>
 #include <string.h>
 
-#include "buffer_manager.h"
 #include "git_client.h"
 #include "notification.h"
 #include "result.h"
@@ -115,6 +114,7 @@ void draw_gitpopup(BufManager *bufmgr, Font font) {
     float content_h = git.file_count * item_h;
     float max_scroll = content_h > list_h ? content_h - list_h : 0.0f;
 
+    // Clamp
     if (git_popup.list_scroll < 0) git_popup.list_scroll = 0;
     if (git_popup.list_scroll > max_scroll) git_popup.list_scroll = max_scroll;
 

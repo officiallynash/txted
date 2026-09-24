@@ -5,6 +5,8 @@
  */
 #ifndef UI_H
 #define UI_H
+#include <stddef.h>
+
 #include "types.h"
 
 EditorLayout get_editor_layout(BufManager *bufmgr);  // Layout manager
@@ -25,7 +27,7 @@ void draw_prompt_ui(BufManager *bufmgr, Font font);
 PromptBuffer *PromptBuffer_init(void);
 void PromptBuffer_insert(PromptBuffer *prb, size_t pos_idx, const char *ch);
 void PromptBuffer_delete(PromptBuffer *prb, size_t pos_idx);
-char *PromptBuffer_get(PromptBuffer *prb);
+size_t PromptBuffer_get(PromptBuffer *prb, char *out_buf, size_t out_buf_size);
 void PromptBuffer_destroy(BufManager *bufmgr);
 
 #endif

@@ -17,6 +17,7 @@ typedef uint32_t u32;
 
 // Balik ke constexpr, menurutku lebih aman daripada #define walau di cast ke u32
 constexpr u32 MAX_SIZE_LEAF = 1024;
+constexpr u32 ROPE_IS_LEAF = 1u << 0;
 
 String *String_new();            // Register awal
 size_t String_len(String *str);  // Register Awal
@@ -26,9 +27,13 @@ size_t String_len(String *str);  // Register Awal
  * Sengaja di Private karena ini inti dari Manipulasi teks di Buffer
  */
 struct String {
-    u8 *str;
-    u32 len, weight, ref_count;
-    struct String *left, *right;
+    struct String *left;   // 8 byte
+    struct String *right;  // 8 byte
+    u8 *str;               // 8 byte
+    u32 len;               // 4 byte
+    u32 weight;            // 4 byte
+    u32 ref_count;         // 4 byte
+    u32 flags;             // 4 byte
 };
 
 /**
@@ -59,6 +64,9 @@ static String *String_make_leaf(const char *text, size_t len) {
     new->ref_count = 1;
     new->left = nullptr;
     new->right = nullptr;
+
+    // Kasih flags
+    new->flags = ROPE_IS_LEAF;
 
     return new;
 }
@@ -125,7 +133,7 @@ static void String_split(String *root, size_t index, String **left, String **rig
         return;
     }
 
-    if (root->str) {
+    if (root->flags & ROPE_IS_LEAF) {
         // jika index kurang dari nol maka Kiri kosong
         if (index <= 0) {
             *left = nullptr;
@@ -174,7 +182,7 @@ static void String_collect(String *str, size_t start, size_t len, unsigned char 
     if (!str || len == 0) return;
 
     // Jika ini leaf
-    if (str->str) {
+    if (str->flags & ROPE_IS_LEAF) {
         // Proses hanya jika start kurang dari panjang
         if (start < str->len) {
             size_t bytes_to_copy = str->len - start;
@@ -208,7 +216,7 @@ static void String_collect(String *str, size_t start, size_t len, unsigned char 
  * Helper untuk menghitung kedalaman (height) dari Rope tree [PRIVATE API]
  */
 static size_t String_height(String *str) {
-    if (!str || str->str) return 1;  // Leaf bernilai height 1
+    if (!str || (str->flags & ROPE_IS_LEAF)) return 1;  // Leaf bernilai height 1
 
     size_t hl = String_height(str->left);
     size_t hr = String_height(str->right);
@@ -221,7 +229,7 @@ static size_t String_height(String *str) {
 static void String_collect_leaves(String *str, String **leaves, size_t *count) {
     if (!str) return;
 
-    if (str->str) {  // Jika ini leaf node
+    if (str->flags & ROPE_IS_LEAF) {  // Jika ini leaf node
         String_retain(str);
         leaves[*count] = str;
         (*count)++;
@@ -237,7 +245,7 @@ static void String_collect_leaves(String *str, String **leaves, size_t *count) {
  */
 static size_t String_count_leaves(String *str) {
     if (!str) return 0;
-    if (str->str) return 1;
+    if (str->flags & ROPE_IS_LEAF) return 1;
     return String_count_leaves(str->left) + String_count_leaves(str->right);
 }
 
@@ -300,7 +308,7 @@ void String_release(String *str) {
     String_release(str->right);
 
     // Jika str tidak kosong maka hapus
-    if (str->str != nullptr) {
+    if (str->flags & ROPE_IS_LEAF) {
         free(str->str);
     }
     // Hapus root atau String
@@ -317,12 +325,13 @@ void String_insert(String **str, size_t index, const char *text, size_t len) {
     // Jika teks melebihi 1024 maka bagi menjadi 2
     if (len > MAX_SIZE_LEAF) {
         // Hitung berapa banyak leaf yang dibutuhkan
-        size_t num_leaves = (len + MAX_SIZE_LEAF - 1) / MAX_SIZE_LEAF;
+        size_t num_leaves = (len + 1023) >> 10;
         String **leaves = malloc(num_leaves * sizeof(String *));
 
         size_t offset = 0;
         for (size_t i = 0; i < num_leaves; i++) {
-            size_t chunk_len = (len - offset > MAX_SIZE_LEAF) ? MAX_SIZE_LEAF : (len - offset);
+            size_t remaining = len - offset;
+            size_t chunk_len = (remaining > MAX_SIZE_LEAF) ? MAX_SIZE_LEAF : remaining;
             leaves[i] = String_make_leaf(text + offset, chunk_len);
             offset += chunk_len;
         }
@@ -382,7 +391,7 @@ void String_delete(String **str, size_t pos_idx, size_t len) {
     String_split(mid_and_right, len, &middle, &right);
 
     // Gabungkan bagian left + right (Abaikan 'middle' karena mau dihapus)
-    String *new_root = String_concat(left, right);
+    *str = String_concat(left, right);
 
     // Cleanup & Safety Release
     String_release(middle);         // Hapus teks yang dibuang dari memory
@@ -390,9 +399,7 @@ void String_delete(String **str, size_t pos_idx, size_t len) {
     String_release(left);           // Safety free ref count split
     String_release(right);          // Safety free ref count split
 
-    // Update pointer root utama
-    String_release(*str);
-    *str = new_root;
+    // Rebalance
     String_rebalance(str);
 }
 

@@ -181,10 +181,10 @@ Result Fs_open(const char *filename) {
     // Menggunakan temp buffer lalu pakai while fgets
     // ya tapi juga ada resiko. maka akan lebih bijak pakai calloc
     // dengan kombinasi Result atau error handling
-    unsigned char *buffer = calloc(
-        fsz + 1,
-        sizeof(unsigned char));  // Buat buffer file disini pakai u8, kalau di Rust itu Vec<u8>
-    if (!buffer) {
+    // Buat buffer file disini pakai u8, kalau di Rust itu Vec<u8>
+
+    unsigned char *buffer = calloc(fsz + 1, sizeof(unsigned char));
+    if (!buffer) [[clang::unlikely]] {
         return Err("Gagal alokasi Buffer!");
     }
 
@@ -195,11 +195,10 @@ Result Fs_open(const char *filename) {
     FileData *data = calloc(1, sizeof(FileData));  // Persiapan struct untuk penampung hasil
 
     data->data = buffer;
-    data->full_path = strdup(full_path);
+    data->full_path = full_path;  // Transfer ownership, free nanti di buffer
     data->size = got;
     data->is_success = true;
 
-    free(full_path);  // Safety free agar tidak memory leak dan use after free
     return Ok(data);
 }
 
@@ -236,7 +235,7 @@ Result Fs_create(const char *filename) {
 void Fs_metadata_free(FileData *fm) {
     if (!fm) return;
     if (fm->data != nullptr) free(fm->data);
-    if (fm->full_path != nullptr) free(fm->full_path);
+
     fm->size = 0;
     if (fm != nullptr) free(fm);
 }

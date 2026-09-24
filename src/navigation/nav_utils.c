@@ -376,7 +376,9 @@ void prompt_ui_config(BufManager *bufmgr, PromptType type) {
     bufmgr->prompt->selected_idx = 0;
     bufmgr->prompt->type = type;
 
-    char *pretty_cwd = bufmgr->path_root ? format_pretty_path(bufmgr->path_root) : strdup("Root");
+    char *cwd = getcwd(nullptr, 0);
+    char *pretty_cwd =
+        bufmgr->path_root ? format_pretty_path(bufmgr->path_root) : format_pretty_path(cwd);
 
     switch (type) {
         case PROMPT_TYPE_SAVE:
@@ -402,8 +404,12 @@ void prompt_ui_config(BufManager *bufmgr, PromptType type) {
         case PROMPT_TYPE_SEARCH: {
             bufmgr->prompt->icon_id = ICON_LENS_BIG;
             Buffer *buf = BufManager_getactive(bufmgr);
-            snprintf(bufmgr->prompt->label, sizeof(bufmgr->prompt->label), "Search (%s)",
-                     buf->filename);
+
+            // Ambil filename agak boilerplate tapi ga papa
+            char file[256];
+            size_t len = get_display_name(buf->path, file, sizeof(file));
+            char *filename = len > 0 ? file : "Untitled";
+            snprintf(bufmgr->prompt->label, sizeof(bufmgr->prompt->label), "Search (%s)", filename);
             break;
         }
         case PROMPT_TYPE_NEW_FOLDER:
@@ -416,6 +422,7 @@ void prompt_ui_config(BufManager *bufmgr, PromptType type) {
     bufmgr->prompt->prb = PromptBuffer_init();
 
     if (pretty_cwd) free(pretty_cwd);
+    if (cwd) free(cwd);
 }
 
 /**

@@ -23,6 +23,11 @@
 #include "types.h"
 #include "ui.h"
 
+// Macro untuk mempercepat conditional if pakai XOR
+#define XOR_CHECK(src, val) ((src ^ val) == 0)
+
+extern void Buffer_clamp_scroll(Buffer *buf, int visible_lines);  // nav_utils.c
+
 /**
  * Struct untuk bracket matching
  */
@@ -35,28 +40,51 @@ typedef struct {
 /**
  * Fungsi untuk expands Tab
  */
-static void expand_tabs(const char *src, char *dst, size_t dst_size, int tab_size) {
-    if (!src || !dst || dst_size == 0) return;
+static size_t expand_tabs(const char *src, char *dst, size_t dst_size, int tab_size) {
+    if (!src || !dst || dst_size == 0) return 0;
     if (tab_size <= 0) tab_size = 4;  // Fallback ke default jika tab_size invalid
 
     size_t j = 0;
     // Cadangkan 1 byte terakhir untuk null-terminator '\0'
     size_t max_j = dst_size - 1;
 
-    for (size_t i = 0; src[i] != '\0' && j < max_j; i++) {
-        if (src[i] == '\t') {
-            int spaces = tab_size - (int)(j % (size_t)tab_size);
+    // Agak boiler plate tapi ga papa, lagian sudah di kasih optimasi level compiler
+    if (tab_size == 4) [[clang::likely]] {
+        for (size_t i = 0; (src[i] ^ '\0') != 0 && j < max_j; i++) {
+            char c = src[i];
+            if (XOR_CHECK(c, '\t')) [[clang::unlikely]] {
+                // Bitwise pengganti (4 - (j % 4)):
+                // (j & 3) sama dengan (j % 4), jadi 4 - (j & 3)
+                size_t spaces = 4 - (j & 3);
 
-            while (spaces > 0 && j < max_j) {
-                dst[j++] = ' ';
-                spaces--;
+                // Clamp agar tidak overrun buffer
+                if (j + spaces > max_j) spaces = max_j - j;
+
+                // Memset jauh lebih kencang daripada while loop
+                memset(dst + j, ' ', spaces);
+                j += spaces;
+            } else {
+                dst[j++] = c;
             }
-        } else {
-            dst[j++] = src[i];
+        }
+    } else {
+        // Fallback untuk tab_size kustom (misal tab_size = 2 atau 8)
+        size_t ts = (tab_size <= 0) ? 4 : (size_t)tab_size;
+        for (size_t i = 0; (src[i] ^ '\0') != 0 && j < max_j; i++) {
+            char c = src[i];
+            if (XOR_CHECK(c, '\t')) {
+                size_t spaces = ts - (j % ts);
+                if (j + spaces > max_j) spaces = max_j - j;
+                memset(dst + j, ' ', spaces);
+                j += spaces;
+            } else {
+                dst[j++] = c;
+            }
         }
     }
 
     dst[j] = '\0';
+    return j;
 }
 
 /**
@@ -86,10 +114,11 @@ static void Draw_line_highlighted(Font font, const char *line_text, size_t len, 
                                   HighlightToken *tokens, int token_count, size_t line_start_byte) {
     float current_x = pos.x;
     float current_font_size = (float)font.baseSize;
-    float space_w = MeasureTextEx(font, " ", current_font_size, 1.0f).x;
-    int col_visual = 0;
+
     // Alokasi awal agar ga terus2an panggil MeasureText
     float glyph_w = MeasureTextEx(font, "A", current_font_size, 1.0f).x;
+    float space_w = MeasureTextEx(font, " ", current_font_size, 1.0f).x;
+    int col_visual = 0;
 
     for (size_t i = 0; i < len; i++) {
         size_t current_byte = line_start_byte + i;
@@ -103,8 +132,8 @@ static void Draw_line_highlighted(Font font, const char *line_text, size_t len, 
             }
         }
 
-        // Gambar karakter (dengan penanganan Tab)
-        if (line_text[i] == '\t') {
+        // Tangani tab & spasi visual langsung di sini
+        if (XOR_CHECK(line_text[i], '\t')) {
             int spaces = 4 - (col_visual % 4);
             current_x += space_w * spaces;
             col_visual += spaces;
@@ -112,7 +141,6 @@ static void Draw_line_highlighted(Font font, const char *line_text, size_t len, 
             char chunk[2] = {line_text[i], '\0'};
             DrawTextEx(font, chunk, (Vector2){current_x, pos.y}, current_font_size, 1.0f, color);
             current_x += glyph_w;
-
             col_visual++;
         }
     }
@@ -125,11 +153,12 @@ static void find_matching_brackets(Buffer *buf, BracketMatch *b1, BracketMatch *
     b1->found = false;
     b2->found = false;
 
-    char lines[1024];
+    // Ambil buffer yang lines
+    char lines[1024] = {0};
     size_t line_len = Buffer_get_line_text(buf, buf->cursor.y, lines, sizeof(lines));
     if (line_len == 0) return;
 
-    if (line_len > 0 && lines[line_len - 1] == '\n') line_len--;
+    if (line_len > 0 && XOR_CHECK(lines[line_len - 1], '\n')) line_len--;
 
     // Cek posisi kursor saat ini DAN 1 posisi di sebelah kiri kursor
     size_t check_cols[2] = {buf->cursor.x, (buf->cursor.x > 0) ? buf->cursor.x - 1 : 0};
@@ -141,8 +170,9 @@ static void find_matching_brackets(Buffer *buf, BracketMatch *b1, BracketMatch *
         size_t col = check_cols[i];
         if (col < line_len) {
             char ch = lines[col];
-            if (ch == '(' || ch == '{' || ch == '[' || ch == ')' || ch == '}' || ch == ']' ||
-                ch == '<' || ch == '>') {
+            if (XOR_CHECK(ch, '(') || XOR_CHECK(ch, '{') || XOR_CHECK(ch, '[') ||
+                XOR_CHECK(ch, ')') || XOR_CHECK(ch, '}') || XOR_CHECK(ch, ']') ||
+                XOR_CHECK(ch, '<') || XOR_CHECK(ch, '>')) {
                 c = ch;
                 target_col = col;
                 col_found = true;
@@ -160,16 +190,20 @@ static void find_matching_brackets(Buffer *buf, BracketMatch *b1, BracketMatch *
     /* ------------------------------------------------------------- *
      * PENCARIAN MAJU (OPENING BRACKET: (, {, [)
      * ------------------------------------------------------------- */
-    if (c == '(' || c == '{' || c == '[' || c == '<') {
-        char match_c = (c == '(') ? ')' : (c == '{') ? '}' : (c == '[') ? ']' : '>';
+    if (XOR_CHECK(c, '(') || XOR_CHECK(c, '{') || XOR_CHECK(c, '[') || XOR_CHECK(c, '<')) {
+        char match_c = XOR_CHECK(c, '(')   ? ')'
+                       : XOR_CHECK(c, '{') ? '}'
+                       : XOR_CHECK(c, '[') ? ']'
+                                           : '>';
+
         int depth = 1;
-        char l[1024];
+        char l[1024] = {0};
 
         for (size_t y = buf->cursor.y; y < buf->lines.line_count; y++) {
             size_t l_len = Buffer_get_line_text(buf, y, l, sizeof(l));
             if (l_len == 0) continue;
 
-            if (l_len > 0 && l[l_len - 1] == '\n') l_len--;
+            if (l_len > 0 && XOR_CHECK(l[l_len - 1], '\n')) l_len--;
 
             size_t start_x = (y == buf->cursor.y) ? target_col + 1 : 0;
             for (size_t x = start_x; x < l_len; x++) {
@@ -190,16 +224,19 @@ static void find_matching_brackets(Buffer *buf, BracketMatch *b1, BracketMatch *
     /* ------------------------------------------------------------- *
      * PENCARIAN MUNDUR (CLOSING BRACKET: ), }, ])
      * ------------------------------------------------------------- */
-    else if (c == ')' || c == '}' || c == ']' || c == '>') {
-        char match_c = (c == ')') ? '(' : (c == '}') ? '{' : (c == ']') ? '[' : '<';
+    else if (XOR_CHECK(c, ')') || XOR_CHECK(c, '}') || XOR_CHECK(c, ']') || XOR_CHECK(c, '>')) {
+        char match_c = XOR_CHECK(c, ')')   ? '('
+                       : XOR_CHECK(c, '}') ? '{'
+                       : XOR_CHECK(c, ']') ? '['
+                                           : '<';
         int depth = 1;
-        char l[1024];
+        char l[1024] = {0};
 
         for (int y = (int)buf->cursor.y; y >= 0; y--) {
             size_t l_len = Buffer_get_line_text(buf, (size_t)y, l, sizeof(l));
             if (l_len == 0) continue;
 
-            if (l_len > 0 && l[l_len - 1] == '\n') l_len--;
+            if (l_len > 0 && XOR_CHECK(l[l_len - 1], '\n')) l_len--;
 
             int start_x = (y == (int)buf->cursor.y) ? (int)target_col - 1 : (int)l_len - 1;
             for (int x = start_x; x >= 0; x--) {
@@ -226,7 +263,7 @@ static float get_text_column_x(Font font, const char *text, size_t len, size_t t
                                float start_x) {
     if (!text) return start_x;
 
-    if (len > 0 && text[len - 1] == '\n') len--;
+    if (len > 0 && XOR_CHECK(text[len - 1], '\n')) len--;
     if (target_col > len) target_col = len;
 
     float current_x = start_x;
@@ -238,7 +275,7 @@ static float get_text_column_x(Font font, const char *text, size_t len, size_t t
     int col_visual = 0;
 
     for (size_t i = 0; i < target_col; i++) {
-        if (text[i] == '\t') {
+        if (XOR_CHECK(text[i], '\t')) {
             int spaces = 4 - (col_visual % 4);
             current_x += space_w * spaces;
             col_visual += spaces;
@@ -262,6 +299,7 @@ void draw_editor(BufManager *bufmgr, Font font) {
     EditorLayout Layout = get_editor_layout(bufmgr);  // Ambil layout
 
     int max_vis = Layout.visible_lines;
+    Buffer_clamp_scroll(buf, max_vis);  // Clamp scroll_y dulu
 
     // Inisiasi Bracket matching
     BracketMatch b1;
@@ -322,15 +360,19 @@ void draw_editor(BufManager *bufmgr, Font font) {
     }
 
     // State stack teks
-    char text[1024];
+    char text[1024] = {0};
 
     for (size_t y = first; y < last; y++) {
         int py = editor_y + PAD_Y + (int)(y - first) * LINE_H;
 
-        // Active line
-        if (y == buf->cursor.y) {
+        bool is_search = HAS_FLAG(buf->buf_flags, BUF_IS_SEARCH);
+
+        // Active line, selama flag is search ga aktif
+        if (y == buf->cursor.y) [[clang::likely]] {
+            Color bg_active = is_search ? g_theme.cursor : g_theme.active_line;
+
             DrawRectangle(editor_x + GUTTER_W + 4, py, editor_w - GUTTER_W - 4, current_font_x + 2,
-                          g_theme.active_line);
+                          bg_active);
         }
 
         /* ------------------------------------------------------------- *
@@ -361,12 +403,12 @@ void draw_editor(BufManager *bufmgr, Font font) {
 
         /* Teks Editor */
         size_t len = Buffer_get_line_text(buf, y, text, sizeof(text));
-        if (len > 0) {
-            if (text[len - 1] == '\n') text[len - 1] = '\0';
-            if (text[len - 1] == '\r') text[len - 1] = '\0';
+        if (len > 0) [[clang::likely]] {
+            if (XOR_CHECK(text[len - 1], '\n')) text[len - 1] = '\0';
+            if (XOR_CHECK(text[len - 1], '\r')) text[len - 1] = '\0';
 
             char expanded_text[2048] = {0};
-            expand_tabs(text, expanded_text, sizeof(expanded_text), 4);
+            size_t expanded_len = expand_tabs(text, expanded_text, sizeof(expanded_text), 4);
 
             Vector2 pos = {(float)text_x, (float)py};
 
@@ -391,7 +433,7 @@ void draw_editor(BufManager *bufmgr, Font font) {
 
                     // Jika char_end mencakup '\n' di akhir baris, potong agar seleksi
                     // tidak kebablasan
-                    if (len > 0 && text[len - 1] == '\n') {
+                    if (len > 0 && XOR_CHECK(text[len - 1], '\n')) {
                         if (char_end > len - 1) char_end = len - 1;
                     }
 
@@ -463,8 +505,8 @@ void draw_editor(BufManager *bufmgr, Font font) {
                         format_time_ago(who, time_to_show, ghost_str, sizeof(ghost_str));
 
                         // Hitung X awal teks ghost (ujung kode + margin 32px)
-                        float line_w = get_text_column_x(font, expanded_text, len,
-                                                         strlen(expanded_text), (float)text_x);
+                        float line_w = get_text_column_x(font, expanded_text, expanded_len,
+                                                         expanded_len, (float)text_x);
                         float ghost_x = line_w + 32.0f;
 
                         // Hitung lebar teks ghost itu sendiri
@@ -528,32 +570,9 @@ void draw_editor(BufManager *bufmgr, Font font) {
      * Cursor
      * ---------------- */
     if (bufmgr->mode == WRITE && buf->cursor.y >= first && buf->cursor.y < last) {
-        char cur[1024];
+        char cur[1024] = {0};
         size_t clen = Buffer_get_line_text(buf, buf->cursor.y, cur, sizeof(cur));
-        float cx_float = (float)text_x;
-
-        if (clen > 0) {
-            if (cur[clen - 1] == '\n') clen--;
-
-            size_t target_x = buf->cursor.x;
-            if (target_x > clen) target_x = clen;
-
-            // Hitung koordinat X kursor secara presisi per-byte
-            float space_w = MeasureTextEx(font, " ", current_font_x, 1.0f).x;
-            int col_visual = 0;
-
-            for (size_t i = 0; i < target_x; i++) {
-                if (cur[i] == '\t') {
-                    int spaces = 4 - (col_visual % 4);
-                    cx_float += space_w * spaces;
-                    col_visual += spaces;
-                } else {
-                    char ch[2] = {cur[i], '\0'};
-                    cx_float += MeasureTextEx(font, ch, current_font_x, 1.0f).x;
-                    col_visual++;
-                }
-            }
-        }
+        float cx_float = get_text_column_x(font, cur, clen, buf->cursor.x, (float)text_x);
 
         int cx = (int)cx_float;
         int cy = editor_y + PAD_Y + (int)(buf->cursor.y - first) * LINE_H;

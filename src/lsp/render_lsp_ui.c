@@ -75,13 +75,10 @@ void draw_diagnostic_bar(BufManager *bufmgr, Font font) {
         return;
     }
 
-    if (buf->path) {  // Jika ada buf dan buf->path, langsung assign ke Diagnostic
-        char *uri = Path_to_uri(buf->path);
-        buf->diagnostic = lsp_get_diagnostics(uri);
-        free(uri);  // Jangan sampai lupa cokk
-    } else {        // Kalau kosong ya kasih NULL aja HAHAHAHA
-        buf->diagnostic = nullptr;
-    }
+    // Setting diagnostic
+    char *uri = buf->path ? Path_to_uri(buf->path) : nullptr;
+    buf->diagnostic = uri ? lsp_get_diagnostics(uri) : nullptr;
+    free(uri);  // Jangan sampai lupa cokk
 
     if (buf->diagnostic == nullptr || buf->diagnostic->count == 0) {
         if (buf->diagnostic) {  // Safety check biar ga ketimpa
@@ -162,11 +159,9 @@ void render_lsp_completion_ui(BufManager *bufmgr, Font font) {
 
     for (int i = 0; i < total_items; i++) {
         const char *label = filtered[i].item->label;
-        if (label) {
+        if (label) [[clang::likely]] {
             float text_w = MeasureTextEx(font, label, current_font_x, 1.0f).x;
-            if (text_w > max_label_width) {
-                max_label_width = text_w;
-            }
+            if (text_w > max_label_width) max_label_width = text_w;
         }
     }
 
