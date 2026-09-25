@@ -26,7 +26,12 @@ static float dialog_scroll_y = 0.0f;  // Menyimpan offset scroll dialog
 /* =============================
  * Internal State
  * ============================= */
+
+// Aktif menu harusnya masuk ke bufmgr, tapi karena kalau
+// dimasukkan ke bufmgr akan ribet ngurusin state
+// mending dipisah saja
 static int active_menu = -1;
+bool Is_active_menu(void) { return active_menu != -1; }
 
 typedef void (*MenuAction)(BufManager *bufmgr, Font font);
 typedef struct {
@@ -35,7 +40,6 @@ typedef struct {
     MenuAction action;
 } MenuItem;
 
-bool Is_active_menu(void) { return active_menu != -1; }
 typedef enum { DIALOG_NONE = 0, DIALOG_HELP, DIALOG_ABOUT } DialogState;
 static DialogState current_dialog = DIALOG_NONE;
 
@@ -297,7 +301,7 @@ void draw_tabs(BufManager *bufmgr, Font font) {
         Buffer *buf = bufmgr->buf[i];
         if (!buf) continue;
 
-        char filename[256];  // Ambil filename tanpa Malloc dan Strdup
+        char filename[256] = {0};  // Ambil filename tanpa Malloc dan Strdup
         size_t len = get_display_name(buf->path, filename, sizeof(filename));
         char *file = len > 0 ? filename : "Untitled";
 

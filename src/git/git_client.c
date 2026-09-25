@@ -23,6 +23,7 @@
 #include "notification.h"
 
 // Internal state
+// Lebih baik Git di taruh di Global, jangan menempel di dalam Buffer Manager
 GitStatus git = {};
 GitPopup git_popup = {};
 float GitStatus_timer = 0.0f;
@@ -35,6 +36,13 @@ typedef struct {
     char *file_path;
     Buffer *buf;
 } GitFetchArgs;
+
+// Struct untuk TimeInterval
+typedef struct {
+    double limit;     // Batas maksimal detik
+    double divisor;   // Pembagi untuk konversi unit
+    const char *fmt;  // Format string
+} TimeInterval;
 
 /**
  * Fungsi untuk Stage [PRIVATE API]
@@ -544,26 +552,33 @@ void format_time_ago(const char *author, double last_edited, char *out_str, size
     double diff = difftime(time(nullptr), (time_t)last_edited);
     if (diff < 0) diff = 0;
 
-    // Hirarki nama: Param -> Environment OS -> "You"
     const char *name = author;
-    if (!name || name[0] == '\0') name = getenv("USER");      // Linux / macOS
-    if (!name || name[0] == '\0') name = getenv("USERNAME");  // Windows
+    if (!name || name[0] == '\0') name = getenv("USER");
+    if (!name || name[0] == '\0') name = getenv("USERNAME");
     if (!name || name[0] == '\0') name = "You";
 
+    // Khusus "just now"
     if (diff < 60) {
         snprintf(out_str, max_len, "@%s, just now", name);
-    } else if (diff < 3'600) {  // < 1 jam
-        snprintf(out_str, max_len, "@%s, %dm ago", name, (int)(diff / 60));
-    } else if (diff < 86'400) {  // < 1 hari
-        snprintf(out_str, max_len, "@%s, %dh ago", name, (int)(diff / 3'600));
-    } else if (diff < 2'592'000) {  // < 30 hari (1 bulan)
-        snprintf(out_str, max_len, "@%s, %dd ago", name, (int)(diff / 86'400));
-    } else if (diff < 31'536'000) {  // < 365 hari (1 tahun)
-        int months = (int)(diff / 2'592'000);
-        snprintf(out_str, max_len, "@%s, %dmo ago", name, months);
-    } else {  // >= 1 tahun
-        int years = (int)(diff / 31'536'000);
-        snprintf(out_str, max_len, "@%s, %dy ago", name, years);
+        return;
+    }
+
+    // Tabel interval rentang waktu
+    static const TimeInterval intervals[] = {
+        {3'600.0, 60.0, "@%s, %dm ago"},               // < 1 jam
+        {86'400.0, 3'600.0, "@%s, %dh ago"},           // < 1 hari
+        {2'592'000.0, 86'400.0, "@%s, %dd ago"},       // < 30 hari
+        {31'536'000.0, 2'592'000.0, "@%s, %dmo ago"},  // < 365 hari
+        {0, 31'536'000.0, "@%s, %dy ago"}              // >= 1 tahun (default)
+    };
+
+    size_t count = sizeof(intervals) / sizeof(intervals[0]);
+    for (size_t i = 0; i < count; i++) {
+        if (intervals[i].limit == 0 || diff < intervals[i].limit) {
+            int val = (int)(diff / intervals[i].divisor);
+            snprintf(out_str, max_len, intervals[i].fmt, name, val);
+            return;
+        }
     }
 }
 

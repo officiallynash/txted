@@ -142,7 +142,7 @@ static void FileNode_add_child(FileNode *parent, FileNode *child) {
     if (!parent || !child) return;
 
     if (parent->child_count >= parent->child_capacity) {
-        int new_cap = (parent->child_capacity == 0) ? 8 : parent->child_capacity * 2;
+        int new_cap = (parent->child_capacity == 0) ? 8 : parent->child_capacity << 1;
         FileNode **new_children =
             (FileNode **)realloc(parent->children, sizeof(FileNode *) * new_cap);
         if (!new_children) return;

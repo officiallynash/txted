@@ -36,7 +36,7 @@ extern const char *my_strcasestr(const char *haystack, const char *needle, size_
  */
 LineIndex LineIndex_init() {
     LineIndex li;
-    li.capacity = 512;
+    li.capacity = 512;  // Inisiasi awal 512 menurutku sudah cukup
 
     // Ganti pakai calloc biar lebih aman karena memang hanya
     // dipanggil sekali ketika init aplikasi
@@ -67,7 +67,7 @@ static void LineIndex_insert(LineIndex *li, const char *data, size_t len) {
         size_t idx = (size_t)(nl - data);
 
         if (li->line_count >= li->capacity) [[clang::unlikely]] {
-            li->capacity *= 2;
+            li->capacity <<= 1;  // Pakai bitwise biar keren
             size_t *new_offset = realloc(li->offset, sizeof(size_t) * li->capacity);
             if (!new_offset) return;
             li->offset = new_offset;
@@ -84,8 +84,8 @@ static void LineIndex_insert(LineIndex *li, const char *data, size_t len) {
 static bool line_index_reserve(LineIndex *li, size_t needed) {
     if (needed <= li->capacity) return true;
 
-    size_t new_cap = li->capacity ? li->capacity * 2 : 512;
-    while (new_cap < needed) new_cap *= 2;
+    size_t new_cap = li->capacity ? (li->capacity << 1) : 512;
+    while (new_cap < needed) new_cap <<= 1;
 
     size_t *tmp = realloc(li->offset, new_cap * sizeof(size_t));
     if (!tmp) return false;
@@ -167,7 +167,7 @@ static bool line_index_delete_range(LineIndex *li, size_t pos, size_t deleted) {
 static void Buffer_ensure_git_meta_capacity(Buffer *buf, size_t needed_cap) {
     if (!buf || needed_cap <= buf->meta_capacity) return;
 
-    size_t new_cap = needed_cap * 2;
+    size_t new_cap = needed_cap << 1;
     LineGitMeta *new_git = realloc(buf->line_git, new_cap * sizeof(LineGitMeta));
     if (!new_git) return;
 
@@ -273,6 +273,7 @@ static bool lsp_apply_text_edits(Buffer *buf, TextEditList *edits) {
 
         // Rebuild line index (karena bisa banyak newline berubah)
         free(buf->lines.offset);
+
         buf->lines = LineIndex_init();
         size_t rope_len = String_len(buf->str);
 
@@ -970,7 +971,7 @@ void Buffer_free(Buffer *buf) {
 void Buffer_get_current_word(Buffer *buf, char *out_str, size_t max_len) {
     if (!buf || !out_str || max_len == 0) return;
     out_str[0] = '\0';
-    char lines[1024];
+    char lines[1024] = {0};
 
     // Ambil teks pada baris kursor saat ini
     size_t line_len = Buffer_get_line_text(buf, buf->cursor.y, lines, sizeof(lines));

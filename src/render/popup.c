@@ -16,6 +16,7 @@
 #include "buffer.h"
 #include "buffer_manager.h"
 #include "fs.h"
+#include "matches.h"
 #include "result.h"
 #include "rope.h"
 #include "theme.h"
@@ -37,8 +38,6 @@
 // Ini jauh lebih typesafe daripada sekedar define
 constexpr size_t MAX_SEARCH_HIT = 100;
 
-// Calculate score for fuzzy matching (LSP_UI)
-extern int calculate_score(const char *query, const char *label);
 // Nanti di eksekusi di navigation.c
 extern void FloatPrompt_execute(BufManager *bufmgr, char *text);
 void Buffer_goto_search_hit(BufManager *bufmgr, const SearchHitBuffer *hit);
@@ -123,11 +122,17 @@ static const char *TruncateText(Font font, const char *text, float max_width, fl
     if (width <= max_width) return text;  // Aman, gak usah dipotong
 
     size_t len = strlen(text);
-    if (len < 7) return text;
+    size_t start_idx = 0;
 
-    // Ambil beberapa karakter di depan dan di belakang
-    snprintf(buf, sizeof(buf), "...%s", text + (len - 35));  // Tampilkan 35 char terakhir
-    return buf;
+    while (start_idx < len) {
+        snprintf(buf, sizeof(buf), "..%s", text + start_idx);
+        if (MeasureTextEx(font, buf, font_size, 1.0f).x <= max_width) {
+            return buf;
+        }
+        start_idx++;
+    }
+
+    return text;
 }
 
 /**
@@ -145,8 +150,6 @@ void draw_prompt_ui(BufManager *bufmgr, Font font) {
     PromptBuffer *prb = bufmgr->prompt->prb;
     if (!prb) return;
 
-    const int MAX_MATCHES = 100;
-    int matches[MAX_MATCHES];
     size_t match_count = 0;
     int max_visible = 5;
 
@@ -161,7 +164,7 @@ void draw_prompt_ui(BufManager *bufmgr, Font font) {
     // =========================================================================
     // Item untuk Search dan Open dan Hitung Matches
     // =========================================================================
-    static FileList *open_file_list = NULL;
+    static FileList *open_file_list = nullptr;
     static PromptItem search_items[MAX_SEARCH_HIT];
     static SearchHitBuffer hits[MAX_SEARCH_HIT];
     static size_t search_items_count = 0;  // STABLE COUNT ANTAR FRAME
@@ -201,20 +204,23 @@ void draw_prompt_ui(BufManager *bufmgr, Font font) {
         items_count = search_items_count;
     }
 
+    // Alokasi awal ya null
+    FilteredItem *matches = nullptr;
+
     // Filter matching
     if (items != nullptr && items_count > 0) {
+        // Pakai calloc agar tidak overflow
+        matches = calloc(items_count, sizeof(FilteredItem));
+
         for (size_t i = 0; i < items_count; i++) {
-            if (current_text[0] == '\0' || calculate_score(current_text, items[i].label) > 0)
-                [[clang::likely]] {
-                if (match_count < MAX_MATCHES) {
-                    matches[match_count++] = (int)i;
-                } else {
-                    break;
-                }
-            }
+            matches[i].label = items[i].label;
+            matches[i].item_ptr = &items[i];
+            matches[i].original_idx = (int)i;
         }
     }
 
+    // Filter si Filtered item
+    match_count = filter_and_sort_completion(current_text, matches, items_count);
     int max_idx = (match_count > 0) ? (int)match_count - 1 : 0;
 
     // =========================================================================
@@ -300,7 +306,7 @@ void draw_prompt_ui(BufManager *bufmgr, Font font) {
 
             Rectangle item_rect = {modal_rect.x + 12.0f, start_y + (i * item_h),
                                    modal_rect.width - 24.0f, item_h - 2.0f};
-            PromptItem *item = &items[matches[item_idx]];
+            PromptItem *item = &items[matches[item_idx].original_idx];
 
             if (CheckCollisionPointRec(GetMousePosition(), item_rect)) [[clang::unlikely]] {
                 bufmgr->prompt->selected_idx = item_idx;
@@ -334,10 +340,11 @@ void draw_prompt_ui(BufManager *bufmgr, Font font) {
     // =========================================================================
     // Handling untuk keyboard dan Mouse
     // =========================================================================
+    // Enter
     if (enter_pressed) {
         bool condition = match_count > 0 && bufmgr->prompt->selected_idx < (int)match_count;
         if (bufmgr->prompt->type == PROMPT_TYPE_OPEN_FILE && condition) {
-            int original_idx = matches[bufmgr->prompt->selected_idx];
+            int original_idx = matches[bufmgr->prompt->selected_idx].original_idx;
             char *result = strdup(items[original_idx].label);
 
             CLEANUP_LOCAL_LIST();
@@ -345,7 +352,7 @@ void draw_prompt_ui(BufManager *bufmgr, Font font) {
             FloatPrompt_execute(bufmgr, result);
 
         } else if (bufmgr->prompt->type == PROMPT_TYPE_SEARCH && condition) {
-            int original_hit_idx = matches[bufmgr->prompt->selected_idx];
+            int original_hit_idx = matches[bufmgr->prompt->selected_idx].original_idx;
 
             // Ambil data hit sebelum prompt dibersihkan
             SearchHitBuffer target_hit = hits[original_hit_idx];
@@ -364,9 +371,10 @@ void draw_prompt_ui(BufManager *bufmgr, Font font) {
             FloatPrompt_execute(bufmgr, exec_text);
         }
 
-        return;
+        goto cleanup;
     }
 
+    // Escape
     if (IsKeyPressed(KEY_ESCAPE)) {
         CLEANUP_LOCAL_LIST();
         PromptBuffer_destroy(bufmgr);
@@ -374,7 +382,7 @@ void draw_prompt_ui(BufManager *bufmgr, Font font) {
         bufmgr->prompt->edit_mode = false;
         bufmgr->mode = WRITE;
 
-        return;
+        goto cleanup;
     }
 
     // Navigasi Keyboard
@@ -387,14 +395,17 @@ void draw_prompt_ui(BufManager *bufmgr, Font font) {
         }
     }
 
+    // Left
     if (IsKeyPressed(KEY_LEFT) || IsKeyPressedRepeat(KEY_LEFT)) {
         if (prb->len > 0 && prb->cursor_pos > 0) prb->cursor_pos--;
     }
 
+    // Right
     if (IsKeyPressed(KEY_RIGHT) || IsKeyPressedRepeat(KEY_RIGHT)) {
         if (prb->cursor_pos < prb->len) prb->cursor_pos++;
     }
 
+    // Up
     if (IsKeyPressed(KEY_UP) || IsKeyPressedRepeat(KEY_UP)) {
         if (bufmgr->prompt->selected_idx > 0) [[clang::likely]] {
             bufmgr->prompt->selected_idx--;
@@ -404,6 +415,7 @@ void draw_prompt_ui(BufManager *bufmgr, Font font) {
         }
     }
 
+    // Mouse
     float mouse_wheel = GetMouseWheelMove();
     if (mouse_wheel != 0) {
         if (mouse_wheel < 0 && bufmgr->prompt->scroll_offset + max_visible < (int)match_count) {
@@ -413,6 +425,7 @@ void draw_prompt_ui(BufManager *bufmgr, Font font) {
         }
     }
 
+    // Clamp
     if (bufmgr->prompt->selected_idx > max_idx) bufmgr->prompt->selected_idx = max_idx;
 
     // Render Caret/Cursor
@@ -433,6 +446,13 @@ void draw_prompt_ui(BufManager *bufmgr, Font font) {
         float caret_y = bounds.y + (bounds.height - caret_h) / 2.0f;
 
         DrawRectangleRec((Rectangle){caret_x, caret_y, 2.0f, caret_h}, g_theme.cursor);
+    }
+
+// Cleanup
+cleanup:
+    if (matches) {
+        free(matches);
+        matches = nullptr;
     }
 }
 

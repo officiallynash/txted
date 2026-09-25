@@ -350,7 +350,9 @@ typedef struct {
  * Struct penampung hasil dari Completion yang sudah di filter
  */
 typedef struct {
-    CompletionItem *item;
+    const char *label;
+    void *item_ptr;
+    int original_idx;
     int score;
 } FilteredItem;
 

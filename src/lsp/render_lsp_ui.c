@@ -13,19 +13,19 @@
 #include "buffer.h"
 #include "buffer_manager.h"
 #include "lsp.h"
+#include "matches.h"
 #include "result.h"
 #include "theme.h"
 #include "ui.h"
 
-extern int calculate_score(const char *query, const char *label);  // Menghitung score (lsp_ui.c)
-// Menghitung compare_scores (completion.c)
-extern int compare_scores(const void *a, const void *b);
 extern void lsp_clear_all_diagnostics(void);  // Clear Diagnostic [lsp_client.c]
+// render.c
+extern float advance_column_x(char c, int *col_visual, float glyph_w, float space_w);
 
 // Helper internal
 static float get_lsp_cursor_x(Font font, Buffer *buf, float text_x) {
     if (!buf) return text_x;
-    char line_text[1024];
+    char line_text[1024] = {0};
     size_t len = Buffer_get_line_text(buf, buf->cursor.y, line_text, sizeof(line_text));
     if (len == 0) return text_x;
 
@@ -38,15 +38,9 @@ static float get_lsp_cursor_x(Font font, Buffer *buf, float text_x) {
     float glyph_w = MeasureTextEx(font, "A", current_font_x, 1.0f).x;
     float space_w = MeasureTextEx(font, " ", current_font_x, 1.0f).x;
     int col_visual = 0;
+
     for (size_t i = 0; i < target_col; i++) {
-        if (line_text[i] == '\t') {
-            int spaces = 4 - (col_visual % 4);
-            current_x += space_w * spaces;
-            col_visual += spaces;
-        } else {
-            current_x += glyph_w;
-            col_visual++;
-        }
+        current_x += advance_column_x(line_text[i], &col_visual, glyph_w, space_w);
     }
 
     return current_x;
@@ -131,34 +125,24 @@ void render_lsp_completion_ui(BufManager *bufmgr, Font font) {
     Buffer_get_current_word(buf, current_word, sizeof(current_word));
 
     FilteredItem filtered[256] = {0};
-    int total_items = 0;
+    size_t total_items = 0;
 
     // FILTER DAN HITUNG SKOR
     for (size_t i = 0; i < g_lsp_ui.completion.count && total_items < 256; i++) {
-        const char *label = g_lsp_ui.completion.items[i].label;
-        if (!label) continue;
-
-        int score = calculate_score(current_word, label);
-        if (score >= 0) {
-            filtered[total_items].item = &g_lsp_ui.completion.items[i];
-            filtered[total_items].score = score;
-            total_items++;
-        }
+        filtered[i].label = g_lsp_ui.completion.items[i].label;
+        filtered[i].original_idx = (int)i;
+        filtered[i].item_ptr = &g_lsp_ui.completion.items[i];
     }
+    total_items = filter_and_sort_completion(current_word, filtered, g_lsp_ui.completion.count);
 
     if (total_items == 0) return;
-
-    // SORTING HANYA PADA ITEMS YANG TERFILTER
-    if (current_word[0] != '\0') {
-        qsort(filtered, total_items, sizeof(FilteredItem), compare_scores);
-    }
 
     // HITUNG LEBAR DINAMIS (BACA DARI FILTERED)
     float current_font_x = (float)font.baseSize;
     float max_label_width = 150.0f;
 
-    for (int i = 0; i < total_items; i++) {
-        const char *label = filtered[i].item->label;
+    for (size_t i = 0; i < total_items; i++) {
+        const char *label = g_lsp_ui.completion.items[i].label;
         if (label) [[clang::likely]] {
             float text_w = MeasureTextEx(font, label, current_font_x, 1.0f).x;
             if (text_w > max_label_width) max_label_width = text_w;
@@ -181,7 +165,7 @@ void render_lsp_completion_ui(BufManager *bufmgr, Font font) {
 
     float item_h = current_font_x + 8.0f;
     int max_visible = 7;
-    int display_count = total_items > max_visible ? max_visible : total_items;
+    int display_count = (int)total_items > max_visible ? max_visible : (int)total_items;
     float box_h = (display_count * item_h) + 12.0f;
 
     int start_index = 0;
@@ -226,9 +210,9 @@ void render_lsp_completion_ui(BufManager *bufmgr, Font font) {
 
     for (int i = 0; i < display_count; ++i) {
         int item_idx = start_index + i;
-        if (item_idx >= total_items) break;
+        if (item_idx >= (int)total_items) break;
 
-        const CompletionItem *it = filtered[item_idx].item;
+        const CompletionItem *it = &g_lsp_ui.completion.items[item_idx];
         const char *label = it->label ? it->label : "(null)";
 
         // Hitung Y dasar tiap item slot

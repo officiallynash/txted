@@ -245,7 +245,7 @@ void draw_gitpopup(BufManager *bufmgr, Font font) {
     free(temp_msg);
 
     // Gambarkan Kursor Berkedip (Blinking Cursor)
-    if (git_popup.edit_message && ((int)(GetTime() * 2) % 2) == 0) {
+    if (git_popup.edit_message && ((int)(GetTime() * 1.5f) & 1) == 0) {
         DrawRectangle((int)cursor_draw_x, (int)cursor_draw_y + 1, 2, (int)current_font_size - 1,
                       g_theme.cursor);
     }

@@ -40,7 +40,7 @@ static void sync_cursor_coords_from_pos(Buffer *buf) {
  * Helper internal untuk clamp x dan kalkulasi pos setelah pindah baris
  */
 static void sync_cursor_pos_from_coords(Buffer *buf) {
-    char text[1024];
+    char text[1024] = {0};
     size_t line_len = Buffer_get_line_text(buf, buf->cursor.y, text, sizeof(text));
     if (buf->cursor.x > line_len) buf->cursor.x = line_len;
     buf->cursor.cursor_pos = buf->lines.offset[buf->cursor.y] + buf->cursor.x;

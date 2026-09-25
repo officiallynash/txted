@@ -5,6 +5,7 @@
  */
 #include <stdbool.h>
 #include <stddef.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -24,6 +25,7 @@
 #include "ui.h"
 
 // Macro untuk mempercepat conditional if pakai XOR
+// Untuk memudahkan walaupun sama tapi bitwise lebih efisien
 #define XOR_CHECK(src, val) ((src ^ val) == 0)
 
 extern void Buffer_clamp_scroll(Buffer *buf, int visible_lines);  // nav_utils.c
@@ -38,6 +40,20 @@ typedef struct {
 } BracketMatch;
 
 /**
+ * Helper untuk hitung Column_x agar tidak boilerplate juga di export ke render lsp ui
+ */
+float advance_column_x(char c, int *col_visual, float glyph_w, float space_w) {
+    if (XOR_CHECK(c, '\t')) {
+        int spaces = 4 - (*col_visual & 3);
+        *col_visual += spaces;
+        return space_w * spaces;
+    }
+
+    (*col_visual)++;
+    return glyph_w;
+}
+
+/**
  * Fungsi untuk expands Tab
  */
 static size_t expand_tabs(const char *src, char *dst, size_t dst_size, int tab_size) {
@@ -50,7 +66,7 @@ static size_t expand_tabs(const char *src, char *dst, size_t dst_size, int tab_s
 
     // Agak boiler plate tapi ga papa, lagian sudah di kasih optimasi level compiler
     if (tab_size == 4) [[clang::likely]] {
-        for (size_t i = 0; (src[i] ^ '\0') != 0 && j < max_j; i++) {
+        for (size_t i = 0; !XOR_CHECK(src[i], '\0') && j < max_j; i++) {
             char c = src[i];
             if (XOR_CHECK(c, '\t')) [[clang::unlikely]] {
                 // Bitwise pengganti (4 - (j % 4)):
@@ -70,10 +86,11 @@ static size_t expand_tabs(const char *src, char *dst, size_t dst_size, int tab_s
     } else {
         // Fallback untuk tab_size kustom (misal tab_size = 2 atau 8)
         size_t ts = (tab_size <= 0) ? 4 : (size_t)tab_size;
-        for (size_t i = 0; (src[i] ^ '\0') != 0 && j < max_j; i++) {
+
+        for (size_t i = 0; !XOR_CHECK(src[i], '\0') && j < max_j; i++) {
             char c = src[i];
             if (XOR_CHECK(c, '\t')) {
-                size_t spaces = ts - (j % ts);
+                size_t spaces = ts - (j & (ts - 1));
                 if (j + spaces > max_j) spaces = max_j - j;
                 memset(dst + j, ' ', spaces);
                 j += spaces;
@@ -90,21 +107,39 @@ static size_t expand_tabs(const char *src, char *dst, size_t dst_size, int tab_s
 /**
  * Fungsi untuk mendapatkan warna token (Prefix matching untuk Tree-sitter)
  */
-static Color Get_token_color(const char *capture_name) {
+static inline Color Get_token_color(const char *capture_name) {
     if (!capture_name) return g_theme.text_normal;
 
-    if (strncmp(capture_name, "keyword", 7) == 0) return g_theme.keyword;    // Merah/Pink
-    if (strncmp(capture_name, "type", 4) == 0) return g_theme.type;          // Biru Muda
-    if (strncmp(capture_name, "string", 6) == 0) return g_theme.string;      // Kuning
-    if (strncmp(capture_name, "number", 6) == 0) return g_theme.number;      // Ungu
-    if (strncmp(capture_name, "float", 5) == 0) return g_theme.number;       // Ungu
-    if (strncmp(capture_name, "function", 8) == 0) return g_theme.function;  // Hijau
-    if (strncmp(capture_name, "method", 6) == 0) return g_theme.method;      // Hijau
-    if (strncmp(capture_name, "comment", 7) == 0) return g_theme.comment;    // Abu-abu
-    if (strncmp(capture_name, "constant", 8) == 0) return g_theme.constant;  // Ungu
-    if (strncmp(capture_name, "operator", 8) == 0) return g_theme.operator;  // Pink
-
-    return g_theme.text_normal;  // Fallback
+    // Cek huruf pertama untuk mempercepat matching sebelum strncmp
+    switch (capture_name[0]) {
+        case 'k':
+            if (strncmp(capture_name, "keyword", 7) == 0) return g_theme.keyword;
+            break;
+        case 't':
+            if (strncmp(capture_name, "type", 4) == 0) return g_theme.type;
+            break;
+        case 's':
+            if (strncmp(capture_name, "string", 6) == 0) return g_theme.string;
+            break;
+        case 'n':
+            if (strncmp(capture_name, "number", 6) == 0) return g_theme.number;
+            break;
+        case 'f':
+            if (strncmp(capture_name, "function", 8) == 0) return g_theme.function;
+            if (strncmp(capture_name, "float", 5) == 0) return g_theme.number;
+            break;
+        case 'm':
+            if (strncmp(capture_name, "method", 6) == 0) return g_theme.method;
+            break;
+        case 'c':
+            if (strncmp(capture_name, "comment", 7) == 0) return g_theme.comment;
+            if (strncmp(capture_name, "constant", 8) == 0) return g_theme.constant;
+            break;
+        case 'o':
+            if (strncmp(capture_name, "operator", 8) == 0) return g_theme.operator;
+            break;
+    }
+    return g_theme.text_normal;
 }
 
 /**
@@ -132,18 +167,39 @@ static void Draw_line_highlighted(Font font, const char *line_text, size_t len, 
             }
         }
 
-        // Tangani tab & spasi visual langsung di sini
-        if (XOR_CHECK(line_text[i], '\t')) {
-            int spaces = 4 - (col_visual % 4);
-            current_x += space_w * spaces;
-            col_visual += spaces;
-        } else {
+        // Tangani tab & spasi dengan advance column
+        if (!XOR_CHECK(line_text[i], '\t')) {
             char chunk[2] = {line_text[i], '\0'};
             DrawTextEx(font, chunk, (Vector2){current_x, pos.y}, current_font_size, 1.0f, color);
-            current_x += glyph_w;
-            col_visual++;
         }
+
+        current_x += advance_column_x(line_text[i], &col_visual, glyph_w, space_w);
     }
+}
+
+/**
+ * Hitung posisi X piksel dari kolom berbasis teks (Sama persis seperti kursor)
+ */
+static float get_text_column_x(Font font, const char *text, size_t len, size_t target_col,
+                               float start_x) {
+    if (!text) return start_x;
+
+    if (len > 0 && XOR_CHECK(text[len - 1], '\n')) len--;
+    if (target_col > len) target_col = len;
+
+    float current_x = start_x;
+    float current_font_x = (float)font.baseSize;  // Pakai float dari fontsize Base
+
+    // Alokasi awal si space_w dan glyph_w
+    float space_w = MeasureTextEx(font, " ", current_font_x, 1.0f).x;
+    float glyph_w = MeasureTextEx(font, "A", current_font_x, 1.0f).x;
+    int col_visual = 0;
+
+    for (size_t i = 0; i < target_col; i++) {
+        current_x += advance_column_x(text[i], &col_visual, glyph_w, space_w);
+    }
+
+    return current_x;
 }
 
 /**
@@ -257,37 +313,6 @@ static void find_matching_brackets(Buffer *buf, BracketMatch *b1, BracketMatch *
 }
 
 /**
- * Hitung posisi X piksel dari kolom berbasis teks (Sama persis seperti kursor)
- */
-static float get_text_column_x(Font font, const char *text, size_t len, size_t target_col,
-                               float start_x) {
-    if (!text) return start_x;
-
-    if (len > 0 && XOR_CHECK(text[len - 1], '\n')) len--;
-    if (target_col > len) target_col = len;
-
-    float current_x = start_x;
-    float current_font_x = (float)font.baseSize;  // Pakai float dari fontsize Base
-    float space_w = MeasureTextEx(font, " ", current_font_x, 1.0f).x;
-
-    // Alokasi awal
-    float glyph_w = MeasureTextEx(font, "A", current_font_x, 1.0f).x;
-    int col_visual = 0;
-
-    for (size_t i = 0; i < target_col; i++) {
-        if (XOR_CHECK(text[i], '\t')) {
-            int spaces = 4 - (col_visual % 4);
-            current_x += space_w * spaces;
-            col_visual += spaces;
-        } else {
-            current_x += glyph_w;
-            col_visual++;
-        }
-    }
-
-    return current_x;
-}
-/**
  * Fungsi untuk Draw main Editor
  */
 void draw_editor(BufManager *bufmgr, Font font) {
@@ -359,6 +384,9 @@ void draw_editor(BufManager *bufmgr, Font font) {
         }
     }
 
+    /* ------------------------- *
+     * Render Teks dan Sebagainya
+     * ------------------------- */
     // State stack teks
     char text[1024] = {0};
 
@@ -369,10 +397,72 @@ void draw_editor(BufManager *bufmgr, Font font) {
 
         // Active line, selama flag is search ga aktif
         if (y == buf->cursor.y) [[clang::likely]] {
+            // Background untuk hasil pencarian
             Color bg_active = is_search ? g_theme.cursor : g_theme.active_line;
 
             DrawRectangle(editor_x + GUTTER_W + 4, py, editor_w - GUTTER_W - 4, current_font_x + 2,
                           bg_active);
+        }
+
+        /* Line Number */
+        char num_str[16] = {0};
+        snprintf(num_str, sizeof(num_str), "%4zu", y + 1);
+        Color num_color = (y == buf->cursor.y) ? g_theme.line_num : g_theme.text_muted;
+        Vector2 num_pos = {(float)(editor_x + PAD_X - 8), (float)py};
+        DrawTextEx(font, num_str, num_pos, current_font_x, 1.0f, num_color);
+
+        /* Teks Editor */
+        size_t len = Buffer_get_line_text(buf, y, text, sizeof(text));
+        if (len == 0) continue;
+        if (XOR_CHECK(text[len - 1], '\n')) text[len - 1] = '\0';
+        if (XOR_CHECK(text[len - 1], '\r')) text[len - 1] = '\0';
+
+        char expanded_text[2048] = {0};
+        size_t expanded_len = expand_tabs(text, expanded_text, sizeof(expanded_text), 4);
+
+        Vector2 pos = {(float)text_x, (float)py};
+
+        /* ---------------- *
+         * Highlight Selection
+         * ---------------- */
+        if (HAS_FLAG(buf->buf_flags, BUF_IS_SELECT)) {
+            size_t sel_start, sel_len;
+
+            // Ambil Get selected start dan actual pos
+            Get_selected_position(buf, &sel_start, &sel_len);
+            size_t sel_end = sel_start + sel_len;
+
+            size_t line_start = buf->lines.offset[y];
+            size_t line_end = (y + 1 < buf->lines.line_count) ? buf->lines.offset[y + 1] : rope_len;
+
+            // Jika ada bagian baris ini yang masuk dalam seleksi
+            if (sel_start < line_end && sel_end > line_start) {
+                // Hitung indeks karakter relatif terhadap awal baris y
+                size_t char_start = (sel_start > line_start) ? (sel_start - line_start) : 0;
+                size_t char_end =
+                    (sel_end < line_end) ? (sel_end - line_start) : (line_end - line_start);
+
+                // Jika char_end mencakup '\n' di akhir baris, potong agar seleksi
+                // tidak kebablasan
+                if (len > 0 && XOR_CHECK(text[len - 1], '\n')) {
+                    if (char_end > len - 1) char_end = len - 1;
+                }
+
+                // helper yang SAMA DENGAN KURSOR untuk menghitung X1 dan X2
+                float x1 = get_text_column_x(font, text, len, char_start, (float)text_x);
+                float x2 = get_text_column_x(font, text, len, char_end, (float)text_x);
+
+                // Tambah ekstra lebar 8px jika seleksi mencakup newline (pindah baris)
+                if (sel_end >= line_end && y + 1 < buf->lines.line_count) {
+                    float space_w = MeasureTextEx(font, " ", current_font_x, 1.0f).x;
+                    x2 += space_w;
+                }
+
+                if (x2 > x1) {
+                    DrawRectangle((int)x1, py, (int)(x2 - x1), (int)current_font_x + 2,
+                                  g_theme.selection);
+                }
+            }
         }
 
         /* ------------------------------------------------------------- *
@@ -391,176 +481,105 @@ void draw_editor(BufManager *bufmgr, Font font) {
                         (meta.status == GUTTER_ADDED) ? g_theme.function : g_theme.warning;
                     DrawRectangleRounded(gutter_rect, 0.5f, 2, bar_color);
                 }
+
+                // Jika last_edited_at belum terisi oleh blame, gunakan waktu sekarang jika
+                // baris dimodifikasi
+                double time_to_show = meta.last_edited_at;
+                if (time_to_show == 0 && meta.status != GUTTER_NONE) {
+                    time_to_show = (double)time(nullptr);
+                }
+
+                if (time_to_show > 0) {
+                    char ghost_str[64] = {0};
+                    const char *who =
+                        meta.author[0] ? meta.author : (git.author[0] ? git.author : "You");
+
+                    format_time_ago(who, time_to_show, ghost_str, sizeof(ghost_str));
+
+                    // Hitung X awal teks ghost (ujung kode + margin 32px)
+                    float line_w = get_text_column_x(font, expanded_text, expanded_len,
+                                                     expanded_len, (float)text_x);
+                    float ghost_x = line_w + 32.0f;
+
+                    // Hitung lebar teks ghost itu sendiri
+                    float ghost_w = MeasureTextEx(font, ghost_str, current_font_x, 1.0f).x;
+
+                    // Cek apakah X akhir ghost text masih muat di dalam batas kanan editor
+                    // Beri sisa padding (misal 16px) biar gak terlalu mepet scrollbar/ujung
+                    // layar dan hanya render ketika y == cursor.y
+                    if ((ghost_x + ghost_w) < (float)(editor_x + editor_w - 16) &&
+                        y == buf->cursor.y) {
+                        DrawTextEx(font, ghost_str, (Vector2){ghost_x, (float)py}, current_font_x,
+                                   1.0f, g_theme.text_muted);
+                    }
+                }
             }
         }
 
-        /* Line Number */
-        char num_str[16] = {0};
-        snprintf(num_str, sizeof(num_str), "%4zu", y + 1);
-        Color num_color = (y == buf->cursor.y) ? g_theme.line_num : g_theme.text_muted;
-        Vector2 num_pos = {(float)(editor_x + PAD_X - 8), (float)py};
-        DrawTextEx(font, num_str, num_pos, current_font_x, 1.0f, num_color);
+        /* ----------------------------- *
+         * Bracket Coloring
+         * ----------------------------- */
+        if (b1.found && b2.found) {
+            Color match_bg = (Color){255, 255, 255, 35};
+            float space_w = MeasureTextEx(font, " ", current_font_x, 1.0f).x;
 
-        /* Teks Editor */
-        size_t len = Buffer_get_line_text(buf, y, text, sizeof(text));
-        if (len > 0) [[clang::likely]] {
-            if (XOR_CHECK(text[len - 1], '\n')) text[len - 1] = '\0';
-            if (XOR_CHECK(text[len - 1], '\r')) text[len - 1] = '\0';
-
-            char expanded_text[2048] = {0};
-            size_t expanded_len = expand_tabs(text, expanded_text, sizeof(expanded_text), 4);
-
-            Vector2 pos = {(float)text_x, (float)py};
-
-            /* ---------------- *
-             * Highlight Selection
-             * ---------------- */
-            if (HAS_FLAG(buf->buf_flags, BUF_IS_SELECT)) {
-                size_t sel_start, sel_len;
-                Get_selected_position(buf, &sel_start, &sel_len);
-                size_t sel_end = sel_start + sel_len;
-
-                size_t line_start = buf->lines.offset[y];
-                size_t line_end =
-                    (y + 1 < buf->lines.line_count) ? buf->lines.offset[y + 1] : rope_len;
-
-                // Jika ada bagian baris ini yang masuk dalam seleksi
-                if (sel_start < line_end && sel_end > line_start) {
-                    // Hitung indeks karakter relatif terhadap awal baris y
-                    size_t char_start = (sel_start > line_start) ? (sel_start - line_start) : 0;
-                    size_t char_end =
-                        (sel_end < line_end) ? (sel_end - line_start) : (line_end - line_start);
-
-                    // Jika char_end mencakup '\n' di akhir baris, potong agar seleksi
-                    // tidak kebablasan
-                    if (len > 0 && XOR_CHECK(text[len - 1], '\n')) {
-                        if (char_end > len - 1) char_end = len - 1;
-                    }
-
-                    // helper yang SAMA DENGAN KURSOR untuk menghitung X1 dan X2
-                    float x1 = get_text_column_x(font, text, len, char_start, (float)text_x);
-                    float x2 = get_text_column_x(font, text, len, char_end, (float)text_x);
-
-                    // Tambah ekstra lebar 8px jika seleksi mencakup newline (pindah baris)
-                    if (sel_end >= line_end && y + 1 < buf->lines.line_count) {
-                        float space_w = MeasureTextEx(font, " ", current_font_x, 1.0f).x;
-                        x2 += space_w;
-                    }
-
-                    if (x2 > x1) {
-                        DrawRectangle((int)x1, py, (int)(x2 - x1), (int)current_font_x + 2,
-                                      g_theme.selection);
-                    }
-                }
+            // Cek Kurung Pertama (b1)
+            if (y == b1.y) {
+                float x1 = get_text_column_x(font, text, len, b1.x, (float)text_x);
+                Rectangle r1 = {x1, (float)py, space_w, (float)LINE_H};
+                DrawRectangleRounded(r1, 0.2f, 4, match_bg);
+                DrawRectangleRoundedLines(r1, 0.2f, 4, g_theme.keyword);
             }
 
-            /* ----------------------------- *
-             * Bracket Coloring
-             * ----------------------------- */
-            if (b1.found && b2.found) {
-                Color match_bg = (Color){255, 255, 255, 35};
-                float space_w = MeasureTextEx(font, " ", current_font_x, 1.0f).x;
-
-                // Cek Kurung Pertama (b1)
-                if (y == b1.y) {
-                    float x1 = get_text_column_x(font, text, len, b1.x, (float)text_x);
-                    Rectangle r1 = {x1, (float)py, space_w, (float)LINE_H};
-                    DrawRectangleRounded(r1, 0.2f, 4, match_bg);
-                    DrawRectangleRoundedLines(r1, 0.2f, 4, g_theme.keyword);
-                }
-
-                // Cek Kurung Kedua (b2) - Dibuat 'if' terpisah agar kurung sebaris ter-render
-                // dua-duanya
-                if (y == b2.y) {
-                    float x2 = get_text_column_x(font, text, len, b2.x, (float)text_x);
-                    Rectangle r2 = {x2, (float)py, space_w, (float)LINE_H};
-                    DrawRectangleRounded(r2, 0.2f, 4, match_bg);
-                    DrawRectangleRoundedLines(r2, 0.2f, 4, g_theme.keyword);
-                }
+            // Cek Kurung Kedua (b2) - Dibuat 'if' terpisah agar kurung sebaris ter-render
+            // dua-duanya
+            if (y == b2.y) {
+                float x2 = get_text_column_x(font, text, len, b2.x, (float)text_x);
+                Rectangle r2 = {x2, (float)py, space_w, (float)LINE_H};
+                DrawRectangleRounded(r2, 0.2f, 4, match_bg);
+                DrawRectangleRoundedLines(r2, 0.2f, 4, g_theme.keyword);
             }
+        }
 
-            // Render teks dengan highlight [RENDER UTAMA]
-            Draw_line_highlighted(font, text, len, pos, tokens, token_count, buf->lines.offset[y]);
+        // Render teks dengan highlight [RENDER UTAMA]
+        Draw_line_highlighted(font, text, len, pos, tokens, token_count, buf->lines.offset[y]);
 
-            /* ------------------------------------------------------------- *
-             * RENDER INLINE GHOST TEXT
-             * ------------------------------------------------------------- */
-            // Ghost teks hanya tampil jika len dari rope + git host kurang dari win_w
-            if (git.is_repo) {
-                if (y == buf->cursor.y && buf->line_git && y < buf->meta_capacity) {
-                    LineGitMeta meta = buf->line_git[y];
+        /* ------------------------------------------------------------- *
+         * Render Squiggly / Underline Diagnostics
+         * ------------------------------------------------------------- */
+        if (buf->diagnostic && buf->diagnostic->count > 0) {
+            for (size_t i = 0; i < buf->diagnostic->count; i++) {
+                DiagnosticItem *item = &buf->diagnostic->items[i];
 
-                    // Jika last_edited_at belum terisi oleh blame, gunakan waktu sekarang jika
-                    // baris dimodifikasi
-                    double time_to_show = meta.last_edited_at;
-                    if (time_to_show == 0 && meta.status != GUTTER_NONE) {
-                        time_to_show = (double)time(nullptr);
+                // Cek apakah baris ini masuk dalam range diagnostik
+                if ((size_t)item->start_line <= y && y <= (size_t)item->end_line) {
+                    size_t col_start = (y == (size_t)item->start_line) ? item->start_char : 0;
+                    size_t col_end = (y == (size_t)item->end_line) ? item->end_char : len;
+
+                    // Jika range-nya 0 karakter, beri minimal 1 karakter agar garis
+                    // kelihatan
+                    if (col_start == col_end && col_start < len) {
+                        col_end = col_start + 1;
                     }
 
-                    if (time_to_show > 0) {
-                        char ghost_str[64] = {0};
-                        const char *who =
-                            meta.author[0] ? meta.author : (git.author[0] ? git.author : "You");
+                    float x1 = get_text_column_x(font, text, len, col_start, (float)text_x);
+                    float x2 = get_text_column_x(font, text, len, col_end, (float)text_x);
 
-                        format_time_ago(who, time_to_show, ghost_str, sizeof(ghost_str));
-
-                        // Hitung X awal teks ghost (ujung kode + margin 32px)
-                        float line_w = get_text_column_x(font, expanded_text, expanded_len,
-                                                         expanded_len, (float)text_x);
-                        float ghost_x = line_w + 32.0f;
-
-                        // Hitung lebar teks ghost itu sendiri
-                        float ghost_w = MeasureTextEx(font, ghost_str, current_font_x, 1.0f).x;
-
-                        // Cek apakah X akhir ghost text masih muat di dalam batas kanan editor
-                        // Beri sisa padding (misal 16px) biar gak terlalu mepet scrollbar/ujung
-                        // layar
-                        if ((ghost_x + ghost_w) < (float)(editor_x + editor_w - 16)) {
-                            DrawTextEx(font, ghost_str, (Vector2){ghost_x, (float)py},
-                                       current_font_x, 1.0f, g_theme.text_muted);
-                        }
+                    // Tentukan warna garis sesuai severity
+                    Color diag_color = g_theme.error;  // Fallback / Error (Severity 1)
+                    if (item->severity == 2) {
+                        diag_color = g_theme.warning;  // Warning
+                    } else if (item->severity >= 3) {
+                        // Info / Hint (Pakai warna g_theme yang sesuai)
+                        diag_color = g_theme.info;
                     }
-                }
-            }
 
-            /* ------------------------------------------------------------- *
-             * Render Squiggly / Underline Diagnostics
-             * ------------------------------------------------------------- */
-            if (buf->diagnostic && buf->diagnostic->count > 0) {
-                for (size_t i = 0; i < buf->diagnostic->count; i++) {
-                    DiagnosticItem *item = &buf->diagnostic->items[i];
+                    // Gambar garis bawah tipis tepat di bawah teks
+                    int line_y = py + (int)current_font_x;  // + 1 aja kali ya biar ga ada jarak
+                    int line_w = (int)(x2 - x1);
+                    if (line_w <= 0) line_w = (int)MeasureTextEx(font, " ", current_font_x, 1.0f).x;
 
-                    // Cek apakah baris ini masuk dalam range diagnostik
-                    if ((size_t)item->start_line <= y && y <= (size_t)item->end_line) {
-                        size_t col_start = (y == (size_t)item->start_line) ? item->start_char : 0;
-                        size_t col_end = (y == (size_t)item->end_line) ? item->end_char : len;
-
-                        // Jika range-nya 0 karakter, beri minimal 1 karakter agar garis
-                        // kelihatan
-                        if (col_start == col_end && col_start < len) {
-                            col_end = col_start + 1;
-                        }
-
-                        float x1 = get_text_column_x(font, text, len, col_start, (float)text_x);
-                        float x2 = get_text_column_x(font, text, len, col_end, (float)text_x);
-
-                        // Tentukan warna garis sesuai severity
-                        Color diag_color = g_theme.error;  // Fallback / Error (Severity 1)
-                        if (item->severity == 2) {
-                            diag_color = g_theme.warning;  // Warning
-                        } else if (item->severity >= 3) {
-                            // Info / Hint (Pakai warna g_theme yang sesuai)
-                            diag_color = g_theme.info;
-                        }
-
-                        // Gambar garis bawah tipis tepat di bawah teks
-                        int line_y = py + (int)current_font_x;  // + 1 aja kali ya biar ga ada jarak
-                        int line_w = (int)(x2 - x1);
-                        if (line_w <= 0)
-                            line_w = (int)MeasureTextEx(font, " ", current_font_x, 1.0f).x;
-
-                        DrawRectangle((int)x1, line_y, line_w, 1, diag_color);
-                    }
+                    DrawRectangle((int)x1, line_y, line_w, 1, diag_color);
                 }
             }
         }
@@ -572,6 +591,10 @@ void draw_editor(BufManager *bufmgr, Font font) {
     if (bufmgr->mode == WRITE && buf->cursor.y >= first && buf->cursor.y < last) {
         char cur[1024] = {0};
         size_t clen = Buffer_get_line_text(buf, buf->cursor.y, cur, sizeof(cur));
+        while (clen > 0 && (cur[clen - 1] == '\n' || cur[clen - 1] == '\r')) {
+            cur[--clen] = '\0';
+        }
+
         float cx_float = get_text_column_x(font, cur, clen, buf->cursor.x, (float)text_x);
 
         int cx = (int)cx_float;
@@ -580,7 +603,7 @@ void draw_editor(BufManager *bufmgr, Font font) {
         int cursor_w = 2;
         int cursor_h = (int)current_font_x + 2;
 
-        if (((int)(GetTime() * 1.5f) % 2) == 0) {
+        if (((int)(GetTime() * 1.5f) & 1) == 0) {  // Setara dengan % 2
             DrawRectangle(cx, cy, cursor_w, cursor_h, g_theme.cursor);
         }
     }

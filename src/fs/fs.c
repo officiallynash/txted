@@ -80,7 +80,7 @@ char *format_pretty_path(const char *path) {
  */
 static void FileList_add(FileList *list, const char *path) {
     if (list->item_count >= list->capacity) {
-        list->capacity *= 2;
+        list->capacity <<= 1;
         list->items = realloc(list->items, list->capacity * sizeof(PromptItem));
         if (!list->items) return;
     }

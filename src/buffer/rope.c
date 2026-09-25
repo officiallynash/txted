@@ -115,7 +115,7 @@ static String *String_build_balanced(String **leaves, size_t start, size_t end) 
     if (start >= end) return nullptr;
     if (end - start == 1) return leaves[start];
 
-    size_t mid = start + (end - start) / 2;
+    size_t mid = (start + end) >> 1;
 
     String *left = String_build_balanced(leaves, start, mid);
     String *right = String_build_balanced(leaves, mid, end);
@@ -229,8 +229,8 @@ static size_t String_height(String *str) {
 static void String_collect_leaves(String *str, String **leaves, size_t *count) {
     if (!str) return;
 
+    // Ga perlu di kasih ref_count karena operasi balancing melibatkan split
     if (str->flags & ROPE_IS_LEAF) {  // Jika ini leaf node
-        String_retain(str);
         leaves[*count] = str;
         (*count)++;
         return;
@@ -257,26 +257,39 @@ void String_rebalance(String **root) {
 
     size_t height = String_height(*root);
     size_t leaf_count = String_count_leaves(*root);
+
+    // Pohon kecil tidak perlu di-rebalance
     if (leaf_count <= 2) return;
 
-    // Cek Threshold Height: Jika tinggi tree > 32 atau jauh melebihi 2 * log2(leaf_count)
-    // Berarti tree sudah miring/unbalanced
-    size_t max_allowed_height = 32;
-    if (height < max_allowed_height) return;
+    // Hitung ideal height (~ log2(leaf_count))
+    size_t temp = leaf_count;
+    size_t log2_leaves = 0;
+    while (temp >>= 1) log2_leaves++;
 
-    // Alokasi array sementara untuk kumpulkan semua leaf
+    // Rebalance HANYA jika tinggi pohon melebihi 2x lipat tinggi ideal
+    // ATAU sudah menyentuh batas kritis kedalaman rekursi (misal 28)
+    size_t threshold = (log2_leaves + 1) << 1;  // Setara dengan (log2_leaves * 2) + 2
+    if (height <= threshold && height < 28) return;
+
+    // Alokasi temporary array
     String **leaves = malloc(leaf_count * sizeof(String *));
-    size_t count = 0;
+    if (!leaves) return;
 
-    // Kumpulkan leaf
+    size_t count = 0;
+    // Collect tanpa merusak / menambah ref_count
     String_collect_leaves(*root, leaves, &count);
 
-    // Rebuild menjadi tree seimbang baru
+    // Bikin struktur internal node baru yang seimbang.
+    // PENTING: String_build_balanced memanggil String_concat yang melakukan String_retain
+    // pada tiap element di array leaves. Ini BENAR karena leaves akan punya parent baru!
     String *new_root = String_build_balanced(leaves, 0, count);
     free(leaves);
 
-    // Release root lama dan ganti dengan root baru
+    // Release struktur tree LAMA (ini akan me-release internal node lama
+    // DAN menguraikan 1 ref_count lama dari masing-masing leaf)
     String_release(*root);
+
+    // Tetapkan root baru
     *root = new_root;
 }
 
@@ -407,6 +420,7 @@ void String_delete(String **str, size_t pos_idx, size_t len) {
  * Fungsi untuk Get Public API
  */
 Bytes String_get(String *str, size_t index, size_t len) {
+    // Result default itu nullptr dan len 0
     Bytes result = {.data = nullptr, .len = 0};
 
     if (!str || index >= str->len || len == 0) return result;

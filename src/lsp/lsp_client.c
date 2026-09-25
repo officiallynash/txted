@@ -4,7 +4,6 @@
  * SPDX-License-Identifier: MIT
  */
 #include <cJSON.h>
-#include <ctype.h>
 #include <limits.h>
 #include <pthread.h>
 #include <stdbool.h>
@@ -19,10 +18,14 @@
 #include "buffer_manager.h"
 #include "fs.h"
 #include "lsp.h"
+#include "matches.h"
 #include "notification.h"
 #include "raylib.h"
 #include "result.h"
 #include "rope.h"
+
+// Untuk optimasi compare byte
+#define XOR_CHECK(src, val) ((src ^ val) == 0)
 
 // Struct untuk transport lsp did change
 typedef struct {
@@ -35,48 +38,6 @@ typedef struct {
 float lsp_debounce_timer = 0.0f;  // Debounce
 LspUiState g_lsp_ui = {};
 
-extern int calculate_score(const char *query, const char *label);  // Deklarasi awal
-
-/**
- * Fungsi pengganti strcasestr
- */
-const char *my_strcasestr(const char *haystack, const char *needle, size_t needle_len) {
-    if (!*needle) return haystack;
-    for (; *haystack; haystack++) {
-        if (strncasecmp(haystack, needle, needle_len) == 0) return haystack;
-    }
-
-    return nullptr;
-}
-/**
- * Fungsi untuk membandingkan score untuk qsort [PRIVATE API]
- */
-int compare_scores(const void *a, const void *b) {
-    FilteredItem *itemA = (FilteredItem *)a;
-    FilteredItem *itemB = (FilteredItem *)b;
-    return itemB->score - itemA->score;  // Descending (tertinggi di atas)
-}
-
-/**
- * Fungsi untuk memfilter dan mengurutkan completion [PRIVATE API]
- */
-void filter_and_sort_completion(CompletionList *list, const char *query) {
-    FilteredItem filtered[256] = {};
-    int filtered_count = 0;
-
-    for (size_t i = 0; i < list->count && filtered_count < 256; i++) {
-        int score = calculate_score(query, list->items[i].label);
-        if (score >= 0) {
-            filtered[filtered_count].item = &list->items[i];
-            filtered[filtered_count].score = score;
-            filtered_count++;
-        }
-    }
-
-    // Sort daftar pilihan berdasarkan score tertinggi!
-    qsort(filtered, filtered_count, sizeof(FilteredItem), compare_scores);
-}
-
 /**
  * Mengambil item completion aktif sesuai urutan hasil Filter & Sort [PUBLIC API]
  */
@@ -84,93 +45,28 @@ CompletionItem *lsp_get_selected_item(const char *current_word) {
     if (!HAS_FLAG(g_lsp_ui.lsp_flag, LSP_HAS_COMP) || g_lsp_ui.completion.count == 0)
         return nullptr;
 
-    FilteredItem filtered[256] = {};
+    FilteredItem filtered[256] = {0};
     int total_items = 0;
 
     for (size_t i = 0; i < g_lsp_ui.completion.count && total_items < 256; i++) {
         const char *label = g_lsp_ui.completion.items[i].label;
         if (!label) continue;
 
-        int score = calculate_score(current_word, label);
-        if (score >= 0) {
-            filtered[total_items].item = &g_lsp_ui.completion.items[i];
-            filtered[total_items].score = score;
-            total_items++;
+        // FILTER DAN HITUNG SKOR
+        for (size_t i = 0; i < g_lsp_ui.completion.count && total_items < 256; i++) {
+            filtered[i].label = g_lsp_ui.completion.items[i].label;
+            filtered[i].original_idx = (int)i;
+            filtered[i].item_ptr = &g_lsp_ui.completion.items[i];
         }
+
+        total_items = filter_and_sort_completion(current_word, filtered, g_lsp_ui.completion.count);
     }
 
-    if (total_items == 0) return nullptr;
-
-    if (current_word[0] != '\0') {
-        qsort(filtered, total_items, sizeof(FilteredItem), compare_scores);
-    }
-
-    if (g_lsp_ui.selected_index < 0 || g_lsp_ui.selected_index >= total_items) {
+    if (g_lsp_ui.selected_index < 0 || g_lsp_ui.selected_index >= total_items || total_items == 0) {
         return nullptr;
     }
 
-    return filtered[g_lsp_ui.selected_index].item;
-}
-
-/**
- * Fungsi Scoring Pintar (Exact Case Bonus + Fuzzy)
- */
-int calculate_score(const char *query, const char *label) {
-    if (!query || !label) return -1;
-    if (query[0] == '\0') return 0;
-
-    size_t q_len = strlen(query);
-    size_t l_len = strlen(label);
-
-    if (q_len > l_len) return -1;
-
-    // Prefix Matching
-    if (strncasecmp(label, query, q_len) == 0) {
-        int base_score = 1000;
-        if (strncmp(label, query, q_len) == 0) base_score += 500;
-        base_score -= (int)(l_len - q_len);
-        return base_score;
-    }
-
-    // Substring Matching
-    const char *found = my_strcasestr(label, query, q_len);
-    if (found != nullptr) {
-        int base_score = 500;
-        if (strncmp(found, query, q_len) == 0) base_score += 250;
-        base_score -= (int)(found - label) * 10;
-        base_score -= (int)(l_len - q_len);
-        return base_score;
-    }
-
-    // Fuzzy matching untuk Snake_case & CamelCase
-    int score = 0;
-    const char *q = query;
-    const char *l = label;
-
-    while (*q && *l) {
-        bool match = false;
-
-        if (*q == *l) {
-            score += 25;  // Exact case match
-            match = true;
-        } else if (tolower((unsigned char)*q) == tolower((unsigned char)*l)) {
-            score += 10;  // Case-insensitive match
-            match = true;
-        }
-
-        if (match) {
-            if (l == label || *(l - 1) == '_' || isupper((unsigned char)*l)) {
-                score += 40;
-            }
-            q++;
-        }
-        l++;
-    }
-
-    if (*q != '\0') return -1;  // Tidak semua karakter query ketemu
-
-    score -= (int)(l_len - q_len);
-    return score;
+    return filtered[g_lsp_ui.selected_index].item_ptr;
 }
 
 /**
@@ -230,7 +126,7 @@ void Ensure_lsp_init(LangConfig *lang, const char *filepath) {
         }
 
         size_t len = strlen(temp_uri);
-        if (len > 0 && temp_uri[len - 1] != '/') {
+        if (len > 0 && !XOR_CHECK(temp_uri[len - 1], '/')) {
             g_lsp_ui.root_uri = calloc(len + 2, sizeof(char));
             snprintf(g_lsp_ui.root_uri, len + 2, "%s/", temp_uri);
             free(temp_uri);
@@ -385,7 +281,7 @@ void lsp_ui_update(BufManager *bufmgr, float dt) {
 
         lsp_ui_clear_completion();
 
-        if (g_lsp_ui.uri[0] != '\0') {
+        if (!XOR_CHECK(g_lsp_ui.uri[0], '\0')) {
             Bytes text = String_get(buf->str, 0, rope_len);
             if (text.data) {
                 // Buat malloc
@@ -424,21 +320,21 @@ void lsp_ui_update(BufManager *bufmgr, float dt) {
                     char prev_c = Buffer_get_char_at(buf, g_lsp_ui.last_line, trigger_col);
 
                     // Cek apakah karakter tersebut merupakan trigger character LSP
-                    if (prev_c == '.') {
+                    if (XOR_CHECK(prev_c, '.')) {
                         trigger_char = '.';
-                    } else if (prev_c == '>' && trigger_col > 0) {
+                    } else if (XOR_CHECK(prev_c, '>') && trigger_col > 0) {
                         char prev_prev_c =
                             Buffer_get_char_at(buf, g_lsp_ui.last_line, trigger_col - 1);
-                        if (prev_prev_c == '-') {
+                        if (XOR_CHECK(prev_prev_c, '-')) {
                             trigger_char = '>';  // Valid operator ->
                         }
-                    } else if (prev_c == ':' || prev_c == '#') {
+                    } else if (XOR_CHECK(prev_c, ':') || XOR_CHECK(prev_c, '#')) {
                         trigger_char = prev_c;
                     }
                 }
             }
 
-            if (trigger_char == '\0' && strlen(current_word) < 1) {
+            if (XOR_CHECK(trigger_char, '\0') && strlen(current_word) < 1) {
                 lsp_ui_hide();
                 return;
             }

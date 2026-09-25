@@ -106,7 +106,7 @@ static void set_cursor_from_mouse(BufManager *bufmgr, Vector2 mouse, int scroll_
             while (char_idx < orig_len) {
                 float advance = space_w;
                 if (line_text[char_idx] == '\t') {
-                    int spaces = 4 - (col_visual % 4);
+                    int spaces = 4 - (col_visual & 3);  // Setara dengan col_visual % 4
                     advance = space_w * spaces;
                     col_visual += spaces;
                 } else {
@@ -152,7 +152,7 @@ void sync_cursor_line_from_pos(Buffer *buf) {
     size_t low = 0;
     size_t high = buf->lines.line_count;
     while (low < high) {
-        size_t mid = low + (high - low) / 2;
+        size_t mid = (high + low) >> 1;  // Setara dengan low + (high - low) / 2
         if (buf->lines.offset[mid] <= pos) {
             low = mid + 1;
         } else {
