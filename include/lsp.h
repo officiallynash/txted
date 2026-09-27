@@ -52,6 +52,5 @@ void Ensure_lsp_init(LangConfig *lang, const char *filepath);
 void render_lsp_completion_ui(BufManager *bufmgr, Font font);
 void render_signature_help(BufManager *bufmgr, Font font);
 void render_hover_ui(BufManager *bufmgr, Font font);
-CompletionItem *lsp_get_selected_item(const char *current_word);
 
 #endif

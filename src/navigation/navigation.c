@@ -24,11 +24,10 @@
 #include "types.h"
 #include "ui.h"
 
-extern bool Is_active_menu(void);  // Check if active menu is open (tab.c)
-extern int calculate_score(const char *query, const char *label);  // Extern (lsp_ui.c)
-extern void Nav_move_left(Buffer *buf);                            // Nav_move_left (nav_utils.c)
-extern void Nav_move_right(Buffer *buf);                           // Nav_move_right (nav_utils.c)
-extern void Nav_mouse_scroll(BufManager *bufmgr, float wheel);     // Nav_mouse_scroll (nav_utils.c)
+extern bool Is_active_menu(void);         // Check if active menu is open (tab.c)
+extern void Nav_move_left(Buffer *buf);   // Nav_move_left (nav_utils.c)
+extern void Nav_move_right(Buffer *buf);  // Nav_move_right (nav_utils.c)
+extern void Nav_mouse_scroll(BufManager *bufmgr, float wheel);  // Nav_mouse_scroll (nav_utils.c)
 extern void Nav_goto_end_of_line(Buffer *buf);              // Nav_goto_end_of_line (nav_utils.c)
 extern void Nav_jump_down(Buffer *buf, int visible_lines);  // Nav_jump_down (nav_utils.c)
 extern void Nav_jump_up(Buffer *buf, int visible_lines);    // Nav_jump_up (nav_utils.c)
@@ -42,6 +41,7 @@ extern void Nav_undo(BufManager *bufmgr, Font font);        // Nav_undo (nav_uti
 extern void Nav_move_up(Buffer *buf, int visible_lines);    // Move up (nav_utils.c)
 extern void Nav_move_down(Buffer *buf, int visible_lines);  // Move down (nav_utils.c)
 extern void prompt_ui_config(BufManager *bufmgr, PromptType type);
+extern void Buffer_clamp_scroll(Buffer *buf, int visible_lines);  // Clamp scroll_y
 
 static bool is_mouse_scroll = false;
 
@@ -94,18 +94,22 @@ static void set_cursor_from_mouse(BufManager *bufmgr, Vector2 mouse, int scroll_
         size_t len = Buffer_get_line_text(buf, target_y, line_text, sizeof(line_text));
         if (len > 0) [[clang::likely]] {
             if (line_text[len - 1] == '\n') line_text[len - 1] = '\0';
+            len = strlen(line_text);  // Update si len
 
             float space_w = MeasureTextEx(font, " ", FONT_SIZE, 1.0f).x;
             float click_x_rel = mouse.x - Layout.text_screen_x;
 
             float current_visual_x = 0.0f;
             size_t char_idx = 0;
-            size_t orig_len = strlen(line_text);
             int col_visual = 0;
 
-            while (char_idx < orig_len) {
+            while (char_idx < len) {
+                int codepoint_bytes = 0;
+                int codepoint = GetCodepointNext(&line_text[char_idx], &codepoint_bytes);
+                if (codepoint_bytes <= 0) break;
+
                 float advance = space_w;
-                if (line_text[char_idx] == '\t') {
+                if (codepoint == '\t') {
                     int spaces = 4 - (col_visual & 3);  // Setara dengan col_visual % 4
                     advance = space_w * spaces;
                     col_visual += spaces;
@@ -263,7 +267,7 @@ static int Syntax_get_line_indent_delta(SyntaxState *state, uint32_t byte_pos) {
 /**
  * Fungsi untuk Smart Auto Indent dengan Integrasi Tree-sitter indents.scm
  */
-static void Syntax_auto_indent(Buffer *active_buf) {
+static void Syntax_auto_indent(Buffer *active_buf, int visible_lines) {
     if (!active_buf || !active_buf->str) return;
 
     size_t pos = active_buf->cursor.cursor_pos;
@@ -311,6 +315,7 @@ static void Syntax_auto_indent(Buffer *active_buf) {
 
         active_buf->cursor.cursor_pos = pos + strlen(str1);
         sync_cursor_line_from_pos(active_buf);
+        Buffer_clamp_scroll(active_buf, visible_lines);
         Bytes_free(&prev_char);
         Bytes_free(&next_char);
         return;
@@ -353,6 +358,7 @@ static void Syntax_auto_indent(Buffer *active_buf) {
 
     active_buf->cursor.cursor_pos = pos + strlen(insert_str);
     sync_cursor_line_from_pos(active_buf);
+    Buffer_clamp_scroll(active_buf, visible_lines);
 
     (void)ts_delta;
     Bytes_free(&prev_char);
@@ -378,6 +384,7 @@ void handle_mouse_input(BufManager *bufmgr, Font font) {
     // penanda apakah lsp aktif
     bool lsp_enable =
         HAS_FLAG(g_lsp_ui.lsp_flag, LSP_VISIBLE) || HAS_FLAG(g_lsp_ui.lsp_flag, LSP_ENABLE);
+
     /* -------------------------------- *
      * Scroll
      * -------------------------------- */
@@ -442,6 +449,7 @@ void handle_mouse_input(BufManager *bufmgr, Font font) {
         }
     }
 }
+
 /**
  * Input handling [PUBLIC API]
  **/
@@ -457,6 +465,7 @@ void handle_input(BufManager *bufmgr, Font font) {
     if (!buf) return;
 
     bool is_shift = IsKeyDown(KEY_LEFT_SHIFT) || IsKeyDown(KEY_RIGHT_SHIFT);
+    bool has_comp = HAS_FLAG(g_lsp_ui.lsp_flag, LSP_HAS_COMP);
     bool lsp_enable =
         HAS_FLAG(g_lsp_ui.lsp_flag, LSP_VISIBLE) || HAS_FLAG(g_lsp_ui.lsp_flag, LSP_ENABLE);
 
@@ -612,6 +621,54 @@ void handle_input(BufManager *bufmgr, Font font) {
         }
     }
 
+    /*
+     * LSP HANDLING
+     */
+    bool lsp_hand = false;
+    if (lsp_enable && has_comp) {
+        int total_items =
+            (g_lsp_ui.item_count > 0) ? g_lsp_ui.item_count : (int)g_lsp_ui.completion.count;
+
+        if (total_items > 0) {
+            if (IsKeyPressed(KEY_DOWN) || IsKeyPressedRepeat(KEY_DOWN)) {
+                g_lsp_ui.selected_index++;
+                if (g_lsp_ui.selected_index >= total_items) {
+                    g_lsp_ui.selected_index = total_items - 1;
+                }
+                lsp_hand = true;
+            } else if (IsKeyPressed(KEY_UP) || IsKeyPressedRepeat(KEY_UP)) {
+                g_lsp_ui.selected_index--;
+                if (g_lsp_ui.selected_index < 0) {
+                    g_lsp_ui.selected_index = 0;
+                }
+                lsp_hand = true;
+            } else if (IsKeyPressed(KEY_ENTER) || IsKeyPressed(KEY_KP_ENTER)) {
+                if (g_lsp_ui.filtered && g_lsp_ui.selected_index < g_lsp_ui.item_count &&
+                    g_lsp_ui.item_count >= 0) {
+                    CompletionItem *selected = g_lsp_ui.filtered[g_lsp_ui.selected_index].item_ptr;
+                    if (selected) {
+                        lsp_apply_completion(buf, selected);
+                    }
+                }
+                // else if (g_lsp_ui.completion.items &&
+                //            g_lsp_ui.selected_index < (int)g_lsp_ui.completion.count) {
+                //     lsp_apply_completion(buf,
+                //     &g_lsp_ui.completion.items[g_lsp_ui.selected_index]);
+                // }
+
+                lsp_ui_hide();
+                lsp_hand = true;
+            } else if (IsKeyPressed(KEY_ESCAPE)) {
+                lsp_ui_hide();
+                lsp_hand = true;
+            }
+        }
+    }
+
+    if (lsp_hand) {
+        goto sync_scroll;
+    }
+
     /* -------------------- *
      * Keyboard Input
      * -------------------- */
@@ -673,59 +730,6 @@ void handle_input(BufManager *bufmgr, Font font) {
         key = GetCharPressed();
     }
 
-    /* -------------------- *
-     * Handling Navigation / Enter saat LSP Popup Aktif
-     * -------------------- */
-    bool lsp_handled = false;  // Flag penanda agar input tidak diproses dua kali
-
-    if (lsp_enable && HAS_FLAG(g_lsp_ui.lsp_flag, LSP_HAS_COMP)) {
-        char current_word[256] = {0};
-        Buffer_get_current_word(buf, current_word, sizeof(current_word));
-
-        int total_items = 0;
-        for (size_t i = 0; i < g_lsp_ui.completion.count && total_items < 256; i++) {
-            const char *label = g_lsp_ui.completion.items[i].label;
-            if (!label) continue;
-
-            if (calculate_score(current_word, label) >= 0) {
-                total_items++;
-            }
-        }
-
-        if (total_items > 0) {
-            if (IsKeyPressed(KEY_DOWN)) {
-                g_lsp_ui.selected_index++;
-                if (g_lsp_ui.selected_index >= total_items) {
-                    g_lsp_ui.selected_index = 0;
-                }
-                lsp_handled = true;
-            } else if (IsKeyPressed(KEY_UP)) {
-                g_lsp_ui.selected_index--;
-                if (g_lsp_ui.selected_index < 0) {
-                    g_lsp_ui.selected_index = total_items - 1;
-                }
-                lsp_handled = true;
-            } else if (IsKeyPressed(KEY_ENTER) || IsKeyPressed(KEY_KP_ENTER) ||
-                       IsKeyPressed(KEY_TAB)) {
-                CompletionItem *items = lsp_get_selected_item(current_word);
-                if (items) {
-                    lsp_apply_completion(buf, items);
-                }
-
-                lsp_ui_hide();
-                lsp_handled = true;
-            } else if (IsKeyPressed(KEY_ESCAPE)) {
-                lsp_ui_hide();
-                lsp_handled = true;
-            }
-        }
-    }
-
-    // JIKA INPUT SUDAH DIMAKAN LSP, LOMPATI NAVIGASI EDITOR BIASA!
-    if (lsp_handled) {
-        goto sync_scroll;
-    }
-
     // Matiin signature help dan Hover
     if (IsKeyPressed(KEY_ESCAPE)) {
         // Escape untuk menutup Hover
@@ -740,8 +744,8 @@ void handle_input(BufManager *bufmgr, Font font) {
         // Escape untuk menutup Signature
         if (HAS_FLAG(g_lsp_ui.lsp_flag, LSP_HAS_SIG) ||
             HAS_FLAG(g_lsp_ui.lsp_flag, LSP_SIG_PENDING)) {
-            HAS_FLAG(g_lsp_ui.lsp_flag, LSP_HAS_SIG);
-            HAS_FLAG(g_lsp_ui.lsp_flag, LSP_SIG_PENDING);
+            CLR_FLAG(g_lsp_ui.lsp_flag, LSP_HAS_SIG);
+            CLR_FLAG(g_lsp_ui.lsp_flag, LSP_SIG_PENDING);
             lsp_free_signature_help(&g_lsp_ui.signature_help);
         }
     }
@@ -750,7 +754,7 @@ void handle_input(BufManager *bufmgr, Font font) {
      * Handling Enter
      * -------------------- */
     if (IsKeyPressed(KEY_ENTER) || IsKeyPressed(KEY_KP_ENTER)) {
-        Syntax_auto_indent(buf);
+        Syntax_auto_indent(buf, visible_lines);
     }
 
     /* -------------------- *
@@ -758,6 +762,7 @@ void handle_input(BufManager *bufmgr, Font font) {
      * -------------------- */
     if (IsKeyPressed(KEY_TAB) && !IsKeyDown(KEY_LEFT_CONTROL) && !IsKeyDown(KEY_RIGHT_SHIFT)) {
         Buffer_insert(buf, buf->cursor.cursor_pos, "\t");
+        sync_cursor_line_from_pos(buf);
     }
 
     /* -------------------- *
@@ -809,8 +814,6 @@ void handle_input(BufManager *bufmgr, Font font) {
      * -------------------- */
 sync_scroll:
     if (!is_mouse_scroll) {
-        if ((int)buf->cursor.y < buf->scroll_y) buf->scroll_y = (int)buf->cursor.y;
-        if ((int)buf->cursor.y >= buf->scroll_y + visible_lines)
-            buf->scroll_y = (int)buf->cursor.y - visible_lines + 1;
+        Buffer_clamp_scroll(buf, visible_lines);
     }
 }

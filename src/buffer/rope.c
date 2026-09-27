@@ -360,8 +360,11 @@ void String_insert(String **str, size_t index, const char *text, size_t len) {
     // Jika bukan left dan right langsung assign ke Root
     if (*str && (*str)->len == 0 && (*str)->str == nullptr && (*str)->left == nullptr &&
         (*str)->right == nullptr) {
-        free(*str);
+        String *old_root = *str;  // Pindah ownership dulu
+
+        // Assign ke str
         *str = inserted;
+        String_release(old_root);
         return;
     }
 
@@ -369,10 +372,13 @@ void String_insert(String **str, size_t index, const char *text, size_t len) {
     // ada left dan right
     String *left = nullptr;
     String *right = nullptr;
+    String *old_str = *str;
 
     String_split(*str, index, &left, &right);  // Split
     *str = String_concat(String_concat(left, inserted), right);
-    String_rebalance(str);
+
+    String_release(old_str);
+    String_rebalance(str);  // Rebalance
 
     // Safety free
     String_release(left);
@@ -396,6 +402,7 @@ void String_delete(String **str, size_t pos_idx, size_t len) {
     String *mid_and_right = nullptr;
     String *middle = nullptr;
     String *right = nullptr;
+    String *old_str = *str;
 
     // Potong bagian kiri [0 ... pos_idx]
     String_split(*str, pos_idx, &left, &mid_and_right);
@@ -405,6 +412,7 @@ void String_delete(String **str, size_t pos_idx, size_t len) {
 
     // Gabungkan bagian left + right (Abaikan 'middle' karena mau dihapus)
     *str = String_concat(left, right);
+    String_release(old_str);
 
     // Cleanup & Safety Release
     String_release(middle);         // Hapus teks yang dibuang dari memory

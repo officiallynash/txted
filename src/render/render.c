@@ -28,8 +28,6 @@
 // Untuk memudahkan walaupun sama tapi bitwise lebih efisien
 #define XOR_CHECK(src, val) ((src ^ val) == 0)
 
-extern void Buffer_clamp_scroll(Buffer *buf, int visible_lines);  // nav_utils.c
-
 /**
  * Struct untuk bracket matching
  */
@@ -324,7 +322,6 @@ void draw_editor(BufManager *bufmgr, Font font) {
     EditorLayout Layout = get_editor_layout(bufmgr);  // Ambil layout
 
     int max_vis = Layout.visible_lines;
-    Buffer_clamp_scroll(buf, max_vis);  // Clamp scroll_y dulu
 
     // Inisiasi Bracket matching
     BracketMatch b1;

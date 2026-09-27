@@ -50,20 +50,23 @@ static void sync_cursor_pos_from_coords(Buffer *buf) {
  * Helper untuk Scroll_y
  */
 void Buffer_clamp_scroll(Buffer *buf, int visible_lines) {
-    if (!buf) return;
-    int total_lines = (int)buf->lines.line_count;
-    int max_scroll = total_lines - visible_lines;
+    if (!buf || !buf->lines.offset) return;
 
+    int total_lines = (int)buf->lines.line_count;
+    if (total_lines <= 0) return;
+
+    int max_scroll = total_lines - visible_lines;
     if (max_scroll < 0) max_scroll = 0;
 
+    // Geser scroll_y jika kursor berada di luar batas bawah area layar
     if ((int)buf->cursor.y >= buf->scroll_y + visible_lines) {
         buf->scroll_y = (int)buf->cursor.y - visible_lines + 1;
     }
+    // Geser scroll_y jika kursor berada di atas area layar
     if ((int)buf->cursor.y < buf->scroll_y) {
         buf->scroll_y = (int)buf->cursor.y;
     }
 
-    // Buat jaga-jaga kalau ada case spesial
     if (buf->scroll_y < 0) buf->scroll_y = 0;
     if (buf->scroll_y > max_scroll) buf->scroll_y = max_scroll;
 }
@@ -192,6 +195,7 @@ void Nav_jump_up(Buffer *buf, int visible_lines) {
  * Membuat folder
  */
 void Nav_create_folder(BufManager *bufmgr, char *folder_name) {
+    // Untuk buat folder pastikan dulu berada di Workspace atau cwd
     char *cwd = getcwd(nullptr, 0);
     if (cwd) {
         if (!folder_name) {

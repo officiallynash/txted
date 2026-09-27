@@ -207,7 +207,7 @@ void draw_prompt_ui(BufManager *bufmgr, Font font) {
     // Alokasi awal ya null
     FilteredItem *matches = nullptr;
 
-    // Filter matching
+    // Filter matching dan masukkan data ke FilteredItem
     if (items != nullptr && items_count > 0) {
         // Pakai calloc agar tidak overflow
         matches = calloc(items_count, sizeof(FilteredItem));

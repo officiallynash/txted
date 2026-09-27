@@ -377,6 +377,10 @@ typedef struct {
     int last_character;
     uint8_t lsp_flag;
 
+    FilteredItem *filtered;
+    int item_count;
+    int item_capacity;
+
     // Completion
     CompletionList completion;
     PopupSide completion_side;
@@ -389,7 +393,6 @@ typedef struct {
     // Hover
     HoverInfo hover;
     float hover_scroll;
-
 } LspUiState;
 
 /**

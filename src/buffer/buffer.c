@@ -48,6 +48,23 @@ LineIndex LineIndex_init() {
 }
 
 /**
+ * Helper untuk memastikan kapasitas LineIndex cukup [PRIVATE API]
+ */
+static bool line_index_reserve(LineIndex *li, size_t needed) {
+    if (needed <= li->capacity) return true;
+
+    size_t new_cap = li->capacity ? (li->capacity << 1) : 512;
+    while (new_cap < needed) new_cap <<= 1;
+
+    size_t *tmp = realloc(li->offset, new_cap * sizeof(size_t));
+    if (!tmp) return false;
+
+    li->offset = tmp;
+    li->capacity = new_cap;
+    return true;
+}
+
+/**
  * Line Index Insert [PRIVATE API]
  */
 static void LineIndex_insert(LineIndex *li, const char *data, size_t len) {
@@ -66,6 +83,7 @@ static void LineIndex_insert(LineIndex *li, const char *data, size_t len) {
 
         size_t idx = (size_t)(nl - data);
 
+        // Pengecekan manual untuk realloc capacity
         if (li->line_count >= li->capacity) [[clang::unlikely]] {
             li->capacity <<= 1;  // Pakai bitwise biar keren
             size_t *new_offset = realloc(li->offset, sizeof(size_t) * li->capacity);
@@ -76,23 +94,6 @@ static void LineIndex_insert(LineIndex *li, const char *data, size_t len) {
         li->offset[li->line_count++] = idx + 1;
         ptr = nl + 1;  // Lanjut scan setelah karakter '\n'
     }
-}
-
-/**
- * Helper untuk memastikan kapasitas LineIndex cukup [PRIVATE API]
- */
-static bool line_index_reserve(LineIndex *li, size_t needed) {
-    if (needed <= li->capacity) return true;
-
-    size_t new_cap = li->capacity ? (li->capacity << 1) : 512;
-    while (new_cap < needed) new_cap <<= 1;
-
-    size_t *tmp = realloc(li->offset, new_cap * sizeof(size_t));
-    if (!tmp) return false;
-
-    li->offset = tmp;
-    li->capacity = new_cap;
-    return true;
 }
 
 /*
@@ -212,10 +213,11 @@ static void sync_syntax_tree(Buffer *buf) {
     size_t rope_len = String_len(buf->str);
     Bytes full_text = String_get(buf->str, 0, rope_len);
     if (full_text.data) [[clang::likely]] {
-        if (buf->state->tree) ts_tree_delete(buf->state->tree);
-
+        TSTree *old_tree = buf->state->tree;
         buf->state->tree = ts_parser_parse_string(buf->state->parser, nullptr,
                                                   (const char *)full_text.data, (uint32_t)rope_len);
+        // Baru delete
+        ts_tree_delete(old_tree);
         Bytes_free(&full_text);
     }
 }

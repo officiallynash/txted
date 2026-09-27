@@ -434,8 +434,8 @@ void draw_dialog_modal(BufManager *bufmgr, Font font) {
 
     float card_w = 480.0f;
     float card_h = 380.0f;
-    float card_x = (screen_w - card_w) / 2.0f;
-    float card_y = (screen_h - card_h) / 2.0f;
+    float card_x = (screen_w - card_w) / 2.0f;  // /2.0f
+    float card_y = (screen_h - card_h) / 2.0f;  // /2.0f
     Rectangle card_rect = {card_x, card_y, card_w, card_h};
 
     DrawRectangleRec(card_rect, g_theme.bg_card);

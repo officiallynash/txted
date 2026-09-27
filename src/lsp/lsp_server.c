@@ -805,117 +805,79 @@ void lsp_free_text_edits(TextEditList *list) {
 static void *reader_func(void *arg) {
     (void)arg;
 
-    size_t capacity = 16384;
-    char *buf = calloc(capacity, sizeof(char));
-    if (!buf) return nullptr;
-
-    size_t buf_len = 0;
-
     while (running) {
-        if (buf_len + 4096 > capacity) {
-            capacity *= 2;
-            buf = realloc(buf, capacity);
+        // Baca Header baris per baris sampai ketemu "\r\n\r\n"
+        char header_buf[1024];
+        size_t header_idx = 0;
+        int content_length = -1;
+
+        while (running && header_idx < sizeof(header_buf) - 1) {
+            ssize_t n = read(stdout_fd, &header_buf[header_idx], 1);
+            if (n <= 0) break;
+            header_idx++;
+            header_buf[header_idx] = '\0';
+
+            if (header_idx >= 4 && strcmp(&header_buf[header_idx - 4], "\r\n\r\n") == 0) {
+                break;  // Header selesai!
+            }
         }
 
-        ssize_t n = read(stdout_fd, buf + buf_len, capacity - buf_len - 1);
-        if (n <= 0) break;
+        if (!running) break;
 
-        if (buf_len > capacity - 1) {
-            fprintf(stderr, "[LSP] Buffer overflow!\n");
-            break;
+        // Cari Content-Length
+        char *cl_ptr = strstr(header_buf, "Content-Length:");
+        if (cl_ptr) {
+            content_length = atoi(cl_ptr + 15);
         }
 
-        buf_len += n;
-        buf[buf_len] = '\0';
+        if (content_length <= 0) continue;
 
-        while (1) {
-            char *header_end = strstr(buf, "\r\n\r\n");
-            if (!header_end) break;
+        // Alokasikan buffer PERSIS sebesar Content-Length
+        char *body = malloc(content_length + 1);
+        if (!body) continue;
 
-            int content_length = -1;
-            char *line = buf;
-            while (line < header_end) {
-                if (strncmp(line, "Content-Length:", 15) == 0) {
-                    char *endptr = nullptr;
-                    long len = strtol(line + 15, &endptr, 10);
-                    if (len > 0 && len < INT_MAX) content_length = (int)len;
-                    break;
+        size_t total_read = 0;
+        while (total_read < (size_t)content_length && running) {
+            ssize_t n = read(stdout_fd, body + total_read, content_length - total_read);
+            if (n <= 0) break;
+            total_read += n;
+        }
+        body[total_read] = '\0';
+
+        // Process JSON Body
+        cJSON *msg = cJSON_Parse(body);
+        if (msg) {
+            // Handle Diagnostics & Result ID (sama kayak logika kamu)
+            cJSON *method = cJSON_GetObjectItem(msg, "method");
+            if (method && cJSON_IsString(method) &&
+                strcmp(method->valuestring, "textDocument/publishDiagnostics") == 0) {
+                cJSON *params = cJSON_GetObjectItem(msg, "params");
+                if (params) {
+                    cJSON *uri = cJSON_GetObjectItem(params, "uri");
+                    cJSON *diagnostics = cJSON_GetObjectItem(params, "diagnostics");
+                    if (uri && diagnostics) store_diagnostics(uri->valuestring, diagnostics);
                 }
-
-                char *next = strstr(line, "\r\n");
-                if (!next) break;
-                line = next + 2;
             }
 
-            if (content_length < 0) {
-                // header rusak, buang sampai \r\n\r\n
-                size_t skip = (header_end + 4) - buf;
-                memmove(buf, header_end + 4, buf_len - skip);
-                buf_len -= skip;
-                continue;
-            }
-
-            size_t header_size = (header_end + 4) - buf;
-            if (buf_len < header_size + (size_t)content_length) break;
-
-            char *body = header_end + 4;
-            char saved = body[content_length];
-            body[content_length] = '\0';
-
-            cJSON *msg = cJSON_Parse(body);
-            body[content_length] = saved;
-
-            if (msg) {
-                // Error
-                cJSON *error = cJSON_GetObjectItem(msg, "error");
-                if (error) {
-                    char *err_str = cJSON_PrintUnformatted(error);
-                    fprintf(stderr, "[LSP Server Error] %s\n", err_str ? err_str : "(null)");
-                    free(err_str);
-                }
-
-                cJSON *method = cJSON_GetObjectItem(msg, "method");
-
-                if (method && cJSON_IsString(method) &&
-                    strcmp(method->valuestring, "textDocument/publishDiagnostics") == 0) {
-                    cJSON *params = cJSON_GetObjectItem(msg, "params");
-                    if (params) {
-                        cJSON *uri = cJSON_GetObjectItem(params, "uri");
-                        cJSON *diagnostics = cJSON_GetObjectItem(params, "diagnostics");
-
-                        if (uri && cJSON_IsString(uri) && diagnostics) {
-                            store_diagnostics(uri->valuestring, diagnostics);
-                        }
+            cJSON *id_item = cJSON_GetObjectItem(msg, "id");
+            if (id_item && cJSON_IsNumber(id_item)) {
+                pthread_mutex_lock(&pending_mutex);
+                if (pending_id == id_item->valueint) {
+                    cJSON *res = cJSON_GetObjectItem(msg, "result");
+                    if (res) {
+                        if (pending_result) cJSON_Delete(pending_result);
+                        pending_result = cJSON_Duplicate(res, true);
                     }
+                    response_received = true;
+                    pthread_cond_signal(&pending_cond);
                 }
-
-                // Baca id
-                cJSON *id_item = cJSON_GetObjectItem(msg, "id");
-                if (id_item && cJSON_IsNumber(id_item)) {
-                    int id = id_item->valueint;
-
-                    pthread_mutex_lock(&pending_mutex);
-                    if (pending_id == id) {
-                        cJSON *res = cJSON_GetObjectItem(msg, "result");
-                        if (res) {
-                            if (pending_result) cJSON_Delete(pending_result);
-                            pending_result = cJSON_Duplicate(res, true);
-                        }
-                        response_received = true;
-                        pthread_cond_signal(&pending_cond);
-                    }
-                    pthread_mutex_unlock(&pending_mutex);
-                }
-                cJSON_Delete(msg);
+                pthread_mutex_unlock(&pending_mutex);
             }
-
-            size_t remaining = buf_len - (header_size + content_length);
-            memmove(buf, body + content_length, remaining);
-            buf_len = remaining;
-            buf[buf_len] = '\0';
+            cJSON_Delete(msg);
         }
+
+        free(body);  // Langsung beres tanpa sisa!
     }
-    free(buf);
     return nullptr;
 }
 

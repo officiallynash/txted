@@ -23,6 +23,7 @@
 #include "raylib.h"
 #include "result.h"
 #include "rope.h"
+#include "types.h"
 
 // Untuk optimasi compare byte
 #define XOR_CHECK(src, val) ((src ^ val) == 0)
@@ -37,37 +38,6 @@ typedef struct {
 // Internal state
 float lsp_debounce_timer = 0.0f;  // Debounce
 LspUiState g_lsp_ui = {};
-
-/**
- * Mengambil item completion aktif sesuai urutan hasil Filter & Sort [PUBLIC API]
- */
-CompletionItem *lsp_get_selected_item(const char *current_word) {
-    if (!HAS_FLAG(g_lsp_ui.lsp_flag, LSP_HAS_COMP) || g_lsp_ui.completion.count == 0)
-        return nullptr;
-
-    FilteredItem filtered[256] = {0};
-    int total_items = 0;
-
-    for (size_t i = 0; i < g_lsp_ui.completion.count && total_items < 256; i++) {
-        const char *label = g_lsp_ui.completion.items[i].label;
-        if (!label) continue;
-
-        // FILTER DAN HITUNG SKOR
-        for (size_t i = 0; i < g_lsp_ui.completion.count && total_items < 256; i++) {
-            filtered[i].label = g_lsp_ui.completion.items[i].label;
-            filtered[i].original_idx = (int)i;
-            filtered[i].item_ptr = &g_lsp_ui.completion.items[i];
-        }
-
-        total_items = filter_and_sort_completion(current_word, filtered, g_lsp_ui.completion.count);
-    }
-
-    if (g_lsp_ui.selected_index < 0 || g_lsp_ui.selected_index >= total_items || total_items == 0) {
-        return nullptr;
-    }
-
-    return filtered[g_lsp_ui.selected_index].item_ptr;
-}
 
 /**
  * Fungsi untuk membersihkan completion
@@ -161,6 +131,10 @@ void lsp_ui_shutdown(void) {
             g_lsp_ui.root_uri = nullptr;
         }
 
+        if (g_lsp_ui.filtered) {
+            free(g_lsp_ui.filtered);
+        }
+
         memset(&g_lsp_ui, 0, sizeof(g_lsp_ui));
     }
 }
@@ -172,6 +146,8 @@ void lsp_ui_hide(void) {
     CLR_FLAG(g_lsp_ui.lsp_flag, LSP_VISIBLE);
     CLR_FLAG(g_lsp_ui.lsp_flag, LSP_REQUEST_PENDING);
     lsp_ui_clear_completion();
+
+    g_lsp_ui.item_count = 0;  // Set item count ke 0
 }
 
 /**
@@ -262,97 +238,125 @@ void lsp_ui_update(BufManager *bufmgr, float dt) {
         CLR_FLAG(g_lsp_ui.lsp_flag, LSP_REQUEST_PENDING);
 
         // Set document ke LSP lebih baik di main thread
+        // Hanya set ketika buf->path atau filepath tidak kosong
         if (buf->path) {
             char *uri = Path_to_uri((char *)buf->path);
-            if (uri) {
-                if (strcmp(g_lsp_ui.uri, uri) != 0) {
-                    Bytes text = String_get(buf->str, 0, rope_len);
-                    lsp_ui_set_document(uri, buf->language_id,
-                                        text.data ? (const char *)text.data : "");
-                    Bytes_free(&text);
-                }
-                snprintf(g_lsp_ui.uri, sizeof(g_lsp_ui.uri), "%s", uri);
-                free(uri);  // Safety free
-            }
-        }
+            if (!uri) return;
 
-        g_lsp_ui.last_line = (int)buf->cursor.y;
-        g_lsp_ui.last_character = (int)buf->cursor.x;
-
-        lsp_ui_clear_completion();
-
-        if (!XOR_CHECK(g_lsp_ui.uri[0], '\0')) {
-            Bytes text = String_get(buf->str, 0, rope_len);
-            if (text.data) {
-                // Buat malloc
-                LspUpdate *lsp = malloc(sizeof(LspUpdate));
-                snprintf(lsp->uri, sizeof(lsp->uri), "%s", g_lsp_ui.uri);
-                lsp->version = buf->lsp_version;
-                lsp->text = strdup((char *)text.data);
-
-                // Init Thread worker
-                pthread_t thread;
-                pthread_attr_t attr;
-                pthread_attr_init(&attr);
-                pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED);
-
-                if (pthread_create(&thread, &attr, Lsp_update_worker, lsp) != 0) {
-                    free(lsp->text);
-                    free(lsp);
-                }
-                pthread_attr_destroy(&attr);
-
-                buf->lsp_version++;  // Update lsp Version
+            if (strcmp(g_lsp_ui.uri, uri) != 0) {
+                Bytes text = String_get(buf->str, 0, rope_len);
+                lsp_ui_set_document(uri, buf->language_id,
+                                    text.data ? (const char *)text.data : "");
                 Bytes_free(&text);
             }
 
-            char current_word[256] = {0};
-            Buffer_get_current_word(buf, current_word, sizeof(current_word));
+            snprintf(g_lsp_ui.uri, sizeof(g_lsp_ui.uri), "%s", uri);
+            free(uri);  // Safety free
+        }
+    }
 
-            char trigger_char = '\0';
-            if (g_lsp_ui.last_character > 0) {
-                // Hitung panjang prefix
-                size_t word_len = strlen(current_word);
+    g_lsp_ui.last_line = (int)buf->cursor.y;
+    g_lsp_ui.last_character = (int)buf->cursor.x;
 
-                if ((size_t)g_lsp_ui.last_character > word_len) {
-                    size_t trigger_col = (size_t)g_lsp_ui.last_character - word_len - 1;
-                    // Ambil 1 karakter tepat sebelum posisi kursor
-                    char prev_c = Buffer_get_char_at(buf, g_lsp_ui.last_line, trigger_col);
+    lsp_ui_clear_completion();
 
-                    // Cek apakah karakter tersebut merupakan trigger character LSP
-                    if (XOR_CHECK(prev_c, '.')) {
-                        trigger_char = '.';
-                    } else if (XOR_CHECK(prev_c, '>') && trigger_col > 0) {
-                        char prev_prev_c =
-                            Buffer_get_char_at(buf, g_lsp_ui.last_line, trigger_col - 1);
-                        if (XOR_CHECK(prev_prev_c, '-')) {
-                            trigger_char = '>';  // Valid operator ->
-                        }
-                    } else if (XOR_CHECK(prev_c, ':') || XOR_CHECK(prev_c, '#')) {
-                        trigger_char = prev_c;
+    if (!XOR_CHECK(g_lsp_ui.uri[0], '\0')) {
+        Bytes text = String_get(buf->str, 0, rope_len);
+        if (text.data) {
+            // Buat malloc
+            LspUpdate *lsp = malloc(sizeof(LspUpdate));
+            snprintf(lsp->uri, sizeof(lsp->uri), "%s", g_lsp_ui.uri);
+            lsp->version = buf->lsp_version;
+            lsp->text = strdup((char *)text.data);
+
+            // Init Thread worker
+            pthread_t thread;
+            pthread_attr_t attr;
+            pthread_attr_init(&attr);
+            pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED);
+
+            if (pthread_create(&thread, &attr, Lsp_update_worker, lsp) != 0) {
+                free(lsp->text);
+                free(lsp);
+            }
+            pthread_attr_destroy(&attr);
+
+            buf->lsp_version++;  // Update lsp Version
+            Bytes_free(&text);
+        }
+
+        char current_word[256] = {0};
+        Buffer_get_current_word(buf, current_word, sizeof(current_word));
+
+        char trigger_char = '\0';
+        if (g_lsp_ui.last_character > 0) {
+            // Hitung panjang prefix
+            size_t word_len = strlen(current_word);
+
+            if ((size_t)g_lsp_ui.last_character > word_len) {
+                size_t trigger_col = (size_t)g_lsp_ui.last_character - word_len - 1;
+                // Ambil 1 karakter tepat sebelum posisi kursor
+                char prev_c = Buffer_get_char_at(buf, g_lsp_ui.last_line, trigger_col);
+
+                // Cek apakah karakter tersebut merupakan trigger character LSP
+                if (XOR_CHECK(prev_c, '.')) {
+                    trigger_char = '.';
+                } else if (XOR_CHECK(prev_c, '>') && trigger_col > 0) {
+                    char prev_prev_c = Buffer_get_char_at(buf, g_lsp_ui.last_line, trigger_col - 1);
+                    if (XOR_CHECK(prev_prev_c, '-')) {
+                        trigger_char = '>';  // Valid operator ->
                     }
+                } else if (XOR_CHECK(prev_c, ':') || XOR_CHECK(prev_c, '#')) {
+                    trigger_char = prev_c;
                 }
             }
+        }
 
-            if (XOR_CHECK(trigger_char, '\0') && strlen(current_word) < 1) {
-                lsp_ui_hide();
-                return;
+        if (XOR_CHECK(trigger_char, '\0') && strlen(current_word) < 1) {
+            lsp_ui_hide();
+            return;
+        }
+
+        // Baru minta completion
+        g_lsp_ui.completion =
+            lsp_completion(g_lsp_ui.uri, g_lsp_ui.last_line, g_lsp_ui.last_character, trigger_char);
+
+        // Jika completion count lebih dari 0, set flag ke has completion
+        if (g_lsp_ui.completion.count > 0) SET_FLAG(g_lsp_ui.lsp_flag, LSP_HAS_COMP);
+
+        if (HAS_FLAG(g_lsp_ui.lsp_flag, LSP_HAS_COMP)) {
+            bool is_visible = HAS_FLAG(g_lsp_ui.lsp_flag, LSP_VISIBLE);
+            SET_FLAG(g_lsp_ui.lsp_flag, LSP_VISIBLE);
+            if (!is_visible) g_lsp_ui.selected_index = 0;
+
+            // Jika filtered kosong, langsung alokasi lagi
+            if (!g_lsp_ui.filtered) {
+                g_lsp_ui.item_capacity = 512;
+                g_lsp_ui.filtered = malloc(g_lsp_ui.item_capacity * sizeof(FilteredItem));
             }
 
-            // Baru minta completion
-            g_lsp_ui.completion = lsp_completion(g_lsp_ui.uri, g_lsp_ui.last_line,
-                                                 g_lsp_ui.last_character, trigger_char);
-
-            // Jika completion count lebih dari 0, set flag ke has completion
-            if (g_lsp_ui.completion.count > 0) SET_FLAG(g_lsp_ui.lsp_flag, LSP_HAS_COMP);
-
-            if (HAS_FLAG(g_lsp_ui.lsp_flag, LSP_HAS_COMP)) {
-                SET_FLAG(g_lsp_ui.lsp_flag, LSP_VISIBLE);
-                g_lsp_ui.selected_index = 0;
-            } else {
-                CLR_FLAG(g_lsp_ui.lsp_flag, LSP_HAS_COMP);
-                CLR_FLAG(g_lsp_ui.lsp_flag, LSP_VISIBLE);
+            // Setting Filtered
+            g_lsp_ui.item_count = 0;
+            // Realloc kalau count lebih dari capacity
+            if ((int)g_lsp_ui.completion.count > g_lsp_ui.item_capacity) {
+                g_lsp_ui.item_capacity <<= 1;
+                g_lsp_ui.filtered =
+                    realloc(g_lsp_ui.filtered, sizeof(FilteredItem) * g_lsp_ui.item_capacity);
             }
+
+            // FILTER DAN HITUNG SKOR
+            for (size_t i = 0; i < g_lsp_ui.completion.count; i++) {
+                g_lsp_ui.filtered[i].label = g_lsp_ui.completion.items[i].label;
+                g_lsp_ui.filtered[i].original_idx = (int)i;
+                g_lsp_ui.filtered[i].item_ptr = &g_lsp_ui.completion.items[i];
+            }
+
+            g_lsp_ui.item_count = filter_and_sort_completion(current_word, g_lsp_ui.filtered,
+                                                             g_lsp_ui.completion.count);
+
+        } else {
+            CLR_FLAG(g_lsp_ui.lsp_flag, LSP_HAS_COMP);
+            CLR_FLAG(g_lsp_ui.lsp_flag, LSP_VISIBLE);
         }
     }
 
@@ -362,6 +366,8 @@ void lsp_ui_update(BufManager *bufmgr, float dt) {
 
         if (buf && buf->path) {
             char *uri = Path_to_uri(buf->path);
+            if (!uri) return;
+
             // Bebaskan signature lama jika ada
             lsp_free_signature_help(&g_lsp_ui.signature_help);
 
@@ -386,6 +392,7 @@ void lsp_ui_update(BufManager *bufmgr, float dt) {
 
         if (buf && buf->path) {
             char *uri = Path_to_uri(buf->path);
+            if (!uri) return;
 
             lsp_free_hover(&g_lsp_ui.hover);
             g_lsp_ui.hover = lsp_hover(uri, (int)buf->cursor.y, (int)buf->cursor.x);

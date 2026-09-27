@@ -13,9 +13,9 @@
 #include "buffer.h"
 #include "buffer_manager.h"
 #include "lsp.h"
-#include "matches.h"
 #include "result.h"
 #include "theme.h"
+#include "types.h"
 #include "ui.h"
 
 extern void lsp_clear_all_diagnostics(void);  // Clear Diagnostic [lsp_client.c]
@@ -115,34 +115,19 @@ void render_lsp_completion_ui(BufManager *bufmgr, Font font) {
         !HAS_FLAG(g_lsp_ui.lsp_flag, LSP_ENABLE) || !HAS_FLAG(g_lsp_ui.lsp_flag, LSP_VISIBLE);
 
     if (flag || !HAS_FLAG(g_lsp_ui.lsp_flag, LSP_HAS_COMP)) return;
+    if (g_lsp_ui.item_count == 0) return;
 
     Buffer *buf = BufManager_getactive(bufmgr);
     if (!buf) return;
 
     EditorLayout Layout = get_editor_layout(bufmgr);
 
-    char current_word[256] = {0};
-    Buffer_get_current_word(buf, current_word, sizeof(current_word));
-
-    FilteredItem filtered[256] = {0};
-    size_t total_items = 0;
-
-    // FILTER DAN HITUNG SKOR
-    for (size_t i = 0; i < g_lsp_ui.completion.count && total_items < 256; i++) {
-        filtered[i].label = g_lsp_ui.completion.items[i].label;
-        filtered[i].original_idx = (int)i;
-        filtered[i].item_ptr = &g_lsp_ui.completion.items[i];
-    }
-    total_items = filter_and_sort_completion(current_word, filtered, g_lsp_ui.completion.count);
-
-    if (total_items == 0) return;
-
     // HITUNG LEBAR DINAMIS (BACA DARI FILTERED)
     float current_font_x = (float)font.baseSize;
     float max_label_width = 150.0f;
 
-    for (size_t i = 0; i < total_items; i++) {
-        const char *label = g_lsp_ui.completion.items[i].label;
+    for (size_t i = 0; i < (size_t)g_lsp_ui.item_count; i++) {
+        const char *label = g_lsp_ui.filtered[i].label;
         if (label) [[clang::likely]] {
             float text_w = MeasureTextEx(font, label, current_font_x, 1.0f).x;
             if (text_w > max_label_width) max_label_width = text_w;
@@ -165,7 +150,7 @@ void render_lsp_completion_ui(BufManager *bufmgr, Font font) {
 
     float item_h = current_font_x + 8.0f;
     int max_visible = 7;
-    int display_count = (int)total_items > max_visible ? max_visible : (int)total_items;
+    int display_count = g_lsp_ui.item_count > max_visible ? max_visible : g_lsp_ui.item_count;
     float box_h = (display_count * item_h) + 12.0f;
 
     int start_index = 0;
@@ -210,21 +195,21 @@ void render_lsp_completion_ui(BufManager *bufmgr, Font font) {
 
     for (int i = 0; i < display_count; ++i) {
         int item_idx = start_index + i;
-        if (item_idx >= (int)total_items) break;
+        if (item_idx >= g_lsp_ui.item_count) break;
 
-        const CompletionItem *it = &g_lsp_ui.completion.items[item_idx];
-        const char *label = it->label ? it->label : "(null)";
+        const CompletionItem *it = g_lsp_ui.filtered[item_idx].item_ptr;
+        const char *label = (it && it->label) ? it->label : "(null)";
 
         // Hitung Y dasar tiap item slot
         float item_y = box.y + 6.0f + (i * item_h);
 
-        // Render Background Active Item (Full height item_h biar inline & rapi)
+        // Render Background Active Item
         if (item_idx == g_lsp_ui.selected_index) {
             Rectangle item_bg = {box.x + 4, item_y, box.width - 8, item_h};
             DrawRectangleRounded(item_bg, 0.15f, 4, g_theme.border);
         }
 
-        // Hitung posisi Y teks agar terpusat secara vertikal tepat di tengah background item_bg
+        // Hitung posisi Y teks agar terpusat secara vertikal
         float text_y = item_y + (item_h - current_font_x) / 2.0f;
 
         DrawTextEx(font, label, (Vector2){box.x + 10, text_y}, current_font_x, 1.0f, WHITE);

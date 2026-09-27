@@ -12,7 +12,9 @@
 
 #include "types.h"
 
+// Untuk mmempercepat pengecekan value
 #define XOR_CHECK(src, val) ((src ^ val) == 0)
+
 /**
  * Fungsi pengganti strcasestr
  */
@@ -48,10 +50,11 @@ int calculate_score(const char *query, const char *label) {
 
     //  Dapatkan nama file saja (tanpa folder path)
     const char *filename = strrchr(label, '/');
-    if (filename)
+    if (filename) {
         filename++;  // Skip slash '/'
-    else
+    } else {
         filename = label;
+    }
 
     int extra_filename_bonus = 0;
 
