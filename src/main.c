@@ -18,6 +18,7 @@
 #include "raylib.h"
 #include "result.h"
 #include "theme.h"
+#include "types.h"
 #include "ui.h"
 
 /* ---------------------- *
@@ -54,7 +55,7 @@ int main(int argc, char *argv[]) {
 #endif
 
     // Inisasi Buffer Manager dan Load setting dari File settings.ini
-    Settings_load();
+    Settings st = Settings_load();
     BufManager *bufmgr = BufManager_init();
 
     // Inisiasi Notify
@@ -64,6 +65,12 @@ int main(int argc, char *argv[]) {
     // Set Log level
     SetTraceLogLevel(LOG_NONE);
 
+    // Inisiasi Font, karena font di Apply di Settings
+    Font font;
+
+    // Apply settings
+    Settings_apply(&st, bufmgr, &font);  // Passing font ke Apply pakai &
+
     // Jika dibuka dengan txted filename
     if (argc == 2) {
         // Argumen sebagai Filename
@@ -71,12 +78,6 @@ int main(int argc, char *argv[]) {
     } else {
         BufManager_newtab(bufmgr, nullptr); /* tab awal */
     }
-
-    // Inisiasi Font, karena font di Apply di Settings
-    Font font;
-
-    // Apply settings
-    Settings_apply(bufmgr, &font);  // Passing font ke Apply pakai &
 
     // Loop utama Aplikasi
     while (!HAS_FLAG(bufmgr->win_flags, TXTED_EXIT)) {

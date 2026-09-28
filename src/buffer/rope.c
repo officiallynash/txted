@@ -27,13 +27,21 @@ size_t String_len(String *str);  // Register Awal
  * Sengaja di Private karena ini inti dari Manipulasi teks di Buffer
  */
 struct String {
-    struct String *left;   // 8 byte
-    struct String *right;  // 8 byte
-    u8 *str;               // 8 byte
-    u32 len;               // 4 byte
-    u32 weight;            // 4 byte
-    u32 ref_count;         // 4 byte
-    u32 flags;             // 4 byte
+    u32 len;        // 4 byte
+    u32 weight;     // 4 byte
+    u32 ref_count;  // 4 byte
+    u32 flags;      // 4 byte
+
+    // Pakai Union karena untuk akomodasi Flexible Array Member
+    // selain untuk mengurangi overhead Malloc juga untuk performa
+    // Terlebih sudah pakai System Flag
+    union {
+        struct {
+            struct String *left;
+            struct String *right;
+        } node;
+        u8 str[];
+    };
 };
 
 /**
@@ -50,24 +58,16 @@ static void String_retain(String *str) {
 static String *String_make_leaf(const char *text, size_t len) {
     // Menggunakan Malloc karena Malloc lebih efektif untuk String atau Rope logic
     // Jika calloc lebih efektif jika hanya sekali deklarasi
-    String *new = malloc(sizeof(String));
-    new->str = malloc(len + 1);
-    if (!new->str) {
-        free(new);
-        return nullptr;
-    }
+    String *new = malloc(sizeof(String) + len + 1);
 
-    memcpy(new->str, text, len);
-    new->str[len] = '\0';  // Null terminator
     new->len = len;
     new->weight = len;
     new->ref_count = 1;
-    new->left = nullptr;
-    new->right = nullptr;
-
     // Kasih flags
     new->flags = ROPE_IS_LEAF;
 
+    memcpy(new->str, text, len);
+    new->str[len] = '\0';  // Null terminator
     return new;
 }
 
@@ -92,10 +92,8 @@ static String *String_concat(String *left, String *right) {
     // Alokasi baru untuk parent
     String *parent = calloc(1, sizeof(String));
     if (!parent) return nullptr;
-
-    parent->str = nullptr;
-    parent->left = left;
-    parent->right = right;
+    parent->node.left = left;
+    parent->node.right = right;
 
     // Menambahkan Ref count agar tidak terjadi memory leak
     String_retain(left);
@@ -104,6 +102,7 @@ static String *String_concat(String *left, String *right) {
     parent->weight = String_len(left);                 // Weight = panjang (len) kiri
     parent->len = parent->weight + String_len(right);  // len = panjang weight + len dari kanan
     parent->ref_count = 1;                             // Default ref_count itu 1
+    parent->flags = 0;                                 // Bukan leaf
 
     return parent;
 }
@@ -158,16 +157,16 @@ static void String_split(String *root, size_t index, String **left, String **rig
     if (index < root->weight) {
         // Jika index lebih kecil dari weight, sudah pasti left
         String *ll, *lr;
-        String_split(root->left, index, &ll, &lr);
+        String_split(root->node.left, index, &ll, &lr);
 
         *left = ll;
-        *right = String_concat(lr, root->right);
+        *right = String_concat(lr, root->node.right);
         if (lr) String_release(lr);  // safety free
     } else {
         String *rl, *rr;
-        String_split(root->right, index - root->weight, &rl, &rr);
+        String_split(root->node.right, index - root->weight, &rl, &rr);
 
-        *left = String_concat(root->left, rl);
+        *left = String_concat(root->node.left, rl);
         *right = rr;
         if (rl) String_release(rl);  // safety free
     }
@@ -202,13 +201,13 @@ static void String_collect(String *str, size_t start, size_t len, unsigned char 
         size_t copy_from_left = (left_len < len) ? left_len : len;
 
         // Recursive
-        String_collect(str->left, start, copy_from_left, buffer, offset);
+        String_collect(str->node.left, start, copy_from_left, buffer, offset);
         if (len > copy_from_left) {
-            String_collect(str->right, 0, len - copy_from_left, buffer, offset);
+            String_collect(str->node.right, 0, len - copy_from_left, buffer, offset);
         }
 
     } else {
-        String_collect(str->right, start - str->weight, len, buffer, offset);
+        String_collect(str->node.right, start - str->weight, len, buffer, offset);
     }
 }
 
@@ -218,8 +217,8 @@ static void String_collect(String *str, size_t start, size_t len, unsigned char 
 static size_t String_height(String *str) {
     if (!str || (str->flags & ROPE_IS_LEAF)) return 1;  // Leaf bernilai height 1
 
-    size_t hl = String_height(str->left);
-    size_t hr = String_height(str->right);
+    size_t hl = String_height(str->node.left);
+    size_t hr = String_height(str->node.right);
     return 1 + (hl > hr ? hl : hr);
 }
 
@@ -236,8 +235,8 @@ static void String_collect_leaves(String *str, String **leaves, size_t *count) {
         return;
     }
 
-    String_collect_leaves(str->left, leaves, count);
-    String_collect_leaves(str->right, leaves, count);
+    String_collect_leaves(str->node.left, leaves, count);
+    String_collect_leaves(str->node.right, leaves, count);
 }
 
 /**
@@ -246,7 +245,7 @@ static void String_collect_leaves(String *str, String **leaves, size_t *count) {
 static size_t String_count_leaves(String *str) {
     if (!str) return 0;
     if (str->flags & ROPE_IS_LEAF) return 1;
-    return String_count_leaves(str->left) + String_count_leaves(str->right);
+    return String_count_leaves(str->node.left) + String_count_leaves(str->node.right);
 }
 
 /**
@@ -316,14 +315,12 @@ void String_release(String *str) {
     str->ref_count--;
     if (str->ref_count > 0) return;
 
-    // Rekursif release
-    String_release(str->left);
-    String_release(str->right);
-
-    // Jika str tidak kosong maka hapus
-    if (str->flags & ROPE_IS_LEAF) {
-        free(str->str);
+    if (!(str->flags & ROPE_IS_LEAF)) {
+        // Rekursif release
+        String_release(str->node.left);
+        String_release(str->node.right);
     }
+
     // Hapus root atau String
     free(str);
 }
@@ -340,6 +337,7 @@ void String_insert(String **str, size_t index, const char *text, size_t len) {
         // Hitung berapa banyak leaf yang dibutuhkan
         size_t num_leaves = (len + 1023) >> 10;
         String **leaves = malloc(num_leaves * sizeof(String *));
+        if (!leaves) return;
 
         size_t offset = 0;
         for (size_t i = 0; i < num_leaves; i++) {
@@ -358,13 +356,12 @@ void String_insert(String **str, size_t index, const char *text, size_t len) {
     }
 
     // Jika bukan left dan right langsung assign ke Root
-    if (*str && (*str)->len == 0 && (*str)->str == nullptr && (*str)->left == nullptr &&
-        (*str)->right == nullptr) {
-        String *old_root = *str;  // Pindah ownership dulu
+    if (*str && (*str)->len == 0) {
+        // Release dulu hanya jika str itu ada
+        if (*str) String_release(*str);
 
         // Assign ke str
         *str = inserted;
-        String_release(old_root);
         return;
     }
 

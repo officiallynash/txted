@@ -11,26 +11,27 @@
 #include "raygui.h"
 #include "raylib.h"
 #include "theme.h"
+#include "types.h"
 #include "ui.h"
-
-extern void Theme_init(const char *filename);  // Extern Theme init (theme.c)
 
 /**
  * Init default Values
  */
-Settings default_settings = {
-    .font_size = 18, .theme = "default", .font = "JetBrainsMono-Regular.ttf", .fm_pos = FM_LEFT};
-
 /**
  * Fungsi untuk Load Settings
  */
-void Settings_load(void) {
+Settings Settings_load(void) {
+    Settings default_settings = {.font_size = 18,
+                                 .theme = "default",
+                                 .font = "JetBrainsMono-Regular.ttf",
+                                 .fm_pos = FM_LEFT};
+
     char setting_path[128] = {0};
     char *home = getenv("HOME");
     snprintf(setting_path, sizeof(setting_path), "%s/.config/txted/settings/settings.ini", home);
 
     FILE *fp = fopen(setting_path, "r");
-    if (!fp) return;
+    if (!fp) return default_settings;
 
     char line[256] = {0};
     while (fgets(line, sizeof(line), fp)) {
@@ -65,12 +66,13 @@ void Settings_load(void) {
         }
     }
     fclose(fp);
+    return default_settings;
 }
 
 /**
  * Fungsi untuk Apply setting
  */
-void Settings_apply(BufManager *bufmgr, Font *font) {
+void Settings_apply(const Settings *st, BufManager *bufmgr, Font *font) {
     EditorLayout layout = get_editor_layout(bufmgr);
 
     SetConfigFlags(FLAG_VSYNC_HINT | FLAG_WINDOW_RESIZABLE | FLAG_MSAA_4X_HINT |
@@ -84,12 +86,12 @@ void Settings_apply(BufManager *bufmgr, Font *font) {
     // Load font
     char font_path[512] = {0};
     char *home = getenv("HOME");
-    snprintf(font_path, sizeof(font_path), "%s/.config/txted/settings/fonts/%s", home,
-             default_settings.font);
-    *font = LoadFontEx(font_path, FONT_SIZE, nullptr, 0);
+    snprintf(font_path, sizeof(font_path), "%s/.config/txted/settings/fonts/%s", home, st->font);
+    *font = LoadFontEx(font_path, st->font_size, nullptr, 0);
 
-    Theme_init(default_settings.theme);  // Init Theme
+    Theme_init(st->theme);  // Init Theme
     SetTextureFilter(font->texture, TEXTURE_FILTER_POINT);
     GuiSetFont(*font);
-    GuiSetStyle(DEFAULT, TEXT_SIZE, FONT_SIZE);
+    GuiSetStyle(DEFAULT, TEXT_SIZE, st->font_size);
+    bufmgr->fm_pos = st->fm_pos;  // Settings FM
 }

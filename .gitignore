@@ -5,3 +5,4 @@ build/
 test.c
 zig-out/
 .zed/
+lsp_server.zig

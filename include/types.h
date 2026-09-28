@@ -72,6 +72,11 @@ constexpr uint8_t BUF_IS_SELECT = (1U << 2);
 constexpr uint8_t BUF_IS_SEARCH = (1U << 3);
 
 /**
+ * Enum penanda posisi untuk File Manager
+ */
+typedef enum { FM_LEFT, FM_RIGHT } Settings_fm;
+
+/**
  * Enum untuk penanda aksi insert atau delete
  */
 typedef enum { UNDO_INSERT, UNDO_DELETE } UndoType;
@@ -203,6 +208,7 @@ typedef struct BufManager {
     uint8_t win_flags;      // Flag untuk menampung state window, misal minta exit, dll
     FocusMode mode;
     FloatPrompt *prompt;
+    Settings_fm fm_pos;
 } BufManager;
 
 /**
@@ -212,7 +218,6 @@ struct SyntaxState {
     TSParser *parser;
     TSTree *tree;
     TSQuery *query;
-    TSQuery *indents_query;
     bool is_enabled;
 };
 
@@ -223,7 +228,6 @@ typedef struct {
     char **lsp_args;
     char *path_lsp;
     char *query_source;
-    char *indent_source;
     const char *language_id;
     const TSLanguage *lang;
 } LangConfig;
@@ -506,11 +510,6 @@ typedef struct {
     int text_screen_x;           // X awal teks di layar
     int visible_lines;           // Visible Lines
 } EditorLayout;
-
-/**
- * Enum penanda posisi untuk File Manager
- */
-typedef enum { FM_LEFT, FM_RIGHT } Settings_fm;
 
 /**
  * Struct untuk data settings aplikasi

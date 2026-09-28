@@ -3,7 +3,6 @@
  * Copyright (c) 2026 Nash
  * SPDX-License-Identifier: MIT
  */
-#include <complex.h>
 #include <ctype.h>
 #include <raylib.h>
 #include <stdbool.h>
@@ -20,7 +19,6 @@
 #include "raygui.h"
 #include "result.h"
 #include "rope.h"
-#include "theme.h"
 #include "types.h"
 #include "ui.h"
 
@@ -76,6 +74,7 @@ static void set_cursor_from_mouse(BufManager *bufmgr, Vector2 mouse, int scroll_
     EditorLayout Layout = get_editor_layout(bufmgr);
     int editor_top = Layout.editor_y;  // Pake layout aktual!
     int editor_h = Layout.editor_h;
+    float font_size = (float)font.baseSize;
 
     if (mouse.x >= Layout.text_screen_x && mouse.y >= editor_top + PAD_Y &&
         mouse.y < editor_top + editor_h - PAD_Y) {
@@ -96,7 +95,7 @@ static void set_cursor_from_mouse(BufManager *bufmgr, Vector2 mouse, int scroll_
             if (line_text[len - 1] == '\n') line_text[len - 1] = '\0';
             len = strlen(line_text);  // Update si len
 
-            float space_w = MeasureTextEx(font, " ", FONT_SIZE, 1.0f).x;
+            float space_w = MeasureTextEx(font, " ", font_size, 1.0f).x;
             float click_x_rel = mouse.x - Layout.text_screen_x;
 
             float current_visual_x = 0.0f;
@@ -115,7 +114,7 @@ static void set_cursor_from_mouse(BufManager *bufmgr, Vector2 mouse, int scroll_
                     col_visual += spaces;
                 } else {
                     char ch[2] = {line_text[char_idx], '\0'};
-                    advance = MeasureTextEx(font, ch, FONT_SIZE, 1.0f).x;
+                    advance = MeasureTextEx(font, ch, font_size, 1.0f).x;
                     col_visual++;
                 }
 
@@ -207,61 +206,22 @@ static void Update_navigation_click(BufManager *bufmgr, EditorLayout layout) {
 static int get_current_line_indent(Buffer *buf) {
     if (!buf || buf->cursor.y >= buf->lines.line_count) return 0;
 
-    size_t line_start = buf->lines.offset[buf->cursor.y];
-    size_t pos = buf->cursor.cursor_pos;
-    int visual_indent = 0;
-    size_t byte_offset = 0;
+    char line_buf[256] = {0};
+    size_t len = Buffer_get_line_text(buf, buf->cursor.y, line_buf, sizeof(line_buf));
+    if (len == 0) return 0;
 
-    while (line_start + byte_offset < pos) {
-        Bytes b = String_get(buf->str, line_start + byte_offset, 1);
-        if (b.data && (b.data[0] == ' ' || b.data[0] == '\t')) {
-            visual_indent += (b.data[0] == '\t') ? 4 : 1;
-            byte_offset++;  // Byte offset selalu jalan 1 byte per karakter ASCII
-            Bytes_free(&b);
+    int visual_indent = 0;
+    for (size_t i = 0; i < len; i++) {
+        if (line_buf[i] == ' ') {
+            visual_indent += 1;
+        } else if (line_buf[i] == '\t') {
+            visual_indent += 4;
         } else {
-            Bytes_free(&b);
-            break;
+            break;  // Berhenti ketika ketemu karakter non-whitespace pertama
         }
     }
 
     return visual_indent;
-}
-
-/**
- * Fungsi internal untuk indent
- */
-static int Syntax_get_line_indent_delta(SyntaxState *state, uint32_t byte_pos) {
-    if (!state || !state->tree || !state->indents_query) return 0;
-
-    TSQueryCursor *cursor = ts_query_cursor_new();
-    ts_query_cursor_set_byte_range(cursor, byte_pos, byte_pos);
-    ts_query_cursor_exec(cursor, state->indents_query, ts_tree_root_node(state->tree));
-
-    TSQueryMatch match;
-    bool should_indent = false;
-    bool should_outdent = false;
-
-    // Cukup cek apakah ada match, jangan di-loop tambahkan berkali-kali!
-    while (ts_query_cursor_next_match(cursor, &match)) {
-        for (int i = 0; i < match.capture_count; i++) {
-            TSQueryCapture capture = match.captures[i];
-            uint32_t c_len;
-            const char *cap_name =
-                ts_query_capture_name_for_id(state->indents_query, capture.index, &c_len);
-
-            if (strcmp(cap_name, "indent") == 0) {
-                should_indent = true;
-            } else if (strcmp(cap_name, "outdent") == 0) {
-                should_outdent = true;
-            }
-        }
-    }
-
-    ts_query_cursor_delete(cursor);
-
-    if (should_indent) return 4;    // Cuma tambah 4 spasi
-    if (should_outdent) return -4;  // Cuma kurangi 4 spasi
-    return 0;
 }
 
 /**
@@ -277,73 +237,15 @@ static void Syntax_auto_indent(Buffer *active_buf, int visible_lines) {
     // Ambil Indentasi Eksis Baris Sekarang
     int base_indent = get_current_line_indent(active_buf);
 
-    // Hitung Delta Indent (Tree-sitter ATAU Manual Fallback, JANGAN DUA-DUANYA)
-    int ts_delta = 0;
-    Bytes prev_char = (pos > 0) ? String_get(active_buf->str, pos - 1, 1) : (Bytes){0};
-    Bytes next_char = (pos < len) ? String_get(active_buf->str, pos, 1) : (Bytes){0};
+    char prev_char =
+        (pos > 0) ? Buffer_get_char_at(active_buf, active_buf->cursor.y, pos - 1) : '\0';
 
-    if (active_buf->state && active_buf->state->indents_query) {
-        // Murni percayakan delta ke Tree-sitter
-        ts_delta = Syntax_get_line_indent_delta(active_buf->state, (uint32_t)pos);
-    } else {
-        // Fallback manual HANYA jika Tree-sitter/Query TIDAK ADA
-        if (prev_char.data && prev_char.data[0] == '{') {
-            ts_delta = 4;
-        }
-    }
-
-    // Kasus Smart Enter pas di antara { dan }
-    if (prev_char.data && next_char.data && prev_char.data[0] == '{' && next_char.data[0] == '}') {
-        int base_spaces = base_indent;
-        int inner_spaces = base_indent + 4;  // Cukup +4 spasi standar buat isi tengahnya
-
-        if (base_spaces < 0) base_spaces = 0;
-        if (inner_spaces < 0) inner_spaces = 0;
-        if (base_spaces > 200) base_spaces = 200;
-        if (inner_spaces > 200) inner_spaces = 200;
-
-        char str1[256] = {0}, str2[256] = {0};
-        str1[0] = '\n';
-        memset(str1 + 1, ' ', inner_spaces);
-        str1[inner_spaces + 1] = '\0';
-        str2[0] = '\n';
-        memset(str2 + 1, ' ', base_spaces);
-        str2[base_spaces + 1] = '\0';
-
-        Buffer_insert(active_buf, pos, str2);
-        Buffer_insert(active_buf, pos, str1);
-
-        active_buf->cursor.cursor_pos = pos + strlen(str1);
-        sync_cursor_line_from_pos(active_buf);
-        Buffer_clamp_scroll(active_buf, visible_lines);
-        Bytes_free(&prev_char);
-        Bytes_free(&next_char);
-        return;
-    }
-
-    // Kasus Enter Biasa (Base Indent + Single Delta)
-    // int space_to_add = base_indent + ts_delta;
+    // space to add itu nilai awalnya base_indent
     int space_to_add = base_indent;
 
-    // Ambil delta dari Tree-sitter
-    if (active_buf->state && active_buf->state->indents_query) {
-        int delta = Syntax_get_line_indent_delta(active_buf->state, (uint32_t)pos);
-
-        // HANYA tambah indent kalau delta-nya > 0 DAN karakter sebelum enter adalah '{'
-        // Kalau karakter sebelumnya ';' atau huruf biasa, ikuti base_indent aja!
-        if (delta > 0) {
-            if (prev_char.data && (prev_char.data[0] == '{' || prev_char.data[0] == ':')) {
-                space_to_add += delta;
-            }
-        } else if (delta < 0) {
-            // Kalau outdent (misal ketik '}')
-            space_to_add += delta;
-        }
-    } else {
-        // Fallback manual jika Tree-sitter tidak ada
-        if (prev_char.data && (prev_char.data[0] == '{' || prev_char.data[0] == ':')) {
-            space_to_add += 4;
-        }
+    // Hanya tambah +4 jika karakter tepat sebelum enter adalah blok pemicu!
+    if (prev_char == '{' || prev_char == '(' || prev_char == '[' || prev_char == ':') {
+        space_to_add += 4;
     }
 
     if (space_to_add < 0) space_to_add = 0;
@@ -359,10 +261,6 @@ static void Syntax_auto_indent(Buffer *active_buf, int visible_lines) {
     active_buf->cursor.cursor_pos = pos + strlen(insert_str);
     sync_cursor_line_from_pos(active_buf);
     Buffer_clamp_scroll(active_buf, visible_lines);
-
-    (void)ts_delta;
-    Bytes_free(&prev_char);
-    Bytes_free(&next_char);
 }
 
 /**
@@ -650,12 +548,6 @@ void handle_input(BufManager *bufmgr, Font font) {
                         lsp_apply_completion(buf, selected);
                     }
                 }
-                // else if (g_lsp_ui.completion.items &&
-                //            g_lsp_ui.selected_index < (int)g_lsp_ui.completion.count) {
-                //     lsp_apply_completion(buf,
-                //     &g_lsp_ui.completion.items[g_lsp_ui.selected_index]);
-                // }
-
                 lsp_ui_hide();
                 lsp_hand = true;
             } else if (IsKeyPressed(KEY_ESCAPE)) {
@@ -675,38 +567,43 @@ void handle_input(BufManager *bufmgr, Font font) {
     int key = GetCharPressed();
     while (key > 0) {
         if (key >= 32) {
-            int bytes_written = 0;
-            const char *utf8_char = CodepointToUTF8(key, &bytes_written);
+            char ch[2] = {(char)key, '\0'};
 
             // Auto pair check (menggunakan utf8_char[0])
             switch (key) {
                 case '{':
                     Buffer_insert(buf, buf->cursor.cursor_pos, "{}");
                     buf->cursor.cursor_pos--;
+                    sync_cursor_line_from_pos(buf);  // Sync cursor dengan Pos Rope
                     break;
                 case '[':
                     Buffer_insert(buf, buf->cursor.cursor_pos, "[]");
                     buf->cursor.cursor_pos--;
+                    sync_cursor_line_from_pos(buf);  // Sync cursor dengan Pos Rope
                     break;
                 case '(':
                     Buffer_insert(buf, buf->cursor.cursor_pos, "()");
                     SET_FLAG(g_lsp_ui.lsp_flag, LSP_SIG_PENDING);
                     buf->cursor.cursor_pos--;
+                    sync_cursor_line_from_pos(buf);  // Sync cursor dengan Pos Rope
                     break;
                 case '"':
                     Buffer_insert(buf, buf->cursor.cursor_pos, "\"\"");
                     buf->cursor.cursor_pos--;
+                    sync_cursor_line_from_pos(buf);  // Sync cursor dengan Pos Rope
                     break;
                 case '\'':
                     Buffer_insert(buf, buf->cursor.cursor_pos, "''");
                     buf->cursor.cursor_pos--;
+                    sync_cursor_line_from_pos(buf);  // Sync cursor dengan Pos Rope
                     break;
                 default:
-                    Buffer_insert(buf, buf->cursor.cursor_pos, utf8_char);
+                    Buffer_insert(buf, buf->cursor.cursor_pos, ch);
+                    sync_cursor_line_from_pos(buf);  // Sync cursor dengan Pos Rope
                     break;
             }
 
-            sync_cursor_line_from_pos(buf);  // Sync cursor dengan Pos Rope
+            Buffer_clamp_scroll(buf, visible_lines);
 
             // Debounce untuk LSP
             if (isalnum(key) || key == '.' || key == '>' || key == ':' || key == '-' ||

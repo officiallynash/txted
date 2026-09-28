@@ -236,6 +236,7 @@ CompletionList lsp_completion(const char *uri, int line, int character, char tri
     } else {
         cJSON_AddNumberToObject(context, "triggerKind", 1);  // Invoked manual
     }
+
     cJSON_AddItemToObject(params, "context", context);
 
     cJSON *req = cJSON_CreateObject();
@@ -813,7 +814,12 @@ static void *reader_func(void *arg) {
 
         while (running && header_idx < sizeof(header_buf) - 1) {
             ssize_t n = read(stdout_fd, &header_buf[header_idx], 1);
-            if (n <= 0) break;
+            // Jika n < dari 0, running false dan break
+            if (n <= 0) {
+                running = false;
+                break;
+            }
+
             header_idx++;
             header_buf[header_idx] = '\0';
 
@@ -839,7 +845,11 @@ static void *reader_func(void *arg) {
         size_t total_read = 0;
         while (total_read < (size_t)content_length && running) {
             ssize_t n = read(stdout_fd, body + total_read, content_length - total_read);
-            if (n <= 0) break;
+            if (n <= 0) {
+                running = false;
+                break;
+            }
+
             total_read += n;
         }
         body[total_read] = '\0';

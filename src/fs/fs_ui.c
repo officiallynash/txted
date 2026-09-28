@@ -423,9 +423,9 @@ void draw_file_manager(BufManager *bufmgr, Font font) {
 
         // Ctrl + Panah kiri untuk pindah ke mode Write tanpa menutup FM
         if (IsKeyDown(KEY_RIGHT_CONTROL) || IsKeyDown(KEY_LEFT_CONTROL)) {
-            if (default_settings.fm_pos == FM_LEFT && IsKeyPressed(KEY_RIGHT)) {
+            if (bufmgr->fm_pos == FM_LEFT && IsKeyPressed(KEY_RIGHT)) {
                 bufmgr->mode = WRITE;
-            } else if (default_settings.fm_pos == FM_RIGHT && IsKeyPressed(KEY_LEFT)) {
+            } else if (bufmgr->fm_pos == FM_RIGHT && IsKeyPressed(KEY_LEFT)) {
                 bufmgr->mode = WRITE;
             }
         }

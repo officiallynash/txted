@@ -148,15 +148,13 @@ static void Draw_line_highlighted(Font font, const char *line_text, size_t len, 
     float current_x = pos.x;
     float current_font_size = (float)font.baseSize;
 
-    // Alokasi awal agar ga terus2an panggil MeasureText
     float glyph_w = MeasureTextEx(font, "A", current_font_size, 1.0f).x;
     float space_w = MeasureTextEx(font, " ", current_font_size, 1.0f).x;
-    int col_visual = 0;
+    int col_visual = 0;  // Reset visual column ke 0 untuk awal baris
 
     for (size_t i = 0; i < len; i++) {
         size_t current_byte = line_start_byte + i;
 
-        // Cek warna token untuk byte saat ini
         Color color = g_theme.text_normal;
         for (int t = 0; t < token_count; t++) {
             if (current_byte >= tokens[t].start_byte && current_byte < tokens[t].end_byte) {
@@ -165,12 +163,13 @@ static void Draw_line_highlighted(Font font, const char *line_text, size_t len, 
             }
         }
 
-        // Tangani tab & spasi dengan advance column
+        // Gambar karakter kalau bukan tab
         if (!XOR_CHECK(line_text[i], '\t')) {
             char chunk[2] = {line_text[i], '\0'};
             DrawTextEx(font, chunk, (Vector2){current_x, pos.y}, current_font_size, 1.0f, color);
         }
 
+        // Advance X sesuai logika Tab-Stop (4 spasi)
         current_x += advance_column_x(line_text[i], &col_visual, glyph_w, space_w);
     }
 }

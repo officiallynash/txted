@@ -7,9 +7,6 @@
 #define THEME_H
 #include "types.h"
 
-extern Settings default_settings;
-#define FONT_SIZE (float)default_settings.font_size
-
 // Global theme instance
 extern UITheme g_theme;
 
@@ -17,7 +14,7 @@ extern UITheme g_theme;
 void Theme_init(const char *filename);  // Set tema bawaan (Misal: Dark Modern)
 void Theme_apply_raygui(void);          // Biar RayGUI otomatis ikut tema!
 
-void Settings_load(void);
-void Settings_apply(BufManager *bufmgr, Font *font);
+Settings Settings_load(void);
+void Settings_apply(const Settings *st, BufManager *bufmgr, Font *font);
 
 #endif  // THEME_H

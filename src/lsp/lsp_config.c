@@ -86,7 +86,6 @@ LangConfig *LspConfig_detail(const char *filepath) {
         config->path_lsp = find_executable_in_path("clangd");
         config->lsp_args = clangd_args;
         config->query_source = Syntax_query(config->language_id, "highlights.scm");
-        config->indent_source = Syntax_query(config->language_id, "indents.scm");
     } else {
         free(config);
         return nullptr;  // Kalau ga ada return NULL aja HHAHAHA
@@ -104,7 +103,6 @@ void LangConfig_free(LangConfig *config) {
         free(config->path_lsp);
     }
 
-    if (config->indent_source) free(config->indent_source);
     if (config->query_source) free(config->query_source);
 
     free(config);

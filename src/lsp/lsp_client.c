@@ -3,9 +3,6 @@
  * Copyright (c) 2026 Nash
  * SPDX-License-Identifier: MIT
  */
-#include <cJSON.h>
-#include <limits.h>
-#include <pthread.h>
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdio.h>
@@ -27,13 +24,6 @@
 
 // Untuk optimasi compare byte
 #define XOR_CHECK(src, val) ((src ^ val) == 0)
-
-// Struct untuk transport lsp did change
-typedef struct {
-    char uri[512];
-    int version;
-    char *text;
-} LspUpdate;
 
 // Internal state
 float lsp_debounce_timer = 0.0f;  // Debounce
@@ -147,6 +137,12 @@ void lsp_ui_hide(void) {
     CLR_FLAG(g_lsp_ui.lsp_flag, LSP_REQUEST_PENDING);
     lsp_ui_clear_completion();
 
+    // Sepertinya perlu di free disini, karena akan terjadi nullptr
+    if (g_lsp_ui.filtered) {
+        free(g_lsp_ui.filtered);
+        g_lsp_ui.filtered = nullptr;
+    }
+
     g_lsp_ui.item_count = 0;  // Set item count ke 0
 }
 
@@ -176,24 +172,6 @@ void lsp_ui_set_document(const char *uri, const char *language_id, const char *t
 
     lsp_did_open(g_lsp_ui.uri, g_lsp_ui.language_id, g_lsp_ui.current_text);
     SET_FLAG(g_lsp_ui.lsp_flag, LSP_REQUEST_PENDING);
-}
-
-/*
- * Fungsi untuk worker thread LSP
- */
-void *Lsp_update_worker(void *args) {
-    LspUpdate *lsp = (LspUpdate *)args;
-
-    // Kirim lsp did change
-    lsp_did_change(lsp->uri, lsp->text, lsp->version);
-
-    // Free lsp
-    if (lsp) {
-        free(lsp->text);
-        free(lsp);
-    }
-
-    return nullptr;
 }
 
 /**
@@ -263,25 +241,7 @@ void lsp_ui_update(BufManager *bufmgr, float dt) {
     if (!XOR_CHECK(g_lsp_ui.uri[0], '\0')) {
         Bytes text = String_get(buf->str, 0, rope_len);
         if (text.data) {
-            // Buat malloc
-            LspUpdate *lsp = malloc(sizeof(LspUpdate));
-            snprintf(lsp->uri, sizeof(lsp->uri), "%s", g_lsp_ui.uri);
-            lsp->version = buf->lsp_version;
-            lsp->text = strdup((char *)text.data);
-
-            // Init Thread worker
-            pthread_t thread;
-            pthread_attr_t attr;
-            pthread_attr_init(&attr);
-            pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED);
-
-            if (pthread_create(&thread, &attr, Lsp_update_worker, lsp) != 0) {
-                free(lsp->text);
-                free(lsp);
-            }
-            pthread_attr_destroy(&attr);
-
-            buf->lsp_version++;  // Update lsp Version
+            lsp_did_change(g_lsp_ui.uri, (const char *)text.data, buf->lsp_version++);
             Bytes_free(&text);
         }
 
@@ -339,9 +299,12 @@ void lsp_ui_update(BufManager *bufmgr, float dt) {
             g_lsp_ui.item_count = 0;
             // Realloc kalau count lebih dari capacity
             if ((int)g_lsp_ui.completion.count > g_lsp_ui.item_capacity) {
-                g_lsp_ui.item_capacity <<= 1;
-                g_lsp_ui.filtered =
-                    realloc(g_lsp_ui.filtered, sizeof(FilteredItem) * g_lsp_ui.item_capacity);
+                int new_cap = g_lsp_ui.item_capacity <<= 1;
+                FilteredItem *new_item = realloc(g_lsp_ui.filtered, sizeof(FilteredItem) * new_cap);
+                if (!new_item) return;
+
+                g_lsp_ui.filtered = new_item;
+                g_lsp_ui.item_capacity = new_cap;
             }
 
             // FILTER DAN HITUNG SKOR

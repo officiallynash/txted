@@ -85,10 +85,11 @@ static void LineIndex_insert(LineIndex *li, const char *data, size_t len) {
 
         // Pengecekan manual untuk realloc capacity
         if (li->line_count >= li->capacity) [[clang::unlikely]] {
-            li->capacity <<= 1;  // Pakai bitwise biar keren
-            size_t *new_offset = realloc(li->offset, sizeof(size_t) * li->capacity);
+            size_t new_cap = li->capacity ? li->capacity << 1 : 512;  // Pakai bitwise biar keren
+            size_t *new_offset = realloc(li->offset, sizeof(size_t) * new_cap);
             if (!new_offset) return;
             li->offset = new_offset;
+            li->capacity = new_cap;
         }
 
         li->offset[li->line_count++] = idx + 1;
@@ -121,7 +122,9 @@ static bool line_index_insert_newlines(LineIndex *li, size_t pos, size_t inserte
             (li->line_count - first) * sizeof(size_t));
 
     /* Isi offset baru (menunjuk ke karakter setelah '\n') */
-    for (size_t i = 0; i < newline_count; ++i) li->offset[first + i] = pos + newline_pos[i] + 1;
+    for (size_t i = 0; i < newline_count; ++i) {
+        li->offset[first + i] = pos + newline_pos[i] + 1;
+    }
 
     li->line_count += newline_count;
     return true;
@@ -272,30 +275,28 @@ static bool lsp_apply_text_edits(Buffer *buf, TextEditList *edits) {
         if (te->new_text && te->new_text[0] != '\0') {
             String_insert(&buf->str, start, te->new_text, strlen(te->new_text));
         }
-
-        // Rebuild line index (karena bisa banyak newline berubah)
-        free(buf->lines.offset);
-
-        buf->lines = LineIndex_init();
-        size_t rope_len = String_len(buf->str);
-
-        if (rope_len > 0) [[clang::likely]] {
-            Bytes all = String_get(buf->str, 0, rope_len);
-            if (all.data) {
-                LineIndex_insert(&buf->lines, (const char *)all.data, all.len);
-                Bytes_free(&all);
-            }
-        }
-
-        // Update cursor ke posisi aman
-        if (buf->cursor.cursor_pos > rope_len) buf->cursor.cursor_pos = rope_len;
-
-        // Sync syntax + dirty
-        SET_FLAG(buf->buf_flags, BUF_IS_DIRTY);
-        sync_syntax_tree(buf);
     }
 
-    // Setelah semua edit, sync cursor line
+    // Rebuild line index (karena bisa banyak newline berubah)
+    free(buf->lines.offset);
+
+    buf->lines = LineIndex_init();
+    size_t rope_len = String_len(buf->str);
+
+    if (rope_len > 0) [[clang::likely]] {
+        Bytes all = String_get(buf->str, 0, rope_len);
+        if (all.data) {
+            LineIndex_insert(&buf->lines, (const char *)all.data, all.len);
+            Bytes_free(&all);
+        }
+    }
+
+    // Update cursor ke posisi aman
+    if (buf->cursor.cursor_pos > rope_len) buf->cursor.cursor_pos = rope_len;
+
+    // Sync syntax + dirty
+    SET_FLAG(buf->buf_flags, BUF_IS_DIRTY);
+    sync_syntax_tree(buf);  // Setelah semua edit, sync cursor line
     sync_cursor_line_from_pos(buf);
 
     return true;
@@ -898,11 +899,12 @@ size_t Buffer_get_line_text(Buffer *buf, size_t y, char *buffer, size_t buffer_l
     }
 
     size_t length = end - start;                       // Panjang teks
-    if (length > buffer_len) length = buffer_len;      // Jika len lebih dari buffer_len
+    if (length > buffer_len) length = buffer_len - 1;  // Jika len lebih dari buffer_len
+
     Bytes data = String_get(buf->str, start, length);  // Ambil data dari buffer
     if (!data.data) return 0;
 
-    snprintf(buffer, buffer_len, "%s", data.data);
+    memcpy(buffer, data.data, length);
     buffer[length] = '\0';
 
     Bytes_free(&data);  // Safety free
